@@ -1,0 +1,83 @@
+{
+  "name": "artpulse-docs",
+  "version": "1.0.0",
+  "generatedAt": "2026-02-09",
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "13488cacf489302aa3d5bbb6e9235259c6c5896739f917cbd011de1927fab1c7"
+    },
+    {
+      "path": "PRD.md",
+      "sha256": "3aad54de305a470e7563504ee64f98443651e214ef95801b4b2019f78e71a46f"
+    },
+    {
+      "path": "ARCHITECTURE.md",
+      "sha256": "89faccd1ef886ca60ee49740b3ed3b2e4adca913e8a82e8060c529087673587b"
+    },
+    {
+      "path": "DATA_MODEL.md",
+      "sha256": "0d5deeedc385e145d11e619bfc3eef7e30dff6fb1d6b63a999b11891055feb32"
+    },
+    {
+      "path": "API_SPEC.md",
+      "sha256": "b88c3ef2e91d5ce7ffcdab090bec9e9666e88fe0453e82dd7b94de474b5b8c63"
+    },
+    {
+      "path": "ROUTES.md",
+      "sha256": "8b29824270ec8decd06ad6f4644ed261442ffaf38b230ba608f83f55871d7b13"
+    },
+    {
+      "path": "ENVIRONMENT.md",
+      "sha256": "cdde88c49c52c4ea48460a0c2d17badf30a6867977e23264c871d992054a7131"
+    },
+    {
+      "path": "VERCEL.md",
+      "sha256": "26510a063a236336ee5da1829cb5038ac381add2891189929fa9e4a346e59485"
+    },
+    {
+      "path": "RUNBOOK.md",
+      "sha256": "fa60748bb551b6bcbe38a6eecef4909123ee137052d744293784be2614671e30"
+    },
+    {
+      "path": "CI_CD.md",
+      "sha256": "1684ffda5db1bbfd0bc72a26526e87a07839afccd059ad12f4260e320c0db323"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "sha256": "fdae7b514dc591c582fb1bcd5ba1b6d37adddf20d419036fa85d86e70f41c6ea"
+    },
+    {
+      "path": "STACK.md",
+      "sha256": "9dc1992b6df37f88296e8eab38ea65121ed1333b75350914bf806cd643ea8235"
+    },
+    {
+      "path": "SECURITY_PRIVACY.md",
+      "sha256": "a6fe34af729e53a88ec8af19154937dffdd6de30c069d3036500a71519ec670f"
+    },
+    {
+      "path": "UI_UX.md",
+      "sha256": "3b46379b10cc4eeee6d32b547dbc060f9956f673b8f674ddbec18ed9066053f3"
+    },
+    {
+      "path": "TESTING.md",
+      "sha256": "ba2f4fe2813ec7ef064fdf5aefc4c892088fb0c7a0191161ca8fc241b2cf68ea"
+    },
+    {
+      "path": "SEO.md",
+      "sha256": "55ee12fe8311073e1304bdf62e5e4e104ef972d65ca8c47dfdede49db2d4fe89"
+    },
+    {
+      "path": "SEEDING.md",
+      "sha256": "19d20461ad41bec4a56713e1bb97e87480510dd2c4a052bd6e6062fec7234a5d"
+    },
+    {
+      "path": "RELEASE.md",
+      "sha256": "be2db5bda08a282a01204dc9ddc5851d435c6f29b872a36e1c6683cacdf255fc"
+    },
+    {
+      "path": "CODE_AGENT_INSTRUCTIONS.md",
+      "sha256": "5226ae47039a4a09b2d28c77e016acb09f6cedd5e3873580c9c9570aa816745b"
+    }
+  ]
+}
