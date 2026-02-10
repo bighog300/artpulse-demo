@@ -1,9 +1,8 @@
-import { NextResponse } from "next/server";
+import NextAuth from "next-auth";
+import { authOptions } from "@/lib/auth";
 
-export async function GET() {
-  return NextResponse.json({ error: { code: "not_implemented", message: "NextAuth package unavailable in this environment." } }, { status: 501 });
-}
+export const runtime = "nodejs";
 
-export async function POST() {
-  return GET();
-}
+const handler = NextAuth(authOptions);
+
+export { handler as GET, handler as POST };

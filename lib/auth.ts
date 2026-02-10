@@ -1,42 +1,75 @@
-import { cookies } from "next/headers";
-import { createHmac } from "node:crypto";
+import { getServerSession, type NextAuthOptions } from "next-auth";
+import GoogleProvider from "next-auth/providers/google";
 import { db } from "@/lib/db";
 
 export type SessionUser = { id: string; email: string; name: string | null; role: "USER" | "EDITOR" | "ADMIN" };
 
-const COOKIE_NAME = "artpulse_session";
+const googleClientId = process.env.AUTH_GOOGLE_ID;
+const googleClientSecret = process.env.AUTH_GOOGLE_SECRET;
+const authSecret = process.env.AUTH_SECRET;
 
-function sign(value: string) {
-  const secret = process.env.AUTH_SECRET || "dev-secret";
-  return createHmac("sha256", secret).update(value).digest("hex");
+if (!googleClientId || !googleClientSecret || !authSecret) {
+  console.warn("Missing AUTH_GOOGLE_ID/AUTH_GOOGLE_SECRET/AUTH_SECRET for NextAuth.");
 }
 
-export async function createSession(email: string) {
-  const user = await db.user.upsert({
-    where: { email },
-    update: {},
-    create: { email, role: "USER" },
-  });
-  const payload = `${user.id}:${Date.now()}`;
-  const token = `${payload}.${sign(payload)}`;
-  (await cookies()).set(COOKIE_NAME, token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/" });
-  return user;
-}
-
-export async function clearSession() {
-  (await cookies()).delete(COOKIE_NAME);
-}
+export const authOptions: NextAuthOptions = {
+  secret: authSecret,
+  providers: [
+    GoogleProvider({
+      clientId: googleClientId || "",
+      clientSecret: googleClientSecret || "",
+    }),
+  ],
+  session: { strategy: "jwt" },
+  callbacks: {
+    async signIn({ user }) {
+      if (!user.email) return false;
+      await db.user.upsert({
+        where: { email: user.email.toLowerCase() },
+        update: {
+          name: user.name ?? undefined,
+          imageUrl: user.image ?? undefined,
+        },
+        create: {
+          email: user.email.toLowerCase(),
+          name: user.name,
+          imageUrl: user.image,
+          role: "USER",
+        },
+      });
+      return true;
+    },
+    async jwt({ token }) {
+      if (!token.email) return token;
+      const dbUser = await db.user.findUnique({ where: { email: token.email.toLowerCase() } });
+      if (dbUser) {
+        token.sub = dbUser.id;
+        token.role = dbUser.role;
+        token.name = dbUser.name ?? token.name;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (!session.user || !token.sub || !token.email) return session;
+      session.user.id = token.sub;
+      session.user.email = token.email;
+      session.user.name = token.name ?? null;
+      session.user.role = (token.role as SessionUser["role"]) || "USER";
+      return session;
+    },
+  },
+  pages: { signIn: "/login" },
+};
 
 export async function getSessionUser(): Promise<SessionUser | null> {
-  const token = (await cookies()).get(COOKIE_NAME)?.value;
-  if (!token) return null;
-  const [payload, sig] = token.split(".");
-  if (!payload || !sig || sign(payload) !== sig) return null;
-  const [userId] = payload.split(":");
-  if (!userId) return null;
-  const user = await db.user.findUnique({ where: { id: userId } });
-  if (!user) return null;
-  return { id: user.id, email: user.email, name: user.name, role: user.role };
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id || !session.user.email) return null;
+  return {
+    id: session.user.id,
+    email: session.user.email,
+    name: session.user.name ?? null,
+    role: session.user.role || "USER",
+  };
 }
 
 export async function requireAuth() {
