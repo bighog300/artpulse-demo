@@ -1,0 +1,59 @@
+lockfileVersion: '9.0'
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+importers:
+  .:
+    dependencies:
+      class-variance-authority:
+        specifier: '^0.7.0'
+        version: '^0.7.0'
+      clsx:
+        specifier: '^2.1.1'
+        version: '^2.1.1'
+      lucide-react:
+        specifier: '^0.475.0'
+        version: '^0.475.0'
+      next:
+        specifier: '15.1.7'
+        version: '15.1.7'
+      react:
+        specifier: '19.0.0'
+        version: '19.0.0'
+      react-dom:
+        specifier: '19.0.0'
+        version: '19.0.0'
+      tailwind-merge:
+        specifier: '^2.6.0'
+        version: '^2.6.0'
+      @prisma/client:
+        specifier: '^6.3.1'
+        version: '^6.3.1'
+    devDependencies:
+      @types/node:
+        specifier: '^22.13.5'
+        version: '^22.13.5'
+      @types/react:
+        specifier: '^19.0.8'
+        version: '^19.0.8'
+      @types/react-dom:
+        specifier: '^19.0.3'
+        version: '^19.0.3'
+      eslint:
+        specifier: '^9.19.0'
+        version: '^9.19.0'
+      eslint-config-next:
+        specifier: '15.1.7'
+        version: '15.1.7'
+      postcss:
+        specifier: '^8.5.1'
+        version: '^8.5.1'
+      tailwindcss:
+        specifier: '^3.4.17'
+        version: '^3.4.17'
+      typescript:
+        specifier: '^5.7.3'
+        version: '^5.7.3'
+      prisma:
+        specifier: '^6.3.1'
+        version: '^6.3.1'
