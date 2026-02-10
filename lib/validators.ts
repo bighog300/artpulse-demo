@@ -11,6 +11,9 @@ export const eventsQuerySchema = z.object({
   query: z.string().trim().min(1).optional(),
   from: isoDatetimeSchema.optional(),
   to: isoDatetimeSchema.optional(),
+  lat: z.coerce.number().min(-90).max(90).optional(),
+  lng: z.coerce.number().min(-180).max(180).optional(),
+  radiusKm: z.coerce.number().positive().max(500).optional(),
   venue: slugSchema.optional(),
   artist: slugSchema.optional(),
   tags: z.string().optional(),
@@ -83,6 +86,12 @@ export const adminVenuePatchSchema = z.object({
   isPublished: z.boolean().optional(),
 });
 
+const eventImageSchema = z.object({
+  url: httpUrlSchema,
+  alt: z.string().optional().nullable(),
+  sortOrder: z.number().int().min(0).default(0),
+});
+
 const adminEventShape = {
   title: z.string().trim().min(1),
   slug: slugSchema,
@@ -90,6 +99,10 @@ const adminEventShape = {
   timezone: z.string().trim().min(1),
   startAt: isoDatetimeSchema,
   endAt: isoDatetimeSchema.optional().nullable(),
+  venueId: z.string().uuid().optional().nullable(),
+  tagSlugs: z.array(slugSchema).optional(),
+  artistSlugs: z.array(slugSchema).optional(),
+  images: z.array(eventImageSchema).optional(),
   isPublished: z.boolean().optional(),
 };
 
@@ -106,6 +119,10 @@ export const adminEventPatchSchema = z.object({
   timezone: z.string().trim().min(1).optional(),
   startAt: isoDatetimeSchema.optional(),
   endAt: isoDatetimeSchema.optional().nullable(),
+  venueId: z.string().uuid().optional().nullable(),
+  tagSlugs: z.array(slugSchema).optional(),
+  artistSlugs: z.array(slugSchema).optional(),
+  images: z.array(eventImageSchema).optional(),
   isPublished: z.boolean().optional(),
 }).superRefine((data, ctx) => {
   if (data.startAt && data.endAt && new Date(data.endAt) < new Date(data.startAt)) {

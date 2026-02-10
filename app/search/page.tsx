@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
+import { eventsQuerySchema } from "@/lib/validators";
 
 export const dynamic = "force-dynamic";
 
-export default async function SearchPage({ searchParams }: { searchParams: Promise<{ query?: string }> }) {
-  const { query } = await searchParams;
+export default async function SearchPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const raw = await searchParams;
+  const parsed = eventsQuerySchema.safeParse(Object.fromEntries(Object.entries(raw).map(([k, v]) => [k, Array.isArray(v) ? v[0] : v])));
+  const filters = parsed.success ? parsed.data : { limit: 20 };
 
   if (!hasDatabaseUrl()) {
     return (
@@ -16,25 +19,38 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     );
   }
 
+  const tagList = (filters.tags || "").split(",").map((t) => t.trim()).filter(Boolean);
   const items = await db.event.findMany({
-    where: { isPublished: true, ...(query ? { title: { contains: query, mode: "insensitive" } } : {}) },
-    take: 50,
+    where: {
+      isPublished: true,
+      ...(filters.query ? { OR: [{ title: { contains: filters.query, mode: "insensitive" } }, { description: { contains: filters.query, mode: "insensitive" } }] } : {}),
+      ...(filters.from || filters.to ? { startAt: { gte: filters.from ? new Date(filters.from) : undefined, lte: filters.to ? new Date(filters.to) : undefined } } : {}),
+      ...(filters.venue ? { venue: { slug: filters.venue } } : {}),
+      ...(filters.artist ? { eventArtists: { some: { artist: { slug: filters.artist, isPublished: true } } } } : {}),
+      ...(tagList.length ? { eventTags: { some: { tag: { slug: { in: tagList } } } } } : {}),
+    },
+    take: filters.limit,
     orderBy: { startAt: "asc" },
   });
 
   return (
     <main className="space-y-2 p-6">
       <h1 className="text-2xl font-semibold">Search</h1>
-      <form>
-        <input name="query" defaultValue={query} className="rounded border p-2" />
-        <button className="ml-2 rounded border px-3 py-2">Go</button>
+      <form className="grid gap-2 md:grid-cols-2">
+        {[
+          ["query", "Query"], ["from", "From (ISO)"], ["to", "To (ISO)"], ["lat", "Latitude"], ["lng", "Longitude"], ["radiusKm", "Radius (km)"], ["tags", "Tags (comma slugs)"], ["venue", "Venue slug"], ["artist", "Artist slug"], ["limit", "Limit"],
+        ].map(([name, label]) => (
+          <label key={name} className="block">
+            <span className="text-xs">{label}</span>
+            <input name={name} defaultValue={String(filters[name as keyof typeof filters] ?? "")} className="rounded border p-2 w-full" />
+          </label>
+        ))}
+        <button className="rounded border px-3 py-2 w-fit">Apply</button>
       </form>
       <ul>
-        {items?.map((e: { id: string; title?: string; slug?: string }) => (
+        {items?.map((e) => (
           <li key={e.id}>
-            <Link className="underline" href={`/events/${e.slug}`}>
-              {e.title}
-            </Link>
+            <Link className="underline" href={`/events/${e.slug}`}>{e.title}</Link>
           </li>
         ))}
       </ul>
