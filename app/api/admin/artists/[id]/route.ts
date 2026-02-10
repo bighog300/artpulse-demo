@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api";
-import { requireEditor } from "@/lib/auth";
+import { requireAdmin, requireEditor } from "@/lib/auth";
 import { adminArtistPatchSchema, idParamSchema, parseBody, zodDetails } from "@/lib/validators";
 
 export const runtime = "nodejs";
@@ -22,12 +22,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
 export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await requireEditor();
+    await requireAdmin();
     const parsedId = idParamSchema.safeParse(await params);
     if (!parsedId.success) return apiError(400, "invalid_request", "Invalid route parameter", zodDetails(parsedId.error));
     await db.artist.delete({ where: { id: parsedId.data.id } });
     return NextResponse.json({ ok: true });
   } catch {
-    return apiError(403, "forbidden", "Editor role required");
+    return apiError(403, "forbidden", "Admin role required");
   }
 }

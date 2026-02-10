@@ -1,3 +1,5 @@
+import EventAdminForm from "@/app/admin/_components/EventAdminForm";
+
 export default function AdminNewEvent() {
-  return <main className="p-6 space-y-2"><h1 className="text-2xl font-semibold">New Event</h1><form action="/api/admin/events" method="post" className="space-y-2"><input name="title" placeholder="Title" className="border p-2 rounded w-full" /><input name="slug" placeholder="slug" className="border p-2 rounded w-full" /><input name="startAt" type="datetime-local" className="border p-2 rounded w-full" /><input name="timezone" defaultValue="UTC" className="border p-2 rounded w-full" /><label className="block"><input type="checkbox" name="isPublished" /> Publish</label><button className="rounded border px-3 py-1">Create</button></form></main>;
+  return <EventAdminForm title="New Event" endpoint="/api/admin/events" method="POST" initial={{ timezone: "UTC", tagSlugs: [], artistSlugs: [], images: [] }} />;
 }
