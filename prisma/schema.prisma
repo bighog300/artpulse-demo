@@ -1,0 +1,158 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  EDITOR
+  ADMIN
+}
+
+enum EventType {
+  EXHIBITION
+  OPENING
+  TALK
+  WORKSHOP
+  FAIR
+  OTHER
+}
+
+enum FavoriteTargetType {
+  EVENT
+  VENUE
+  ARTIST
+}
+
+model User {
+  id        String     @id @default(uuid()) @db.Uuid
+  email     String     @unique
+  name      String?
+  imageUrl  String?
+  role      Role       @default(USER)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  favorites Favorite[]
+}
+
+model Venue {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String
+  slug         String   @unique
+  description  String?
+  addressLine1 String?
+  addressLine2 String?
+  city         String?
+  region       String?
+  country      String?
+  postcode     String?
+  lat          Float?
+  lng          Float?
+  websiteUrl   String?
+  instagramUrl String?
+  contactEmail String?
+  isPublished  Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  events       Event[]
+
+  @@index([isPublished])
+}
+
+model Artist {
+  id             String        @id @default(uuid()) @db.Uuid
+  name           String
+  slug           String        @unique
+  bio            String?
+  websiteUrl     String?
+  instagramUrl   String?
+  avatarImageUrl String?
+  isPublished    Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  eventArtists   EventArtist[]
+
+  @@index([isPublished])
+}
+
+model Event {
+  id           String        @id @default(uuid()) @db.Uuid
+  title        String
+  slug         String        @unique
+  description  String?
+  startAt      DateTime
+  endAt        DateTime?
+  timezone     String
+  eventType    EventType?
+  ticketUrl    String?
+  priceText    String?
+  isFree       Boolean?
+  organizerName String?
+  venueId      String?       @db.Uuid
+  lat          Float?
+  lng          Float?
+  isPublished  Boolean       @default(false)
+  publishedAt  DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  venue        Venue?        @relation(fields: [venueId], references: [id])
+  images       EventImage[]
+  eventTags    EventTag[]
+  eventArtists EventArtist[]
+
+  @@index([startAt])
+  @@index([isPublished])
+  @@index([venueId])
+}
+
+model Tag {
+  id        String     @id @default(uuid()) @db.Uuid
+  name      String     @unique
+  slug      String     @unique
+  createdAt DateTime   @default(now())
+  eventTags EventTag[]
+}
+
+model EventTag {
+  eventId String @db.Uuid
+  tagId   String @db.Uuid
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  tag     Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, tagId])
+}
+
+model EventArtist {
+  eventId  String @db.Uuid
+  artistId String @db.Uuid
+  role     String?
+  event    Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  artist   Artist @relation(fields: [artistId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, artistId])
+}
+
+model EventImage {
+  id        String   @id @default(uuid()) @db.Uuid
+  eventId   String   @db.Uuid
+  url       String
+  alt       String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+model Favorite {
+  id         String             @id @default(uuid()) @db.Uuid
+  userId     String             @db.Uuid
+  targetType FavoriteTargetType
+  targetId   String             @db.Uuid
+  createdAt  DateTime           @default(now())
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, targetType, targetId])
+}
