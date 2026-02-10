@@ -62,3 +62,16 @@ pnpm db:seed
 - Import repo into Vercel
 - Configure environment variables
 - Deploy
+
+## Vercel Deployment Checklist
+
+1. Set the following **production** environment variables in Vercel:
+   - `DATABASE_URL`
+   - `AUTH_SECRET`
+   - `AUTH_GOOGLE_ID`
+   - `AUTH_GOOGLE_SECRET`
+2. Ensure the production database is reachable from Vercel.
+3. Run migrations on deploy (`pnpm prisma:deploy`) before serving traffic.
+4. Optionally run `pnpm db:seed` for initial sample/admin data.
+5. Verify `/api/health` returns `{ ok: true }` after deployment.
+
