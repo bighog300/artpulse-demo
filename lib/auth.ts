@@ -89,3 +89,8 @@ export async function requireAdmin() {
   if (user.role !== "ADMIN") throw new Error("forbidden");
   return user;
 }
+
+export function assertAuthConfig() {
+  if (!authSecret) throw new Error("AUTH_SECRET is required.");
+  if (!googleClientId || !googleClientSecret) throw new Error("AUTH_GOOGLE_ID and AUTH_GOOGLE_SECRET are required.");
+}

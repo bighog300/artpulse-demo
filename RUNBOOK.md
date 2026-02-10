@@ -6,6 +6,7 @@
 pnpm install
 pnpm prisma:generate
 pnpm prisma:migrate
+pnpm prisma:deploy
 pnpm db:seed
 pnpm dev
 ```
@@ -18,6 +19,7 @@ pnpm dev
 - Login works
 - Favourites work
 - Admin pages protected by role
+- API health endpoint responds with `{ ok: true }` at `/api/health`
 
 ## Troubleshooting
 - OAuthCallback: redirect URI mismatch
