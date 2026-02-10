@@ -1,30 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { toDate } from "@/lib/validators";
+import { apiError } from "@/lib/api";
+import { eventsQuerySchema, paramsToObject, zodDetails } from "@/lib/validators";
 
 type EventWithJoin = { id: string; images?: Array<{ url: string }>; eventTags?: Array<{ tag: { name: string; slug: string } }> };
 
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
-  const sp = req.nextUrl.searchParams;
-  const limit = Math.min(Number(sp.get("limit") || 20), 50);
-  const cursor = sp.get("cursor") || undefined;
-  const from = toDate(sp.get("from"));
-  const to = toDate(sp.get("to"));
-  const query = sp.get("query") || undefined;
-  const venue = sp.get("venue") || undefined;
-  const artist = sp.get("artist") || undefined;
-  const tags = (sp.get("tags") || "").split(",").map((t) => t.trim()).filter(Boolean);
+  const parsed = eventsQuerySchema.safeParse(paramsToObject(req.nextUrl.searchParams));
+  if (!parsed.success) return apiError(400, "invalid_request", "Invalid query parameters", zodDetails(parsed.error));
+
+  const { cursor, limit, query, venue, artist, from, to, tags } = parsed.data;
+  const tagList = (tags || "").split(",").map((t) => t.trim()).filter(Boolean);
 
   const items = (await db.event.findMany({
     where: {
       isPublished: true,
       ...(query ? { OR: [{ title: { contains: query, mode: "insensitive" } }, { description: { contains: query, mode: "insensitive" } }] } : {}),
-      ...(from || to ? { startAt: { gte: from ?? undefined, lte: to ?? undefined } } : {}),
+      ...(from || to ? { startAt: { gte: from ? new Date(from) : undefined, lte: to ? new Date(to) : undefined } } : {}),
       ...(venue ? { venue: { slug: venue } } : {}),
       ...(artist ? { eventArtists: { some: { artist: { slug: artist, isPublished: true } } } } : {}),
-      ...(tags.length ? { eventTags: { some: { tag: { slug: { in: tags } } } } } : {}),
+      ...(tagList.length ? { eventTags: { some: { tag: { slug: { in: tagList } } } } } : {}),
     },
     take: limit + 1,
     ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),

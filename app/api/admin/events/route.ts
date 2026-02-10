@@ -2,25 +2,22 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api";
 import { requireEditor } from "@/lib/auth";
-import { isSlug } from "@/lib/validators";
+import { adminEventCreateSchema, parseBody, zodDetails } from "@/lib/validators";
 
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   try {
     await requireEditor();
-    const ct = req.headers.get("content-type") || "";
-    const body = (ct.includes("application/json") ? await req.json() : Object.fromEntries((await req.formData()).entries())) as Record<string, string>;
-    const isPublished = body.isPublished === "on" || body.isPublished === "true";
-    if (!body.title || !isSlug(body.slug || "") || !body.startAt || !body.timezone) return apiError(400, "invalid_request", "Invalid payload");
+    const parsed = adminEventCreateSchema.safeParse(await parseBody(req));
+    if (!parsed.success) return apiError(400, "invalid_request", "Invalid payload", zodDetails(parsed.error));
+    const { startAt, endAt, isPublished, ...rest } = parsed.data;
     const item = await db.event.create({
       data: {
-        title: body.title,
-        slug: body.slug,
-        timezone: body.timezone,
-        startAt: new Date(body.startAt),
-        endAt: body.endAt ? new Date(body.endAt) : null,
-        isPublished,
+        ...rest,
+        startAt: new Date(startAt),
+        endAt: endAt ? new Date(endAt) : null,
+        isPublished: Boolean(isPublished),
         publishedAt: isPublished ? new Date() : null,
       },
     });
