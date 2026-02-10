@@ -5,6 +5,11 @@ type SItem = { slug: string; updatedAt?: Date };
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
+  if (!process.env.DATABASE_URL) {
+    return [{ url: `${base}/`, changeFrequency: 'daily', priority: 1 }];
+  }
+
   const [eventsRaw, venuesRaw, artistsRaw] = await Promise.all([
     db.event.findMany({ where: { isPublished: true }, select: { slug: true, updatedAt: true } }) as Promise<SItem[]>,
     db.venue.findMany({ where: { isPublished: true }, select: { slug: true, updatedAt: true } }) as Promise<SItem[]>,
