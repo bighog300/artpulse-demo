@@ -8,18 +8,18 @@ const googleClientId = process.env.AUTH_GOOGLE_ID;
 const googleClientSecret = process.env.AUTH_GOOGLE_SECRET;
 const authSecret = process.env.AUTH_SECRET;
 
-if (!googleClientId || !googleClientSecret || !authSecret) {
-  console.warn("Missing AUTH_GOOGLE_ID/AUTH_GOOGLE_SECRET/AUTH_SECRET for NextAuth.");
-}
+const hasAuthConfig = Boolean(authSecret && googleClientId && googleClientSecret);
 
 export const authOptions: NextAuthOptions = {
   secret: authSecret,
-  providers: [
-    GoogleProvider({
-      clientId: googleClientId || "",
-      clientSecret: googleClientSecret || "",
-    }),
-  ],
+  providers: hasAuthConfig
+    ? [
+        GoogleProvider({
+          clientId: googleClientId!,
+          clientSecret: googleClientSecret!,
+        }),
+      ]
+    : [],
   session: { strategy: "jwt" },
   callbacks: {
     async signIn({ user }) {
@@ -91,6 +91,5 @@ export async function requireAdmin() {
 }
 
 export function assertAuthConfig() {
-  if (!authSecret) throw new Error("AUTH_SECRET is required.");
-  if (!googleClientId || !googleClientSecret) throw new Error("AUTH_GOOGLE_ID and AUTH_GOOGLE_SECRET are required.");
+  return hasAuthConfig;
 }
