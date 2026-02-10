@@ -4,6 +4,14 @@ import { hasDatabaseUrl } from "@/lib/runtime-db";
 
 export const dynamic = "force-dynamic";
 
+type EventListItem = {
+  id: string;
+  title: string;
+  slug: string;
+  startAt: Date;
+  endAt: Date | null;
+};
+
 export default async function CalendarPage() {
   if (!hasDatabaseUrl()) {
     return (
@@ -14,7 +22,7 @@ export default async function CalendarPage() {
     );
   }
 
-  const items = await db.event.findMany({
+  const items: EventListItem[] = await db.event.findMany({
     where: { isPublished: true },
     orderBy: { startAt: "asc" },
     take: 500,
