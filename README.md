@@ -47,6 +47,15 @@ pnpm dev
 
 See `ENVIRONMENT.md` for required environment variables.
 
+## Database & Prisma Commands
+
+```bash
+pnpm prisma:generate
+pnpm prisma:migrate
+pnpm prisma:deploy
+pnpm db:seed
+```
+
 ## Deployment
 
 - Push to GitHub
