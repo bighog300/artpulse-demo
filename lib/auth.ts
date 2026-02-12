@@ -1,6 +1,8 @@
 import { getServerSession, type NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import { db } from "@/lib/db";
+import type { VenueMembershipRole } from "@prisma/client";
+import { hasMinimumVenueRole } from "@/lib/ownership";
 
 export type SessionUser = { id: string; email: string; name: string | null; role: "USER" | "EDITOR" | "ADMIN" };
 
@@ -75,6 +77,25 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 export async function requireAuth() {
   const user = await getSessionUser();
   if (!user) throw new Error("unauthorized");
+  return user;
+}
+
+export async function isVenueMember(userId: string, venueId: string) {
+  const membership = await db.venueMembership.findUnique({
+    where: { userId_venueId: { userId, venueId } },
+    select: { role: true },
+  });
+  return membership;
+}
+
+export async function requireVenueRole(venueId: string, minRole: VenueMembershipRole = "EDITOR") {
+  const user = await requireAuth();
+  if (user.role === "EDITOR" || user.role === "ADMIN") return user;
+
+  const membership = await isVenueMember(user.id, venueId);
+  if (!membership) throw new Error("forbidden");
+  if (!hasMinimumVenueRole(membership.role, minRole)) throw new Error("forbidden");
+
   return user;
 }
 

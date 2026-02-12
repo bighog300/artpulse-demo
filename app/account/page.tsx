@@ -17,6 +17,7 @@ export default async function AccountPage() {
       <h1 className="text-2xl font-semibold">Account</h1>
       <p>{user.email}</p>
       <p>Role: {user.role}</p>
+      <p><Link className="underline" href="/my/venues">Manage my venues</Link></p>
       <LogoutButton />
     </main>
   );

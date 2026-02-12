@@ -24,6 +24,8 @@ export const eventsQuerySchema = z.object({
 export const searchQuerySchema = z.object({ query: z.string().trim().min(1).optional() });
 export const slugParamSchema = z.object({ slug: slugSchema });
 export const idParamSchema = z.object({ id: z.string().uuid() });
+export const venueIdParamSchema = z.object({ id: z.string().uuid() });
+export const eventIdParamSchema = z.object({ eventId: z.string().uuid() });
 
 export const favoriteBodySchema = z.object({
   targetType: z.enum(["EVENT", "VENUE", "ARTIST"]),
@@ -86,6 +88,23 @@ export const adminVenuePatchSchema = z.object({
   isPublished: z.boolean().optional(),
 });
 
+export const myVenuePatchSchema = z.object({
+  name: z.string().trim().min(1).optional(),
+  description: z.string().optional().nullable(),
+  addressLine1: z.string().optional().nullable(),
+  addressLine2: z.string().optional().nullable(),
+  city: z.string().optional().nullable(),
+  region: z.string().optional().nullable(),
+  country: z.string().optional().nullable(),
+  postcode: z.string().optional().nullable(),
+  lat: z.number().min(-90).max(90).optional().nullable(),
+  lng: z.number().min(-180).max(180).optional().nullable(),
+  websiteUrl: httpUrlSchema.optional().nullable(),
+  instagramUrl: httpUrlSchema.optional().nullable(),
+  submitForApproval: z.boolean().optional(),
+  note: z.string().trim().max(2000).optional().nullable(),
+});
+
 const eventImageSchema = z.object({
   url: httpUrlSchema,
   alt: z.string().optional().nullable(),
@@ -128,6 +147,41 @@ export const adminEventPatchSchema = z.object({
   if (data.startAt && data.endAt && new Date(data.endAt) < new Date(data.startAt)) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["endAt"], message: "endAt must be >= startAt" });
   }
+});
+
+const myEventShape = {
+  title: z.string().trim().min(1),
+  slug: slugSchema,
+  description: z.string().optional().nullable(),
+  timezone: z.string().trim().min(1),
+  startAt: isoDatetimeSchema,
+  endAt: isoDatetimeSchema.optional().nullable(),
+  note: z.string().trim().max(2000).optional().nullable(),
+};
+
+export const myEventCreateSchema = z.object(myEventShape).superRefine((data, ctx) => {
+  if (data.endAt && new Date(data.endAt) < new Date(data.startAt)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["endAt"], message: "endAt must be >= startAt" });
+  }
+});
+
+export const myEventPatchSchema = z.object({
+  title: z.string().trim().min(1).optional(),
+  slug: slugSchema.optional(),
+  description: z.string().optional().nullable(),
+  timezone: z.string().trim().min(1).optional(),
+  startAt: isoDatetimeSchema.optional(),
+  endAt: isoDatetimeSchema.optional().nullable(),
+  note: z.string().trim().max(2000).optional().nullable(),
+}).superRefine((data, ctx) => {
+  if (data.startAt && data.endAt && new Date(data.endAt) < new Date(data.startAt)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["endAt"], message: "endAt must be >= startAt" });
+  }
+});
+
+export const submissionDecisionSchema = z.object({
+  action: z.enum(["approve", "reject"]),
+  decisionReason: z.string().trim().max(2000).optional().nullable(),
 });
 
 export function zodDetails(error: z.ZodError) {
