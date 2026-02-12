@@ -3,6 +3,7 @@ import { apiError } from "@/lib/api";
 import { db } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { eventIdParamSchema, zodDetails } from "@/lib/validators";
+import { nextSubmissionStatusForSubmit } from "@/lib/ownership";
 
 export const runtime = "nodejs";
 
@@ -19,11 +20,13 @@ export async function POST(_: Request, { params }: { params: Promise<{ eventId: 
 
     if (!submission || submission.submitterUserId !== user.id) return apiError(403, "forbidden", "Submission owner required");
     if (!submission.venue?.memberships.length) return apiError(403, "forbidden", "Venue membership required");
+    const nextStatus = nextSubmissionStatusForSubmit(submission.status);
+    if (!nextStatus) return apiError(409, "invalid_state", "Only draft or rejected submissions can be submitted");
 
     const updated = await db.submission.update({
       where: { id: submission.id },
       data: {
-        status: "SUBMITTED",
+        status: nextStatus,
         submittedAt: new Date(),
         decisionReason: null,
         decidedAt: null,

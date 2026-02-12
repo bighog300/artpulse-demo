@@ -16,7 +16,7 @@ type VenueRecord = {
   isPublished: boolean;
 };
 
-export default function VenueSelfServeForm({ venue }: { venue: VenueRecord }) {
+export default function VenueSelfServeForm({ venue, submissionStatus }: { venue: VenueRecord; submissionStatus: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | null }) {
   const router = useRouter();
   const [form, setForm] = useState<Record<string, unknown>>({ ...venue, submitForApproval: false, note: "" });
   const [error, setError] = useState<string | null>(null);
@@ -47,7 +47,7 @@ export default function VenueSelfServeForm({ venue }: { venue: VenueRecord }) {
       <label className="block"><span className="text-sm">City</span><input className="border rounded p-2 w-full" value={String(form.city ?? "")} onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))} /></label>
       <label className="block"><span className="text-sm">Website</span><input className="border rounded p-2 w-full" value={String(form.websiteUrl ?? "")} onChange={(e) => setForm((p) => ({ ...p, websiteUrl: e.target.value }))} /></label>
       <label className="block"><span className="text-sm">Instagram</span><input className="border rounded p-2 w-full" value={String(form.instagramUrl ?? "")} onChange={(e) => setForm((p) => ({ ...p, instagramUrl: e.target.value }))} /></label>
-      {!venue.isPublished ? <label className="block text-sm"><input type="checkbox" className="mr-2" checked={Boolean(form.submitForApproval)} onChange={(e) => setForm((p) => ({ ...p, submitForApproval: e.target.checked }))} />Submit venue for approval</label> : null}
+      {!venue.isPublished ? <label className="block text-sm"><input type="checkbox" className="mr-2" checked={Boolean(form.submitForApproval)} onChange={(e) => setForm((p) => ({ ...p, submitForApproval: e.target.checked }))} />{submissionStatus === "REJECTED" ? "Resubmit venue for approval" : "Submit venue for approval"}</label> : null}
       <label className="block"><span className="text-sm">Submission note</span><textarea className="border rounded p-2 w-full" value={String(form.note ?? "")} onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))} /></label>
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       <button className="rounded border px-3 py-1">Save venue</button>

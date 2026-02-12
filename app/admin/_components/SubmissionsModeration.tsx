@@ -1,15 +1,20 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 type SubmissionItem = {
   id: string;
+  status: "SUBMITTED" | "APPROVED" | "REJECTED" | "DRAFT";
   type: "EVENT" | "VENUE";
   note: string | null;
+  decisionReason: string | null;
   submittedAt: string | null;
+  decidedAt: string | null;
   submitter: { email: string; name: string | null };
-  targetEvent: { title: string } | null;
-  targetVenue: { name: string } | null;
+  venue: { id: string; name: string } | null;
+  targetEvent: { id: string; title: string; slug: string } | null;
+  targetVenue: { id: string; name: string; slug: string } | null;
 };
 
 export default function SubmissionsModeration({ items }: { items: SubmissionItem[] }) {
@@ -38,18 +43,35 @@ export default function SubmissionsModeration({ items }: { items: SubmissionItem
         {items.map((item) => (
           <li key={item.id} className="border rounded p-3 space-y-2">
             <div className="font-medium">{item.type} — {item.targetEvent?.title ?? item.targetVenue?.name ?? "Unknown target"}</div>
-            <div className="text-sm">Submitter: {item.submitter.name ?? item.submitter.email}</div>
+            <div className="text-sm">Status: {item.status}</div>
+            <div className="text-sm">Submitter: {item.submitter.email}</div>
+            {item.venue ? <div className="text-sm">Venue: {item.venue.name}</div> : null}
+            {item.submittedAt ? <div className="text-sm">Submitted: {new Date(item.submittedAt).toLocaleString()}</div> : null}
+            {item.decidedAt ? <div className="text-sm">Decided: {new Date(item.decidedAt).toLocaleString()}</div> : null}
             {item.note ? <div className="text-sm">Note: {item.note}</div> : null}
-            <input
-              className="border rounded p-1 w-full"
-              placeholder="Rejection reason"
-              value={reasonById[item.id] || ""}
-              onChange={(e) => setReasonById((prev) => ({ ...prev, [item.id]: e.target.value }))}
-            />
-            <div className="space-x-2">
-              <button className="rounded border px-2 py-1" onClick={() => decide(item.id, "approve")}>Approve</button>
-              <button className="rounded border px-2 py-1" onClick={() => decide(item.id, "reject")}>Reject</button>
+            {item.status === "REJECTED" && item.decisionReason ? <div className="text-sm text-red-700">Reason: {item.decisionReason}</div> : null}
+
+            <div className="text-sm space-x-3">
+              {item.targetEvent ? <Link className="underline" href={`/events/${item.targetEvent.slug}`}>View target</Link> : null}
+              {item.targetVenue ? <Link className="underline" href={`/venues/${item.targetVenue.slug}`}>View target</Link> : null}
+              {item.targetEvent ? <Link className="underline" href={`/admin/events/${item.targetEvent.id}`}>Edit target</Link> : null}
+              {item.targetVenue ? <Link className="underline" href={`/admin/venues/${item.targetVenue.id}`}>Edit target</Link> : null}
             </div>
+
+            {item.status === "SUBMITTED" ? (
+              <>
+                <input
+                  className="border rounded p-1 w-full"
+                  placeholder="Rejection reason"
+                  value={reasonById[item.id] || ""}
+                  onChange={(e) => setReasonById((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                />
+                <div className="space-x-2">
+                  <button className="rounded border px-2 py-1" onClick={() => decide(item.id, "approve")}>Approve</button>
+                  <button className="rounded border px-2 py-1" onClick={() => decide(item.id, "reject")}>Reject</button>
+                </div>
+              </>
+            ) : null}
           </li>
         ))}
       </ul>

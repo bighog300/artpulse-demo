@@ -30,6 +30,8 @@ export default async function SubmitEventPage({ params }: { params: Promise<{ id
             eventId: item.targetEventId!,
             status: item.status,
             decisionReason: item.decisionReason,
+            submittedAt: item.submittedAt?.toISOString() ?? null,
+            decidedAt: item.decidedAt?.toISOString() ?? null,
             title: item.targetEvent!.title,
             slug: item.targetEvent!.slug,
             startAt: item.targetEvent!.startAt.toISOString(),
