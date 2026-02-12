@@ -1,27 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
 import { db } from "@/lib/db";
-import { requireAuth } from "@/lib/auth";
-import { canManageVenueMembers, canRemoveOwnerMember } from "@/lib/ownership";
+import { canRemoveOwnerMember } from "@/lib/ownership";
+import { requireVenueMemberManager } from "@/lib/venue-access";
 import { memberIdParamSchema, parseBody, venueIdParamSchema, venueMemberPatchSchema, zodDetails } from "@/lib/validators";
 
 export const runtime = "nodejs";
-
-async function requireVenueMemberManager(venueId: string) {
-  const user = await requireAuth();
-  if (user.role === "ADMIN") return user;
-
-  const membership = await db.venueMembership.findUnique({
-    where: { userId_venueId: { userId: user.id, venueId } },
-    select: { role: true },
-  });
-
-  if (!membership || !canManageVenueMembers(membership.role, false)) {
-    throw new Error("forbidden");
-  }
-
-  return user;
-}
 
 async function ensureNotLastOwnerOnRoleChange(venueId: string, memberId: string, nextRole: "OWNER" | "EDITOR") {
   const currentMember = await db.venueMembership.findUnique({

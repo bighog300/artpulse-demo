@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { eventIdParamSchema, zodDetails } from "@/lib/validators";
 import { nextSubmissionStatusForSubmit } from "@/lib/ownership";
+import { submissionSubmittedDedupeKey } from "@/lib/notification-keys";
+import { enqueueNotification } from "@/lib/notifications";
 
 export const runtime = "nodejs";
 
@@ -31,6 +33,17 @@ export async function POST(_: Request, { params }: { params: Promise<{ eventId: 
         decisionReason: null,
         decidedAt: null,
         decidedByUserId: null,
+      },
+    });
+
+    await enqueueNotification({
+      type: "SUBMISSION_SUBMITTED",
+      toEmail: user.email,
+      dedupeKey: submissionSubmittedDedupeKey(updated.id),
+      payload: {
+        submissionId: updated.id,
+        status: updated.status,
+        submittedAt: updated.submittedAt?.toISOString() ?? null,
       },
     });
 

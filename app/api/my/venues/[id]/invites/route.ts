@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
 import { db } from "@/lib/db";
+import { createOrRefreshVenueInvite, normalizeInviteStatus } from "@/lib/invites";
+import { inviteCreatedDedupeKey } from "@/lib/notification-keys";
+import { enqueueNotification } from "@/lib/notifications";
 import { requireVenueMemberManager } from "@/lib/venue-access";
-import { parseBody, venueIdParamSchema, venueMemberCreateSchema, zodDetails } from "@/lib/validators";
+import { parseBody, venueIdParamSchema, venueInviteCreateSchema, zodDetails } from "@/lib/validators";
 
 export const runtime = "nodejs";
 
@@ -13,17 +16,19 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
 
     await requireVenueMemberManager(parsedId.data.id);
 
-    const members = await db.venueMembership.findMany({
-      where: { venueId: parsedId.data.id },
-      orderBy: [{ role: "desc" }, { createdAt: "asc" }],
-      include: { user: { select: { id: true, email: true, name: true } } },
+    const invites = await db.venueInvite.findMany({
+      where: { venueId: parsedId.data.id, status: "PENDING" },
+      orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json(members.map((member) => ({
-      id: member.id,
-      role: member.role,
-      createdAt: member.createdAt,
-      user: member.user,
+    return NextResponse.json(invites.map((invite) => ({
+      id: invite.id,
+      venueId: invite.venueId,
+      email: invite.email,
+      role: invite.role,
+      status: normalizeInviteStatus(invite),
+      createdAt: invite.createdAt,
+      expiresAt: invite.expiresAt,
     })));
   } catch (error) {
     if (error instanceof Error && error.message === "unauthorized") {
@@ -41,38 +46,40 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const parsedId = venueIdParamSchema.safeParse(await params);
     if (!parsedId.success) return apiError(400, "invalid_request", "Invalid route parameter", zodDetails(parsedId.error));
 
-    await requireVenueMemberManager(parsedId.data.id);
+    const user = await requireVenueMemberManager(parsedId.data.id);
 
-    const parsedBody = venueMemberCreateSchema.safeParse(await parseBody(req));
+    const parsedBody = venueInviteCreateSchema.safeParse(await parseBody(req));
     if (!parsedBody.success) return apiError(400, "invalid_request", "Invalid payload", zodDetails(parsedBody.error));
 
-    const targetUser = await db.user.findUnique({
-      where: { email: parsedBody.data.email },
-      select: { id: true, email: true, name: true },
+    const invite = await createOrRefreshVenueInvite({
+      venueId: parsedId.data.id,
+      email: parsedBody.data.email,
+      role: parsedBody.data.role,
+      invitedByUserId: user.id,
     });
 
-    if (!targetUser) {
-      return apiError(400, "invalid_request", "User not found for that email");
-    }
+    const invitePath = `/invite/${invite.token}`;
 
-    const member = await db.venueMembership.upsert({
-      where: { userId_venueId: { userId: targetUser.id, venueId: parsedId.data.id } },
-      create: {
-        userId: targetUser.id,
-        venueId: parsedId.data.id,
-        role: parsedBody.data.role,
+    await enqueueNotification({
+      type: "INVITE_CREATED",
+      toEmail: invite.email,
+      dedupeKey: inviteCreatedDedupeKey(invite.id),
+      payload: {
+        inviteId: invite.id,
+        venueId: invite.venueId,
+        role: invite.role,
+        invitePath,
+        expiresAt: invite.expiresAt.toISOString(),
       },
-      update: {
-        role: parsedBody.data.role,
-      },
-      include: { user: { select: { id: true, email: true, name: true } } },
     });
 
     return NextResponse.json({
-      id: member.id,
-      role: member.role,
-      createdAt: member.createdAt,
-      user: member.user,
+      id: invite.id,
+      email: invite.email,
+      role: invite.role,
+      status: invite.status,
+      expiresAt: invite.expiresAt,
+      invitePath,
     }, { status: 201 });
   } catch (error) {
     if (error instanceof Error && error.message === "unauthorized") {

@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { apiError } from "@/lib/api";
 import { requireVenueRole } from "@/lib/auth";
 import { myVenuePatchSchema, parseBody, venueIdParamSchema, zodDetails } from "@/lib/validators";
+import { submissionSubmittedDedupeKey } from "@/lib/notification-keys";
+import { enqueueNotification } from "@/lib/notifications";
 
 export const runtime = "nodejs";
 
@@ -23,7 +25,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const venue = await db.venue.update({ where: { id: existing.id }, data: safeFields });
 
     if (submitForApproval && !existing.isPublished && user.role === "USER") {
-      await db.submission.upsert({
+      const submission = await db.submission.upsert({
         where: { targetVenueId: existing.id },
         create: {
           type: "VENUE",
@@ -42,6 +44,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           submittedAt: new Date(),
           decidedAt: null,
           decidedByUserId: null,
+        },
+      });
+
+      await enqueueNotification({
+        type: "SUBMISSION_SUBMITTED",
+        toEmail: user.email,
+        dedupeKey: submissionSubmittedDedupeKey(submission.id),
+        payload: {
+          submissionId: submission.id,
+          status: submission.status,
+          submittedAt: submission.submittedAt?.toISOString() ?? null,
         },
       });
     }

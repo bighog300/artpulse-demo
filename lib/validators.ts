@@ -27,6 +27,8 @@ export const idParamSchema = z.object({ id: z.string().uuid() });
 export const venueIdParamSchema = z.object({ id: z.string().uuid() });
 export const eventIdParamSchema = z.object({ eventId: z.string().uuid() });
 export const memberIdParamSchema = z.object({ memberId: z.string().uuid() });
+export const inviteIdParamSchema = z.object({ inviteId: z.string().uuid() });
+export const tokenParamSchema = z.object({ token: z.string().trim().min(16).max(255) });
 
 export const favoriteBodySchema = z.object({
   targetType: z.enum(["EVENT", "VENUE", "ARTIST"]),
@@ -193,6 +195,12 @@ export const venueMemberCreateSchema = z.object({
 export const venueMemberPatchSchema = z.object({
   role: z.enum(["OWNER", "EDITOR"]),
 });
+
+export const venueInviteCreateSchema = z.object({
+  email: z.email().transform((value) => value.trim().toLowerCase()),
+  role: z.enum(["OWNER", "EDITOR"]),
+});
+
 
 export function zodDetails(error: z.ZodError) {
   return error.issues.map((issue) => ({ path: issue.path.join("."), message: issue.message }));

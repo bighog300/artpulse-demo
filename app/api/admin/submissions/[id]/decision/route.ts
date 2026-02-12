@@ -3,6 +3,8 @@ import { apiError } from "@/lib/api";
 import { db } from "@/lib/db";
 import { requireEditor } from "@/lib/auth";
 import { idParamSchema, parseBody, submissionDecisionSchema, zodDetails } from "@/lib/validators";
+import { submissionDecisionDedupeKey } from "@/lib/notification-keys";
+import { enqueueNotification } from "@/lib/notifications";
 
 export const runtime = "nodejs";
 
@@ -14,7 +16,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const parsedBody = submissionDecisionSchema.safeParse(await parseBody(req));
     if (!parsedBody.success) return apiError(400, "invalid_request", "Invalid payload", zodDetails(parsedBody.error));
 
-    const submission = await db.submission.findUnique({ where: { id: parsedId.data.id } });
+    const submission = await db.submission.findUnique({ where: { id: parsedId.data.id }, include: { submitter: { select: { email: true } } } });
     if (!submission) return apiError(404, "not_found", "Submission not found");
     if (submission.status !== "SUBMITTED") return apiError(409, "invalid_state", "Submission is not pending moderation");
 
@@ -35,6 +37,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           decisionReason: null,
         },
       });
+      await enqueueNotification({
+        type: "SUBMISSION_APPROVED",
+        toEmail: submission.submitter.email,
+        dedupeKey: submissionDecisionDedupeKey(submission.id, "APPROVED"),
+        payload: {
+          submissionId: updated.id,
+          status: updated.status,
+          decidedAt: updated.decidedAt?.toISOString() ?? null,
+        },
+      });
       return NextResponse.json(updated);
     }
 
@@ -45,6 +57,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         decidedByUserId: user.id,
         decidedAt: new Date(),
         decisionReason: parsedBody.data.decisionReason ?? "Rejected by moderator",
+      },
+    });
+    await enqueueNotification({
+      type: "SUBMISSION_REJECTED",
+      toEmail: submission.submitter.email,
+      dedupeKey: submissionDecisionDedupeKey(submission.id, "REJECTED"),
+      payload: {
+        submissionId: updated.id,
+        status: updated.status,
+        decisionReason: updated.decisionReason,
+        decidedAt: updated.decidedAt?.toISOString() ?? null,
       },
     });
     return NextResponse.json(updated);
