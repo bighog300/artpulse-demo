@@ -1,20 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
-import { apiError } from "@/lib/api";
+import { NextRequest } from "next/server";
 import { sendPendingNotifications } from "@/lib/outbox";
+import { runCronOutboxSend } from "@/lib/cron-outbox";
 
 export const runtime = "nodejs";
 
+export async function GET(req: NextRequest) {
+  return runCronOutboxSend(req.headers.get("x-cron-secret"), sendPendingNotifications);
+}
+
 export async function POST(req: NextRequest) {
-  const configuredSecret = process.env.CRON_SECRET;
-  if (!configuredSecret) {
-    return apiError(500, "misconfigured", "CRON_SECRET is not configured");
-  }
-
-  const headerSecret = req.headers.get("x-cron-secret");
-  if (headerSecret !== configuredSecret) {
-    return apiError(401, "unauthorized", "Invalid cron secret");
-  }
-
-  const result = await sendPendingNotifications({ limit: 25 });
-  return NextResponse.json(result);
+  return runCronOutboxSend(req.headers.get("x-cron-secret"), sendPendingNotifications);
 }

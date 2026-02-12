@@ -23,8 +23,12 @@ export type OutboxWorkerDb = {
       };
     }) => Promise<OutboxRow[]>;
     updateMany: (args: {
-      where: { id: string; status: "PENDING"; errorMessage?: string | null };
-      data: { status?: "PENDING" | "SENT" | "FAILED"; sentAt?: Date | null; errorMessage: string | null };
+      where: { id: string; status: "PENDING" | "PROCESSING"; errorMessage?: string | null };
+      data: {
+        status?: "PENDING" | "PROCESSING" | "SENT" | "FAILED";
+        sentAt?: Date | null;
+        errorMessage: string | null;
+      };
     }) => Promise<{ count: number }>;
   };
 };
@@ -48,11 +52,11 @@ export async function sendPendingNotificationsWithDb({ limit }: { limit: number 
   let skipped = 0;
 
   for (const notification of pending) {
-    const claimToken = `CLAIMED:${process.pid}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
     const claimed = await db.notificationOutbox.updateMany({
       where: { id: notification.id, status: "PENDING", errorMessage: null },
       data: {
-        errorMessage: claimToken,
+        status: "PROCESSING",
+        errorMessage: null,
       },
     });
 
@@ -67,7 +71,7 @@ export async function sendPendingNotificationsWithDb({ limit }: { limit: number 
       );
 
       const markedSent = await db.notificationOutbox.updateMany({
-        where: { id: notification.id, status: "PENDING", errorMessage: claimToken },
+        where: { id: notification.id, status: "PROCESSING", errorMessage: null },
         data: {
           status: "SENT",
           sentAt: new Date(),
@@ -83,7 +87,7 @@ export async function sendPendingNotificationsWithDb({ limit }: { limit: number 
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown send error";
       const markedFailed = await db.notificationOutbox.updateMany({
-        where: { id: notification.id, status: "PENDING", errorMessage: claimToken },
+        where: { id: notification.id, status: "PROCESSING", errorMessage: null },
         data: {
           status: "FAILED",
           sentAt: null,
