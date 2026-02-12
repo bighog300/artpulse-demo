@@ -4,8 +4,10 @@ import { useState } from "react";
 
 type ExistingSubmission = {
   eventId: string;
-  status: string;
+  status: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED";
   decisionReason: string | null;
+  submittedAt: string | null;
+  decidedAt: string | null;
   title: string;
   slug: string;
   startAt: string;
@@ -57,8 +59,10 @@ export default function SubmitEventForm({ venueId, existing }: { venueId: string
           {existing.map((item) => (
             <li key={item.eventId} className="border rounded p-2">
               <div className="font-medium">{item.title} ({item.status})</div>
+              {item.submittedAt ? <div className="text-sm">Submitted: {new Date(item.submittedAt).toLocaleString()}</div> : null}
+              {item.decidedAt ? <div className="text-sm">Decided: {new Date(item.decidedAt).toLocaleString()}</div> : null}
               {item.status === "REJECTED" && item.decisionReason ? <div className="text-sm text-red-700">Reason: {item.decisionReason}</div> : null}
-              {(item.status === "DRAFT" || item.status === "REJECTED") ? <button className="mt-2 rounded border px-2 py-1 text-sm" onClick={() => submit(item.eventId)}>Submit for approval</button> : null}
+              {(item.status === "DRAFT" || item.status === "REJECTED") ? <button className="mt-2 rounded border px-2 py-1 text-sm" onClick={() => submit(item.eventId)}>{item.status === "REJECTED" ? "Resubmit" : "Submit for approval"}</button> : null}
             </li>
           ))}
         </ul>

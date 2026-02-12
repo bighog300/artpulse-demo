@@ -26,6 +26,7 @@ export const slugParamSchema = z.object({ slug: slugSchema });
 export const idParamSchema = z.object({ id: z.string().uuid() });
 export const venueIdParamSchema = z.object({ id: z.string().uuid() });
 export const eventIdParamSchema = z.object({ eventId: z.string().uuid() });
+export const memberIdParamSchema = z.object({ memberId: z.string().uuid() });
 
 export const favoriteBodySchema = z.object({
   targetType: z.enum(["EVENT", "VENUE", "ARTIST"]),
@@ -182,6 +183,15 @@ export const myEventPatchSchema = z.object({
 export const submissionDecisionSchema = z.object({
   action: z.enum(["approve", "reject"]),
   decisionReason: z.string().trim().max(2000).optional().nullable(),
+});
+
+export const venueMemberCreateSchema = z.object({
+  email: z.email().transform((value) => value.trim().toLowerCase()),
+  role: z.enum(["OWNER", "EDITOR"]),
+});
+
+export const venueMemberPatchSchema = z.object({
+  role: z.enum(["OWNER", "EDITOR"]),
 });
 
 export function zodDetails(error: z.ZodError) {

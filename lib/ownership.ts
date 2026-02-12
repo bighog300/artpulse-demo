@@ -12,3 +12,20 @@ export function hasMinimumVenueRole(role: VenueRole, minRole: VenueRole) {
 export function canEditSubmission(status: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED") {
   return status === "DRAFT" || status === "REJECTED";
 }
+
+export function canResubmitSubmission(status: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED") {
+  return status === "DRAFT" || status === "REJECTED";
+}
+
+export function canManageVenueMembers(role: VenueRole, isGlobalAdmin: boolean) {
+  return isGlobalAdmin || role === "OWNER";
+}
+
+export function canRemoveOwnerMember(ownerCount: number, targetRole: VenueRole) {
+  if (targetRole !== "OWNER") return true;
+  return ownerCount > 1;
+}
+
+export function nextSubmissionStatusForSubmit(status: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED") {
+  return canResubmitSubmission(status) ? "SUBMITTED" : null;
+}
