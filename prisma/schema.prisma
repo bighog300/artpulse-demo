@@ -13,6 +13,23 @@ enum Role {
   ADMIN
 }
 
+enum VenueMembershipRole {
+  OWNER
+  EDITOR
+}
+
+enum SubmissionType {
+  EVENT
+  VENUE
+}
+
+enum SubmissionStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
 enum EventType {
   EXHIBITION
   OPENING
@@ -29,14 +46,17 @@ enum FavoriteTargetType {
 }
 
 model User {
-  id        String     @id @default(uuid()) @db.Uuid
-  email     String     @unique
-  name      String?
-  imageUrl  String?
-  role      Role       @default(USER)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  favorites Favorite[]
+  id                   String            @id @default(uuid()) @db.Uuid
+  email                String            @unique
+  name                 String?
+  imageUrl             String?
+  role                 Role              @default(USER)
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  favorites            Favorite[]
+  venueMemberships     VenueMembership[]
+  submissions          Submission[]      @relation("SubmissionSubmitter")
+  decidedSubmissions   Submission[]      @relation("SubmissionDecider")
 }
 
 model Venue {
@@ -59,6 +79,9 @@ model Venue {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   events       Event[]
+  memberships  VenueMembership[]
+  submissions  Submission[] @relation("SubmissionVenue")
+  targetSubmissions Submission[] @relation("SubmissionTargetVenue")
 
   @@index([isPublished])
 }
@@ -103,10 +126,52 @@ model Event {
   images       EventImage[]
   eventTags    EventTag[]
   eventArtists EventArtist[]
+  submissions  Submission[]
 
   @@index([startAt])
   @@index([isPublished])
   @@index([venueId])
+}
+
+model VenueMembership {
+  id        String              @id @default(uuid()) @db.Uuid
+  userId    String              @db.Uuid
+  venueId   String              @db.Uuid
+  role      VenueMembershipRole
+  createdAt DateTime            @default(now())
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  venue     Venue               @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, venueId])
+  @@index([venueId])
+  @@index([userId])
+}
+
+model Submission {
+  id              String           @id @default(uuid()) @db.Uuid
+  type            SubmissionType
+  status          SubmissionStatus @default(DRAFT)
+  submitterUserId String           @db.Uuid
+  venueId         String?          @db.Uuid
+  targetEventId   String?          @db.Uuid
+  targetVenueId   String?          @db.Uuid
+  note            String?
+  decisionReason  String?
+  decidedByUserId String?          @db.Uuid
+  submittedAt     DateTime?
+  decidedAt       DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  submitter       User             @relation("SubmissionSubmitter", fields: [submitterUserId], references: [id], onDelete: Cascade)
+  venue           Venue?           @relation("SubmissionVenue", fields: [venueId], references: [id], onDelete: SetNull)
+  targetEvent     Event?           @relation(fields: [targetEventId], references: [id], onDelete: Cascade)
+  targetVenue     Venue?           @relation("SubmissionTargetVenue", fields: [targetVenueId], references: [id], onDelete: Cascade)
+  decidedBy       User?            @relation("SubmissionDecider", fields: [decidedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([targetEventId])
+  @@unique([targetVenueId])
+  @@index([status, submittedAt])
+  @@index([submitterUserId])
 }
 
 model Tag {
