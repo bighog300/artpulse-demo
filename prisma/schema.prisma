@@ -66,6 +66,11 @@ enum FavoriteTargetType {
   ARTIST
 }
 
+enum FollowTargetType {
+  ARTIST
+  VENUE
+}
+
 enum AssetKind {
   IMAGE
 }
@@ -84,6 +89,7 @@ model User {
   decidedSubmissions   Submission[]      @relation("SubmissionDecider")
   sentVenueInvites     VenueInvite[]     @relation("VenueInviteInvitedBy")
   ownedAssets          Asset[]
+  follows              Follow[]
 }
 
 model Venue {
@@ -313,4 +319,17 @@ model Favorite {
   user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, targetType, targetId])
+}
+
+model Follow {
+  id         String           @id @default(uuid()) @db.Uuid
+  userId     String           @db.Uuid
+  targetType FollowTargetType
+  targetId   String
+  createdAt  DateTime         @default(now())
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, targetType, targetId])
+  @@index([userId, createdAt])
+  @@index([targetType, targetId])
 }
