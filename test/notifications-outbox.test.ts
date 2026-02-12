@@ -30,7 +30,7 @@ function createMemoryDb(seed: NotificationOutbox[]) {
             }));
         },
         async updateMany(args: {
-          where: { id: string; status: "PENDING"; errorMessage?: string | null };
+          where: { id: string; status: "PENDING" | "PROCESSING"; errorMessage?: string | null };
           data: { status?: OutboxStatus; sentAt?: Date | null; errorMessage: string | null };
         }) {
           const row = rows.get(args.where.id);
@@ -82,6 +82,7 @@ test("outbox worker sends pending rows and does not resend SENT rows", async () 
   assert.deepEqual(firstRun, { sent: 2, failed: 0, skipped: 0 });
   assert.equal(rows.get("oldest-pending")?.status, "SENT");
   assert.equal(rows.get("newer-pending")?.status, "SENT");
+  assert.equal(rows.get("oldest-pending")?.errorMessage, null);
 
   const secondRun = await sendPendingNotificationsWithDb({ limit: 25 }, db);
   assert.deepEqual(secondRun, { sent: 0, failed: 0, skipped: 0 });
