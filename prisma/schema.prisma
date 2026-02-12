@@ -18,6 +18,13 @@ enum VenueMembershipRole {
   EDITOR
 }
 
+enum VenueInviteStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
 enum SubmissionType {
   EVENT
   VENUE
@@ -28,6 +35,19 @@ enum SubmissionStatus {
   SUBMITTED
   APPROVED
   REJECTED
+}
+
+enum NotificationType {
+  SUBMISSION_SUBMITTED
+  SUBMISSION_APPROVED
+  SUBMISSION_REJECTED
+  INVITE_CREATED
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
 }
 
 enum EventType {
@@ -57,6 +77,7 @@ model User {
   venueMemberships     VenueMembership[]
   submissions          Submission[]      @relation("SubmissionSubmitter")
   decidedSubmissions   Submission[]      @relation("SubmissionDecider")
+  sentVenueInvites     VenueInvite[]     @relation("VenueInviteInvitedBy")
 }
 
 model Venue {
@@ -80,6 +101,7 @@ model Venue {
   updatedAt    DateTime @updatedAt
   events       Event[]
   memberships  VenueMembership[]
+  invites      VenueInvite[]
   submissions  Submission[] @relation("SubmissionVenue")
   targetSubmissions Submission[] @relation("SubmissionTargetVenue")
 
@@ -172,6 +194,39 @@ model Submission {
   @@unique([targetVenueId])
   @@index([status, submittedAt])
   @@index([submitterUserId])
+}
+
+
+model VenueInvite {
+  id              String            @id @default(uuid()) @db.Uuid
+  venueId          String            @db.Uuid
+  email            String
+  role             VenueMembershipRole
+  token            String            @unique
+  status           VenueInviteStatus @default(PENDING)
+  invitedByUserId  String            @db.Uuid
+  createdAt        DateTime          @default(now())
+  expiresAt        DateTime
+  acceptedAt       DateTime?
+  venue            Venue             @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  invitedBy        User              @relation("VenueInviteInvitedBy", fields: [invitedByUserId], references: [id], onDelete: Cascade)
+
+  @@index([venueId, status])
+  @@index([email, status])
+}
+
+model NotificationOutbox {
+  id           String             @id @default(uuid()) @db.Uuid
+  type         NotificationType
+  toEmail      String
+  payload      Json
+  dedupeKey    String             @unique
+  status       NotificationStatus @default(PENDING)
+  createdAt    DateTime           @default(now())
+  sentAt       DateTime?
+  errorMessage String?
+
+  @@index([status, createdAt])
 }
 
 model Tag {
