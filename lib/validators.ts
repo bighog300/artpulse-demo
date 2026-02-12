@@ -35,6 +35,18 @@ export const favoriteBodySchema = z.object({
   targetId: z.string().uuid(),
 });
 
+export const followBodySchema = z.object({
+  targetType: z.enum(["ARTIST", "VENUE"]),
+  targetId: z.string().uuid(),
+});
+
+export const followingFeedQuerySchema = z.object({
+  days: z.enum(["7", "30"]).default("7").transform((value) => Number(value) as 7 | 30),
+  cursor: z.string().uuid().optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  type: z.enum(["both", "artist", "venue"]).default("both"),
+});
+
 export const adminArtistCreateSchema = z.object({
   name: z.string().trim().min(1),
   slug: slugSchema,
