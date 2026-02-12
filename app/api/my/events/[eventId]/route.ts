@@ -24,13 +24,33 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ev
     if (!submission.venue?.memberships.length) return apiError(403, "forbidden", "Venue membership required");
     if (!canEditSubmission(submission.status)) return apiError(409, "invalid_state", "Only draft or rejected submissions are editable");
 
-    const { note, ...data } = parsed.data;
+    const { note, images, ...data } = parsed.data;
+
+    const assetIds = (images ?? []).map((image) => image.assetId).filter((assetId): assetId is string => Boolean(assetId));
+    if (assetIds.length) {
+      const ownedCount = await db.asset.count({ where: { id: { in: assetIds }, ownerUserId: user.id } });
+      if (ownedCount !== assetIds.length) return apiError(403, "forbidden", "Can only use your own uploaded assets");
+    }
+
     const event = await db.event.update({
       where: { id: parsedId.data.eventId },
       data: {
         ...data,
         ...(parsed.data.startAt ? { startAt: new Date(parsed.data.startAt) } : {}),
         ...(Object.prototype.hasOwnProperty.call(parsed.data, "endAt") ? { endAt: parsed.data.endAt ? new Date(parsed.data.endAt) : null } : {}),
+        ...(images
+          ? {
+              images: {
+                deleteMany: {},
+                create: images.map((image) => ({
+                  assetId: image.assetId ?? null,
+                  url: image.url ?? "",
+                  alt: image.alt ?? null,
+                  sortOrder: image.sortOrder,
+                })),
+              },
+            }
+          : {}),
         isPublished: false,
         publishedAt: null,
       },

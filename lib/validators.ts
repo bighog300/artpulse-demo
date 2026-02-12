@@ -42,6 +42,7 @@ export const adminArtistCreateSchema = z.object({
   websiteUrl: httpUrlSchema.optional().nullable(),
   instagramUrl: httpUrlSchema.optional().nullable(),
   avatarImageUrl: httpUrlSchema.optional().nullable(),
+  featuredAssetId: z.string().uuid().optional().nullable(),
   isPublished: z.boolean().optional(),
 });
 
@@ -52,6 +53,7 @@ export const adminArtistPatchSchema = z.object({
   websiteUrl: httpUrlSchema.optional().nullable(),
   instagramUrl: httpUrlSchema.optional().nullable(),
   avatarImageUrl: httpUrlSchema.optional().nullable(),
+  featuredAssetId: z.string().uuid().optional().nullable(),
   isPublished: z.boolean().optional(),
 });
 
@@ -70,6 +72,8 @@ export const adminVenueCreateSchema = z.object({
   websiteUrl: httpUrlSchema.optional().nullable(),
   instagramUrl: httpUrlSchema.optional().nullable(),
   contactEmail: z.email().optional().nullable(),
+  featuredImageUrl: httpUrlSchema.optional().nullable(),
+  featuredAssetId: z.string().uuid().optional().nullable(),
   isPublished: z.boolean().optional(),
 });
 
@@ -88,6 +92,8 @@ export const adminVenuePatchSchema = z.object({
   websiteUrl: httpUrlSchema.optional().nullable(),
   instagramUrl: httpUrlSchema.optional().nullable(),
   contactEmail: z.email().optional().nullable(),
+  featuredImageUrl: httpUrlSchema.optional().nullable(),
+  featuredAssetId: z.string().uuid().optional().nullable(),
   isPublished: z.boolean().optional(),
 });
 
@@ -104,14 +110,21 @@ export const myVenuePatchSchema = z.object({
   lng: z.number().min(-180).max(180).optional().nullable(),
   websiteUrl: httpUrlSchema.optional().nullable(),
   instagramUrl: httpUrlSchema.optional().nullable(),
+  featuredImageUrl: httpUrlSchema.optional().nullable(),
+  featuredAssetId: z.string().uuid().optional().nullable(),
   submitForApproval: z.boolean().optional(),
   note: z.string().trim().max(2000).optional().nullable(),
 });
 
 const eventImageSchema = z.object({
-  url: httpUrlSchema,
+  assetId: z.string().uuid().optional().nullable(),
+  url: httpUrlSchema.optional().nullable(),
   alt: z.string().optional().nullable(),
   sortOrder: z.number().int().min(0).default(0),
+}).superRefine((data, ctx) => {
+  if (!data.assetId && !data.url) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["url"], message: "Either assetId or url is required" });
+  }
 });
 
 const adminEventShape = {
@@ -159,6 +172,7 @@ const myEventShape = {
   timezone: z.string().trim().min(1),
   startAt: isoDatetimeSchema,
   endAt: isoDatetimeSchema.optional().nullable(),
+  images: z.array(eventImageSchema).optional(),
   note: z.string().trim().max(2000).optional().nullable(),
 };
 
@@ -175,6 +189,7 @@ export const myEventPatchSchema = z.object({
   timezone: z.string().trim().min(1).optional(),
   startAt: isoDatetimeSchema.optional(),
   endAt: isoDatetimeSchema.optional().nullable(),
+  images: z.array(eventImageSchema).optional(),
   note: z.string().trim().max(2000).optional().nullable(),
 }).superRefine((data, ctx) => {
   if (data.startAt && data.endAt && new Date(data.endAt) < new Date(data.startAt)) {

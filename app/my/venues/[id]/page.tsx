@@ -14,6 +14,7 @@ export default async function MyVenueEditPage({ params }: { params: Promise<{ id
     include: {
       venue: {
         include: {
+          featuredAsset: { select: { url: true } },
           targetSubmissions: {
             where: { type: "VENUE" },
             orderBy: { createdAt: "desc" },

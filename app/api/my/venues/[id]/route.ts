@@ -21,8 +21,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const existing = await db.venue.findUnique({ where: { id: parsedId.data.id }, select: { id: true, isPublished: true } });
     if (!existing) return apiError(404, "not_found", "Venue not found");
 
-    const { submitForApproval, note, ...safeFields } = parsedBody.data;
-    const venue = await db.venue.update({ where: { id: existing.id }, data: safeFields });
+    const { submitForApproval, note, featuredAssetId, ...safeFields } = parsedBody.data;
+
+    if (featuredAssetId) {
+      const asset = await db.asset.findUnique({ where: { id: featuredAssetId }, select: { ownerUserId: true } });
+      if (!asset || asset.ownerUserId !== user.id) return apiError(403, "forbidden", "Can only use your own uploaded assets");
+    }
+
+    const venue = await db.venue.update({ where: { id: existing.id }, data: { ...safeFields, featuredAssetId: featuredAssetId ?? null } });
 
     if (submitForApproval && !existing.isPublished && user.role === "USER") {
       const submission = await db.submission.upsert({

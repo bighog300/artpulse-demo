@@ -1,0 +1,38 @@
+import { NextRequest, NextResponse } from "next/server";
+import { apiError } from "@/lib/api";
+import { requireAuth } from "@/lib/auth";
+import { uploadImageAsset } from "@/lib/assets";
+import { db } from "@/lib/db";
+
+export const runtime = "nodejs";
+
+export async function POST(req: NextRequest) {
+  try {
+    const user = await requireAuth();
+    const form = await req.formData();
+    const fileEntry = form.get("file");
+    const altEntry = form.get("alt");
+
+    if (!(fileEntry instanceof File)) return apiError(400, "invalid_request", "file is required");
+
+    const uploaded = await uploadImageAsset({
+      file: fileEntry,
+      ownerUserId: user.id,
+      alt: typeof altEntry === "string" ? altEntry : null,
+      dbClient: db,
+    });
+
+    return NextResponse.json(uploaded, { status: 201 });
+  } catch (error) {
+    if (error instanceof Error && error.message === "unauthorized") {
+      return apiError(401, "unauthorized", "Authentication required");
+    }
+    if (error instanceof Error && error.message === "invalid_mime") {
+      return apiError(400, "invalid_request", "Only jpeg/png/webp images are allowed");
+    }
+    if (error instanceof Error && error.message === "file_too_large") {
+      return apiError(400, "invalid_request", "Image size must be 5MB or less");
+    }
+    return apiError(500, "internal_error", "Unexpected server error");
+  }
+}

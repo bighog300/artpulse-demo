@@ -6,7 +6,7 @@ export default function AdminNewVenue() {
       title="New Venue"
       endpoint="/api/admin/venues"
       method="POST"
-      initial={{ name: "", slug: "", description: "", city: "", country: "", lat: "", lng: "", websiteUrl: "", instagramUrl: "", contactEmail: "", isPublished: false }}
+      initial={{ name: "", slug: "", description: "", city: "", country: "", lat: "", lng: "", websiteUrl: "", instagramUrl: "", contactEmail: "", featuredImageUrl: "", featuredAssetId: "", isPublished: false }}
       fields={[
         { name: "name", label: "Name" },
         { name: "slug", label: "Slug" },
@@ -18,6 +18,8 @@ export default function AdminNewVenue() {
         { name: "websiteUrl", label: "Website URL" },
         { name: "instagramUrl", label: "Instagram URL" },
         { name: "contactEmail", label: "Contact Email" },
+        { name: "featuredImageUrl", label: "Featured Image URL" },
+        { name: "featuredAssetId", label: "Featured Asset ID" },
       ]}
     />
   );

@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api";
+import { resolveImageUrl } from "@/lib/assets";
 import { eventsQuerySchema, paramsToObject, zodDetails } from "@/lib/validators";
 
-type EventWithJoin = { id: string; lat: number | null; lng: number | null; venue?: { lat: number | null; lng: number | null } | null; images?: Array<{ url: string }>; eventTags?: Array<{ tag: { name: string; slug: string } }> };
+type EventWithJoin = {
+  id: string;
+  lat: number | null;
+  lng: number | null;
+  venue?: { lat: number | null; lng: number | null } | null;
+  images?: Array<{ url: string; asset?: { url: string } | null }>;
+  eventTags?: Array<{ tag: { name: string; slug: string } }>;
+};
 
 export const runtime = "nodejs";
 
@@ -52,7 +60,7 @@ export async function GET(req: NextRequest) {
     orderBy: [{ startAt: "asc" }, { id: "asc" }],
     include: {
       venue: { select: { name: true, slug: true, city: true, lat: true, lng: true } },
-      images: { take: 1, orderBy: { sortOrder: "asc" } },
+      images: { take: 1, orderBy: { sortOrder: "asc" }, include: { asset: { select: { url: true } } } },
       eventTags: { include: { tag: true } },
     },
   })) as EventWithJoin[];
@@ -68,7 +76,7 @@ export async function GET(req: NextRequest) {
   const hasMore = filtered.length > limit;
   const page = hasMore ? filtered.slice(0, limit) : filtered;
   return NextResponse.json({
-    items: page.map((e) => ({ ...e, primaryImageUrl: e.images?.[0]?.url ?? null, tags: (e.eventTags ?? []).map((et) => ({ name: et.tag.name, slug: et.tag.slug })) })),
+    items: page.map((e) => ({ ...e, primaryImageUrl: resolveImageUrl(e.images?.[0]?.asset?.url, e.images?.[0]?.url), tags: (e.eventTags ?? []).map((et) => ({ name: et.tag.name, slug: et.tag.slug })) })),
     nextCursor: hasMore ? page[page.length - 1].id : null,
   });
 }

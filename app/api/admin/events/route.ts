@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
         publishedAt: isPublished ? new Date() : null,
         eventTags: tagSlugs.length ? { create: tagSlugs.map((slug) => ({ tag: { connect: { slug } } })) } : undefined,
         eventArtists: artistSlugs.length ? { create: artistSlugs.map((slug) => ({ artist: { connect: { slug } } })) } : undefined,
-        images: images.length ? { create: images } : undefined,
+        images: images.length ? { create: images.map((image) => ({ assetId: image.assetId ?? null, url: image.url ?? "", alt: image.alt ?? null, sortOrder: image.sortOrder })) } : undefined,
       },
       include: { eventTags: { include: { tag: true } }, eventArtists: { include: { artist: true } }, images: true },
     });

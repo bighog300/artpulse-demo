@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import ImageUploader from "@/app/my/_components/ImageUploader";
 
 type ExistingSubmission = {
   eventId: string;
@@ -15,7 +16,7 @@ type ExistingSubmission = {
 };
 
 export default function SubmitEventForm({ venueId, existing }: { venueId: string; existing: ExistingSubmission[] }) {
-  const [form, setForm] = useState<Record<string, unknown>>({ title: "", slug: "", timezone: "UTC", startAt: "", description: "", note: "" });
+  const [form, setForm] = useState<Record<string, unknown>>({ title: "", slug: "", timezone: "UTC", startAt: "", description: "", note: "", images: [] });
   const [message, setMessage] = useState<string | null>(null);
 
   async function createDraft(e: React.FormEvent) {
@@ -49,6 +50,18 @@ export default function SubmitEventForm({ venueId, existing }: { venueId: string
         <input className="border rounded p-2 w-full" placeholder="Timezone" value={String(form.timezone ?? "UTC")} onChange={(e) => setForm((p) => ({ ...p, timezone: e.target.value }))} />
         <input className="border rounded p-2 w-full" type="datetime-local" value={String(form.startAt ?? "")} onChange={(e) => setForm((p) => ({ ...p, startAt: e.target.value }))} />
         <textarea className="border rounded p-2 w-full" placeholder="Description" value={String(form.description ?? "")} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} />
+        <ImageUploader
+          label="Upload event image"
+          onUploaded={({ assetId, url }) =>
+            setForm((p) => ({
+              ...p,
+              images: [
+                ...(Array.isArray(p.images) ? p.images : []),
+                { assetId, url, sortOrder: Array.isArray(p.images) ? p.images.length : 0 },
+              ],
+            }))
+          }
+        />
         <textarea className="border rounded p-2 w-full" placeholder="Submission note" value={String(form.note ?? "")} onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))} />
         <button className="rounded border px-3 py-1">Create draft</button>
       </form>

@@ -32,7 +32,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         ...data,
         ...(tagSlugs ? { eventTags: { deleteMany: {}, create: tagSlugs.map((slug) => ({ tag: { connect: { slug } } })) } } : {}),
         ...(artistSlugs ? { eventArtists: { deleteMany: {}, create: artistSlugs.map((slug) => ({ artist: { connect: { slug } } })) } } : {}),
-        ...(images ? { images: { deleteMany: {}, create: images } } : {}),
+        ...(images ? { images: { deleteMany: {}, create: images.map((image) => ({ assetId: image.assetId ?? null, url: image.url ?? "", alt: image.alt ?? null, sortOrder: image.sortOrder })) } } : {}),
       },
       include: { eventTags: { include: { tag: true } }, eventArtists: { include: { artist: true } }, images: true },
     });

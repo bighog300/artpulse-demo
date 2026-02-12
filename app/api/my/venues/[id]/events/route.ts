@@ -16,7 +16,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const user = await requireVenueRole(parsedId.data.id, "EDITOR");
 
-    const { startAt, endAt, note, ...eventData } = parsed.data;
+    const { startAt, endAt, note, images = [], ...eventData } = parsed.data;
+
+    const assetIds = images.map((image) => image.assetId).filter((assetId): assetId is string => Boolean(assetId));
+    if (assetIds.length) {
+      const ownedCount = await db.asset.count({ where: { id: { in: assetIds }, ownerUserId: user.id } });
+      if (ownedCount !== assetIds.length) return apiError(403, "forbidden", "Can only use your own uploaded assets");
+    }
+
     const event = await db.event.create({
       data: {
         ...eventData,
@@ -25,6 +32,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         endAt: endAt ? new Date(endAt) : null,
         isPublished: false,
         publishedAt: null,
+        images: images.length
+          ? {
+              create: images.map((image) => ({
+                assetId: image.assetId ?? null,
+                url: image.url ?? "",
+                alt: image.alt ?? null,
+                sortOrder: image.sortOrder,
+              })),
+            }
+          : undefined,
       },
     });
 
