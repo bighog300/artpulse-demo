@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
 import { requireAdmin } from "@/lib/auth";
-import { sendPendingNotifications } from "@/lib/notifications";
+import { sendPendingNotifications } from "@/lib/outbox";
 import { parseBody, zodDetails } from "@/lib/validators";
 import { z } from "zod";
 
@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     const parsedBody = outboxSendSchema.safeParse(await parseBody(req));
     if (!parsedBody.success) return apiError(400, "invalid_request", "Invalid payload", zodDetails(parsedBody.error));
 
-    const result = await sendPendingNotifications(parsedBody.data.limit);
+    const result = await sendPendingNotifications({ limit: parsedBody.data.limit });
     return NextResponse.json(result);
   } catch (error) {
     if (error instanceof Error && error.message === "unauthorized") {
