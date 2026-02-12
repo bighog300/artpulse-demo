@@ -24,6 +24,8 @@ export default async function AdminVenue({ params }: { params: Promise<{ id: str
         { name: "websiteUrl", label: "Website URL" },
         { name: "instagramUrl", label: "Instagram URL" },
         { name: "contactEmail", label: "Contact Email" },
+        { name: "featuredImageUrl", label: "Featured Image URL" },
+        { name: "featuredAssetId", label: "Featured Asset ID" },
       ]}
     />
   );

@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 export async function GET(_: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const parsed = slugParamSchema.safeParse(await params);
   if (!parsed.success) return apiError(400, "invalid_request", "Invalid route parameter", zodDetails(parsed.error));
-  const event = await db.event.findFirst({ where: { slug: parsed.data.slug, isPublished: true }, include: { venue: true, images: true, eventTags: { include: { tag: true } }, eventArtists: { include: { artist: true } } } });
+  const event = await db.event.findFirst({ where: { slug: parsed.data.slug, isPublished: true }, include: { venue: true, images: { include: { asset: { select: { url: true } } } }, eventTags: { include: { tag: true } }, eventArtists: { include: { artist: true } } } });
   if (!event) return apiError(404, "not_found", "Event not found");
   return NextResponse.json(event);
 }

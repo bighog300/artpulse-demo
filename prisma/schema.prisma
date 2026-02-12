@@ -66,6 +66,10 @@ enum FavoriteTargetType {
   ARTIST
 }
 
+enum AssetKind {
+  IMAGE
+}
+
 model User {
   id                   String            @id @default(uuid()) @db.Uuid
   email                String            @unique
@@ -79,6 +83,7 @@ model User {
   submissions          Submission[]      @relation("SubmissionSubmitter")
   decidedSubmissions   Submission[]      @relation("SubmissionDecider")
   sentVenueInvites     VenueInvite[]     @relation("VenueInviteInvitedBy")
+  ownedAssets          Asset[]
 }
 
 model Venue {
@@ -97,6 +102,8 @@ model Venue {
   websiteUrl   String?
   instagramUrl String?
   contactEmail String?
+  featuredImageUrl String?
+  featuredAssetId String? @db.Uuid
   isPublished  Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -105,8 +112,10 @@ model Venue {
   invites      VenueInvite[]
   submissions  Submission[] @relation("SubmissionVenue")
   targetSubmissions Submission[] @relation("SubmissionTargetVenue")
+  featuredAsset Asset? @relation("VenueFeaturedAsset", fields: [featuredAssetId], references: [id], onDelete: SetNull)
 
   @@index([isPublished])
+  @@index([featuredAssetId])
 }
 
 model Artist {
@@ -117,12 +126,15 @@ model Artist {
   websiteUrl     String?
   instagramUrl   String?
   avatarImageUrl String?
+  featuredAssetId String? @db.Uuid
   isPublished    Boolean       @default(false)
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   eventArtists   EventArtist[]
+  featuredAsset  Asset?        @relation("ArtistFeaturedAsset", fields: [featuredAssetId], references: [id], onDelete: SetNull)
 
   @@index([isPublished])
+  @@index([featuredAssetId])
 }
 
 model Event {
@@ -260,11 +272,36 @@ model EventArtist {
 model EventImage {
   id        String   @id @default(uuid()) @db.Uuid
   eventId   String   @db.Uuid
+  assetId   String?  @db.Uuid
   url       String
   alt       String?
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
   event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  asset     Asset?   @relation(fields: [assetId], references: [id], onDelete: SetNull)
+
+  @@index([assetId])
+}
+
+model Asset {
+  id          String    @id @default(uuid()) @db.Uuid
+  ownerUserId String?   @db.Uuid
+  kind        AssetKind
+  url         String
+  filename    String?
+  mime        String?
+  sizeBytes   Int?
+  width       Int?
+  height      Int?
+  alt         String?
+  createdAt   DateTime  @default(now())
+  owner       User?     @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
+  eventImages EventImage[]
+  venueFeaturedFor  Venue[] @relation("VenueFeaturedAsset")
+  artistFeaturedFor Artist[] @relation("ArtistFeaturedAsset")
+
+  @@index([ownerUserId])
+  @@index([createdAt])
 }
 
 model Favorite {

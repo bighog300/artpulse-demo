@@ -20,6 +20,7 @@ export default async function AdminArtist({ params }: { params: Promise<{ id: st
         { name: "websiteUrl", label: "Website URL" },
         { name: "instagramUrl", label: "Instagram URL" },
         { name: "avatarImageUrl", label: "Avatar Image URL" },
+        { name: "featuredAssetId", label: "Featured Asset ID" },
       ]}
     />
   );

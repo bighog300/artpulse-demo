@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-type EventImage = { url: string; alt?: string | null; sortOrder: number };
+type EventImage = { assetId?: string | null; url?: string | null; alt?: string | null; sortOrder: number };
 
 type Props = {
   title: string;

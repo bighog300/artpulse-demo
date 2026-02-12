@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
+import { resolveImageUrl } from "@/lib/assets";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 
 export const dynamic = "force-dynamic";
@@ -22,14 +23,16 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
   const { slug } = await params;
   const event = await db.event.findFirst({
     where: { slug, isPublished: true },
-    include: { venue: true, eventTags: { include: { tag: true } }, images: true },
+    include: { venue: true, eventTags: { include: { tag: true } }, images: { include: { asset: { select: { url: true } } }, orderBy: { sortOrder: "asc" } } },
   });
 
   if (!event) notFound();
+  const primaryImage = resolveImageUrl(event.images[0]?.asset?.url, event.images[0]?.url);
 
   return (
     <main className="space-y-3 p-6">
       <h1 className="text-3xl font-semibold">{event.title}</h1>
+      {primaryImage ? <img src={primaryImage} alt={event.images[0]?.alt ?? event.title} className="h-64 w-full max-w-xl object-cover rounded border" /> : null}
       <p>{event.description}</p>
       <p>{new Date(event.startAt).toISOString()}</p>
       <form action="/api/favorites" method="post">

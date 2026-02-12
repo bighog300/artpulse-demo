@@ -6,7 +6,7 @@ export default function AdminNewArtist() {
       title="New Artist"
       endpoint="/api/admin/artists"
       method="POST"
-      initial={{ name: "", slug: "", bio: "", websiteUrl: "", instagramUrl: "", avatarImageUrl: "", isPublished: false }}
+      initial={{ name: "", slug: "", bio: "", websiteUrl: "", instagramUrl: "", avatarImageUrl: "", featuredAssetId: "", isPublished: false }}
       fields={[
         { name: "name", label: "Name" },
         { name: "slug", label: "Slug" },
@@ -14,6 +14,7 @@ export default function AdminNewArtist() {
         { name: "websiteUrl", label: "Website URL" },
         { name: "instagramUrl", label: "Instagram URL" },
         { name: "avatarImageUrl", label: "Avatar Image URL" },
+        { name: "featuredAssetId", label: "Featured Asset ID" },
       ]}
     />
   );
