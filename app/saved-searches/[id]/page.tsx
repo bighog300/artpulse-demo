@@ -1,13 +1,11 @@
-import Link from "next/link";
 import { db } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { SavedSearchRunner } from "@/components/saved-searches/saved-search-runner";
+import { redirectToLogin } from "@/lib/auth-redirect";
 
 export default async function SavedSearchDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await getSessionUser();
-  if (!user) {
-    return <main className="p-6">Please <Link className="underline" href="/login">login</Link>.</main>;
-  }
+  if (!user) redirectToLogin("/saved-searches");
   const routeParams = await params;
   const saved = await db.savedSearch.findFirst({ where: { id: routeParams.id, userId: user.id } });
   if (!saved) {

@@ -3,16 +3,11 @@ import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { NotificationsClient } from "@/app/notifications/notifications-client";
 import { setOnboardingFlag } from "@/lib/onboarding";
+import { redirectToLogin } from "@/lib/auth-redirect";
 
 export default async function NotificationsPage() {
   const user = await getSessionUser();
-  if (!user) {
-    return (
-      <main className="p-6">
-        Please <Link className="underline" href="/login">login</Link>.
-      </main>
-    );
-  }
+  if (!user) redirectToLogin("/notifications");
 
   const limit = 20;
   const page = await db.notification.findMany({

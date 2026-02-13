@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { SiteNav } from "@/components/navigation/site-nav";
 
 export const metadata: Metadata = {
   title: { default: 'Artpulse', template: '%s | Artpulse' },
@@ -11,7 +12,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className="min-h-screen bg-white text-zinc-900">
+        <SiteNav />
+        {children}
+      </body>
     </html>
   );
 }
