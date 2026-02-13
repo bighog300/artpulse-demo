@@ -15,6 +15,7 @@ export default async function Home() {
         <Link className="underline" href="/venues">Venues</Link>
         <Link className="underline" href="/artists">Artists</Link>
         <Link className="underline" href="/calendar">Calendar</Link>
+        {user ? <Link className="underline" href="/for-you">For You</Link> : null}
       </div>
       {user ? (
         <p>
