@@ -84,6 +84,11 @@ export const analyticsWindowQuerySchema = z.object({
   days: z.enum(["7", "30"]).default("7").transform((value) => Number(value) as 7 | 30),
 });
 
+export const forYouRecommendationsQuerySchema = z.object({
+  days: z.enum(["7", "30"]).default("7").transform((value) => Number(value) as 7 | 30),
+  limit: z.coerce.number().int().min(5).max(30).default(20),
+});
+
 export const engagementRetentionQuerySchema = z.object({
   dryRun: z.enum(["true", "false"]).default("true").transform((value) => value === "true"),
   keepDays: z.coerce.number().int().min(30).max(365).default(90),
