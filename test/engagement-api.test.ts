@@ -18,6 +18,26 @@ test("POST /api/engagement returns invalid_request for bad enum", async () => {
   assert.equal(res.status, 400);
   const body = await res.json();
   assert.equal(body.error.code, "invalid_request");
+  assert.ok(Array.isArray(body.error.details));
+  assert.ok(body.error.details.length > 0);
+});
+
+test("POST /api/engagement rejects feedback on non-CLICK actions", async () => {
+  const req = new NextRequest("http://localhost/api/engagement", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-forwarded-for": "203.0.113.15" },
+    body: JSON.stringify({ surface: "SEARCH", action: "VIEW", targetType: "EVENT", targetId: "evt-1", meta: { feedback: "up" } }),
+  });
+
+  const res = await handleEngagementPost(req, {
+    getSessionUser: async () => null,
+    createEvent: async () => undefined,
+  });
+
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.equal(body.error.code, "invalid_request");
+  assert.ok(body.error.details.some((item: { path: string }) => item.path === "meta.feedback"));
 });
 
 test("POST /api/engagement stores sessionId when unauthenticated", async () => {
@@ -66,17 +86,26 @@ test("POST /api/engagement returns 429 when rate limit exceeded", async () => {
     createEvent: async () => undefined,
   };
 
-  let status = 200;
-  for (let i = 0; i < 130; i += 1) {
+  let response = await handleEngagementPost(new NextRequest("http://localhost/api/engagement", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-forwarded-for": "203.0.113.13" },
+    body: JSON.stringify({ surface: "NEARBY", action: "VIEW", targetType: "EVENT", targetId: "evt-0" }),
+  }), deps);
+
+  for (let i = 1; i < 130 && response.status !== 429; i += 1) {
     const request = new NextRequest("http://localhost/api/engagement", {
       method: "POST",
       headers: { "content-type": "application/json", "x-forwarded-for": "203.0.113.13" },
       body: JSON.stringify({ surface: "NEARBY", action: "VIEW", targetType: "EVENT", targetId: `evt-${i}` }),
     });
-    const response = await handleEngagementPost(request, deps);
-    status = response.status;
-    if (status === 429) break;
+    response = await handleEngagementPost(request, deps);
   }
 
-  assert.equal(status, 429);
+  assert.equal(response.status, 429);
+  const retryAfter = response.headers.get("retry-after");
+  assert.ok(retryAfter);
+  assert.ok(Number(retryAfter) >= 1);
+  const body = await response.json();
+  assert.equal(body.error, "rate_limited");
+  assert.equal(body.retryAfterSeconds, Number(retryAfter));
 });

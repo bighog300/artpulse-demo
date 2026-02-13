@@ -4,6 +4,7 @@ import { type SessionUser } from "@/lib/auth";
 import { parseBody, engagementBodySchema, zodDetails } from "@/lib/validators";
 import { RATE_LIMITS, enforceRateLimit, isRateLimitError, principalRateLimitKey, rateLimitErrorResponse } from "@/lib/rate-limit";
 import { ENGAGEMENT_COOKIE_NAME, ENGAGEMENT_SESSION_MAX_AGE_SECONDS, generateSessionId, sanitizeEngagementMeta } from "@/lib/engagement";
+import { Prisma } from "@prisma/client";
 
 type EngagementCreate = {
   userId: string | null;
@@ -12,7 +13,7 @@ type EngagementCreate = {
   action: "VIEW" | "CLICK" | "FOLLOW" | "SAVE_SEARCH";
   targetType: "EVENT" | "VENUE" | "ARTIST" | "SAVED_SEARCH" | "DIGEST_RUN";
   targetId: string;
-
+  metaJson?: Prisma.InputJsonValue | null;
 };
 
 type EngagementDeps = {
