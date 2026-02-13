@@ -1,0 +1,56 @@
+import { Prisma } from "@prisma/client";
+import { digestDedupeKey } from "@/lib/digest";
+import { runSavedSearchEvents } from "@/lib/saved-searches";
+
+export type DigestDb = {
+  savedSearch: {
+    findMany: (args: Prisma.SavedSearchFindManyArgs) => Promise<Array<{ id: string; userId: string; name: string; type: "NEARBY" | "EVENTS_FILTER"; paramsJson: Prisma.JsonValue; lastSentAt: Date | null }>>;
+    update: (args: Prisma.SavedSearchUpdateArgs) => Promise<unknown>;
+  };
+  notification: { upsert: (args: Prisma.NotificationUpsertArgs) => Promise<unknown> };
+  event: { findMany: (args: Prisma.EventFindManyArgs) => Promise<Array<{ id: string; title: string; slug: string; startAt: Date; lat: number | null; lng: number | null; venue: { name: string; slug: string; city: string | null; lat: number | null; lng: number | null } | null; eventTags: Array<{ tag: { name: string; slug: string } }> }>> };
+};
+
+export async function runWeeklyDigests(headerSecret: string | null, digestDb: DigestDb) {
+  const configuredSecret = process.env.CRON_SECRET;
+  if (!configuredSecret) return Response.json({ error: { code: "misconfigured", message: "CRON_SECRET is not configured", details: undefined } }, { status: 500 });
+  if (headerSecret !== configuredSecret) return Response.json({ error: { code: "unauthorized", message: "Invalid cron secret", details: undefined } }, { status: 401 });
+
+  const threshold = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000);
+  const savedSearches = await digestDb.savedSearch.findMany({
+    where: { isEnabled: true, frequency: "WEEKLY", OR: [{ lastSentAt: null }, { lastSentAt: { lt: threshold } }] },
+    take: 25,
+    orderBy: [{ lastSentAt: "asc" }, { createdAt: "asc" }],
+  });
+
+  let processed = 0;
+  let sent = 0;
+  let skipped = 0;
+
+  for (const search of savedSearches) {
+    processed += 1;
+    const events = await runSavedSearchEvents({ eventDb: digestDb, type: search.type, paramsJson: search.paramsJson, limit: 10 });
+    const page = events.slice(0, 10);
+    if (!page.length) {
+      skipped += 1;
+      continue;
+    }
+    const dedupeKey = digestDedupeKey(search.id);
+    await digestDb.notification.upsert({
+      where: { dedupeKey },
+      update: {},
+      create: {
+        userId: search.userId,
+        type: "DIGEST_READY",
+        title: "Your weekly Artpulse digest",
+        body: `${page.length} upcoming events match '${search.name}'`,
+        href: `/saved-searches/${search.id}?run=1`,
+        dedupeKey,
+      },
+    });
+    await digestDb.savedSearch.update({ where: { id: search.id }, data: { lastSentAt: new Date() } });
+    sent += 1;
+  }
+
+  return Response.json({ processed, sent, skipped });
+}

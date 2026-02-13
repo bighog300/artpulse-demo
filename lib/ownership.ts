@@ -29,3 +29,7 @@ export function canRemoveOwnerMember(ownerCount: number, targetRole: VenueRole) 
 export function nextSubmissionStatusForSubmit(status: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED") {
   return canResubmitSubmission(status) ? "SUBMITTED" : null;
 }
+
+export function canAccessSavedSearch(ownerUserId: string, requesterUserId: string) {
+  return ownerUserId === requesterUserId;
+}
