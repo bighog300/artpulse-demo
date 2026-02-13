@@ -9,6 +9,7 @@ import { redirectToLogin } from "@/lib/auth-redirect";
 import { OnboardingPanel } from "@/components/onboarding/onboarding-panel";
 import { setOnboardingFlag } from "@/lib/onboarding";
 import { EmptyState } from "@/components/ui/empty-state";
+import { EventCard } from "@/components/events/event-card";
 
 type SearchParams = Promise<{ days?: string; type?: string }>;
 
@@ -106,7 +107,7 @@ export default async function FollowingPage({ searchParams }: { searchParams: Se
           actions={[
             { label: "Browse venues", href: "/venues", variant: "secondary" },
             { label: "Browse artists", href: "/artists", variant: "secondary" },
-            { label: "Find events near you", href: "/nearby", variant: "secondary" },
+            { label: "Set location", href: "/account", variant: "secondary" },
           ]}
         />
       ) : (
@@ -125,11 +126,16 @@ export default async function FollowingPage({ searchParams }: { searchParams: Se
           ) : (
             <ul className="space-y-2">
               {result.items.map((item) => (
-                <li key={item.id} className="rounded border p-3">
-                  <Link className="font-medium underline" href={`/events/${item.slug}`}>{item.title}</Link>
-                  <p className="text-sm text-gray-600">
-                    {item.startAt.toLocaleString()} {item.venue ? <>· <Link className="underline" href={`/venues/${item.venue.slug}`}>{item.venue.name}</Link></> : null}
-                  </p>
+                <li key={item.id}>
+                  <EventCard
+                    href={`/events/${item.slug}`}
+                    title={item.title}
+                    startAt={item.startAt}
+                    endAt={item.endAt}
+                    venueName={item.venue?.name}
+                    venueSlug={item.venue?.slug}
+                    badges={[`From ${type === "both" ? "your follows" : `${type} follows`}`]}
+                  />
                 </li>
               ))}
             </ul>

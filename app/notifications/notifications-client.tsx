@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { ErrorCard } from "@/components/ui/error-card";
 import { LoadingCard } from "@/components/ui/loading-card";
+import { enqueueToast } from "@/lib/toast";
 import type { Notification, NotificationInboxStatus } from "@prisma/client";
 
 type NotificationPageProps = {
@@ -46,8 +47,13 @@ export function NotificationsClient({ initialItems, initialNextCursor }: Notific
   }
 
   async function markAllRead() {
-    await fetch("/api/notifications/read-all", { method: "POST" });
+    const response = await fetch("/api/notifications/read-all", { method: "POST" });
+    if (!response.ok) {
+      enqueueToast({ title: "Unable to mark all read", variant: "error" });
+      return;
+    }
     setItems((current) => current.map((item) => ({ ...item, status: "READ" as NotificationInboxStatus })));
+    enqueueToast({ title: "All notifications marked read" });
   }
 
   async function loadMore() {

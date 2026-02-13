@@ -7,7 +7,7 @@ export function SavedSearchesEmptyState() {
       title="Save searches to get weekly digests"
       description="Save filters from Search or Nearby to get notified when events match."
       actions={[
-        { label: "Search events", href: "/search", variant: "secondary" },
+        { label: "Try a starter search", href: "/search?days=30", variant: "secondary" },
         { label: "Nearby", href: "/nearby", variant: "secondary" },
         { label: "Following", href: "/following", variant: "secondary" },
       ]}
