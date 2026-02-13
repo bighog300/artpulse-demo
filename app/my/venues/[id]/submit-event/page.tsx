@@ -1,6 +1,7 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
+import { redirectToLogin } from "@/lib/auth-redirect";
 import SubmitEventForm from "@/app/my/_components/SubmitEventForm";
 
 export const dynamic = "force-dynamic";
@@ -8,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function SubmitEventPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await getSessionUser();
-  if (!user) redirect("/login");
+  if (!user) redirectToLogin("/my/venues");
 
   const membership = await db.venueMembership.findUnique({ where: { userId_venueId: { userId: user.id, venueId: id } } });
   if (!membership) notFound();

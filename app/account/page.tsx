@@ -4,16 +4,11 @@ import { LogoutButton } from "@/app/account/logout-button";
 import { db } from "@/lib/db";
 import { OnboardingPanel } from "@/components/onboarding/onboarding-panel";
 import { LocationSettings } from "@/app/account/location-settings";
+import { redirectToLogin } from "@/lib/auth-redirect";
 
 export default async function AccountPage() {
   const user = await getSessionUser();
-  if (!user) {
-    return (
-      <main className="p-6">
-        Please <Link className="underline" href="/login">login</Link>.
-      </main>
-    );
-  }
+  if (!user) redirectToLogin("/account");
 
   const [unreadCount, location] = await Promise.all([
     db.notification.count({ where: { userId: user.id, status: "UNREAD" } }),

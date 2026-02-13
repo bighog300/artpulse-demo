@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { getFollowingFeedWithDeps, type FollowingFeedTypeFilter } from "@/lib/following-feed";
 import { getFollowRecommendations } from "@/lib/recommendations-follows";
 import { FollowButton } from "@/components/follows/follow-button";
+import { redirectToLogin } from "@/lib/auth-redirect";
 import { OnboardingPanel } from "@/components/onboarding/onboarding-panel";
 import { setOnboardingFlag } from "@/lib/onboarding";
 
@@ -25,6 +25,8 @@ const TYPE_OPTIONS: Array<{ value: FollowingFeedTypeFilter; label: string }> = [
 export const dynamic = "force-dynamic";
 
 export default async function FollowingPage({ searchParams }: { searchParams: SearchParams }) {
+  const user = await requireAuth().catch(() => redirectToLogin("/following"));
+
   if (!hasDatabaseUrl()) {
     return (
       <main className="p-6">
@@ -32,13 +34,6 @@ export default async function FollowingPage({ searchParams }: { searchParams: Se
         <p>Set DATABASE_URL to view events locally.</p>
       </main>
     );
-  }
-
-  let user;
-  try {
-    user = await requireAuth();
-  } catch {
-    redirect("/login");
   }
 
   const params = await searchParams;

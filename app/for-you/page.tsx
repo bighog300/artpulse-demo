@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { getSessionUser } from "@/lib/auth";
+import { redirectToLogin } from "@/lib/auth-redirect";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { FeedbackButtons } from "@/components/recommendations/feedback-buttons";
 
@@ -21,13 +22,7 @@ type ForYouResponse = {
 
 export default async function ForYouPage() {
   const user = await getSessionUser();
-  if (!user) {
-    return (
-      <main className="p-6">
-        Please <Link className="underline" href="/login">login</Link> to view your personalized recommendations.
-      </main>
-    );
-  }
+  if (!user) redirectToLogin("/for-you");
 
   if (!hasDatabaseUrl()) {
     return (

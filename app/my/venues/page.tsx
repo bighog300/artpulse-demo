@@ -1,14 +1,14 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
+import { redirectToLogin } from "@/lib/auth-redirect";
 import { OnboardingPanel } from "@/components/onboarding/onboarding-panel";
 
 export const dynamic = "force-dynamic";
 
 export default async function MyVenuesPage() {
   const user = await getSessionUser();
-  if (!user) redirect("/login");
+  if (!user) redirectToLogin("/my/venues");
 
   const memberships = await db.venueMembership.findMany({
     where: { userId: user.id },
