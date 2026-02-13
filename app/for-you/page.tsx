@@ -2,6 +2,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { getSessionUser } from "@/lib/auth";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
+import { FeedbackButtons } from "@/components/recommendations/feedback-buttons";
 
 type ForYouResponse = {
   windowDays: number;
@@ -69,6 +70,7 @@ export default async function ForYouPage() {
                 ))}
               </div>
               <p className="mt-2 text-xs text-gray-500">Score: {item.score}</p>
+              <FeedbackButtons eventId={item.event.id} surface="SEARCH" />
               <Link className="mt-2 inline-block underline" href={`/events/${item.event.slug}`}>View event</Link>
             </article>
           ))}

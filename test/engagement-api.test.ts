@@ -80,3 +80,48 @@ test("POST /api/engagement returns 429 when rate limit exceeded", async () => {
 
   assert.equal(status, 429);
 });
+
+
+test("POST /api/engagement accepts CLICK feedback metadata", async () => {
+  const created: Array<Record<string, unknown>> = [];
+  const req = new NextRequest("http://localhost/api/engagement", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-forwarded-for": "203.0.113.20" },
+    body: JSON.stringify({
+      surface: "SEARCH",
+      action: "CLICK",
+      targetType: "EVENT",
+      targetId: "evt-2",
+      meta: { feedback: "up" },
+    }),
+  });
+
+  const res = await handleEngagementPost(req, {
+    getSessionUser: async () => ({ id: "user-feedback", email: "f@example.com", name: null, role: "USER" }),
+    createEvent: async (input) => created.push(input as unknown as Record<string, unknown>),
+  });
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(created[0]?.metaJson, { feedback: "up" });
+});
+
+test("POST /api/engagement rejects feedback metadata for non-click action", async () => {
+  const req = new NextRequest("http://localhost/api/engagement", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-forwarded-for": "203.0.113.21" },
+    body: JSON.stringify({
+      surface: "SEARCH",
+      action: "VIEW",
+      targetType: "EVENT",
+      targetId: "evt-2",
+      meta: { feedback: "down" },
+    }),
+  });
+
+  const res = await handleEngagementPost(req, {
+    getSessionUser: async () => null,
+    createEvent: async () => undefined,
+  });
+
+  assert.equal(res.status, 400);
+});
