@@ -1,11 +1,14 @@
 import { Prisma } from "@prisma/client";
-import { digestDedupeKey } from "@/lib/digest";
+import { digestDedupeKey, digestSnapshotItemsSchema, isoWeekStamp } from "@/lib/digest";
 import { runSavedSearchEvents } from "@/lib/saved-searches";
 
 export type DigestDb = {
   savedSearch: {
     findMany: (args: Prisma.SavedSearchFindManyArgs) => Promise<Array<{ id: string; userId: string; name: string; type: "NEARBY" | "EVENTS_FILTER"; paramsJson: Prisma.JsonValue; lastSentAt: Date | null }>>;
     update: (args: Prisma.SavedSearchUpdateArgs) => Promise<unknown>;
+  };
+  digestRun: {
+    upsert: (args: Prisma.DigestRunUpsertArgs) => Promise<{ id: string }>;
   };
   notification: { upsert: (args: Prisma.NotificationUpsertArgs) => Promise<unknown> };
   event: { findMany: (args: Prisma.EventFindManyArgs) => Promise<Array<{ id: string; title: string; slug: string; startAt: Date; lat: number | null; lng: number | null; venue: { name: string; slug: string; city: string | null; lat: number | null; lng: number | null } | null; eventTags: Array<{ tag: { name: string; slug: string } }> }>> };
@@ -16,6 +19,8 @@ export async function runWeeklyDigests(headerSecret: string | null, digestDb: Di
   if (!configuredSecret) return Response.json({ error: { code: "misconfigured", message: "CRON_SECRET is not configured", details: undefined } }, { status: 500 });
   if (headerSecret !== configuredSecret) return Response.json({ error: { code: "unauthorized", message: "Invalid cron secret", details: undefined } }, { status: 401 });
 
+  const now = new Date();
+  const periodKey = isoWeekStamp(now);
   const threshold = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000);
   const savedSearches = await digestDb.savedSearch.findMany({
     where: { isEnabled: true, frequency: "WEEKLY", OR: [{ lastSentAt: null }, { lastSentAt: { lt: threshold } }] },
@@ -35,7 +40,31 @@ export async function runWeeklyDigests(headerSecret: string | null, digestDb: Di
       skipped += 1;
       continue;
     }
-    const dedupeKey = digestDedupeKey(search.id);
+
+    const snapshotItems = digestSnapshotItemsSchema.parse(page.map((event) => ({
+      slug: event.slug,
+      title: event.title,
+      startAt: event.startAt.toISOString(),
+      venueName: event.venue?.name ?? null,
+    })));
+
+    const digestRun = await digestDb.digestRun.upsert({
+      where: { savedSearchId_periodKey: { savedSearchId: search.id, periodKey } },
+      update: {
+        itemCount: snapshotItems.length,
+        itemsJson: snapshotItems,
+      },
+      create: {
+        savedSearchId: search.id,
+        userId: search.userId,
+        periodKey,
+        itemCount: snapshotItems.length,
+        itemsJson: snapshotItems,
+      },
+      select: { id: true },
+    });
+
+    const dedupeKey = digestDedupeKey(search.id, now);
     await digestDb.notification.upsert({
       where: { dedupeKey },
       update: {},
@@ -44,11 +73,11 @@ export async function runWeeklyDigests(headerSecret: string | null, digestDb: Di
         type: "DIGEST_READY",
         title: "Your weekly Artpulse digest",
         body: `${page.length} upcoming events match '${search.name}'`,
-        href: `/saved-searches/${search.id}?run=1`,
+        href: `/digests/${digestRun.id}`,
         dedupeKey,
       },
     });
-    await digestDb.savedSearch.update({ where: { id: search.id }, data: { lastSentAt: new Date() } });
+    await digestDb.savedSearch.update({ where: { id: search.id }, data: { lastSentAt: now } });
     sent += 1;
   }
 

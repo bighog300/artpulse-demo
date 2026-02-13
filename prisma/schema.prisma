@@ -108,6 +108,7 @@ model User {
   perfSnapshotsCreated PerfSnapshot[]
   notifications        Notification[]
   savedSearches        SavedSearch[]
+  digestRuns           DigestRun[]
   onboardingState      OnboardingState?
   locationLabel        String?
   locationLat          Float?
@@ -336,9 +337,27 @@ model SavedSearch {
   createdAt  DateTime         @default(now())
   updatedAt  DateTime         @updatedAt
   user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  digestRuns DigestRun[]
 
   @@index([userId, createdAt])
   @@index([isEnabled, frequency, lastSentAt])
+}
+
+model DigestRun {
+  id            String      @id @default(uuid()) @db.Uuid
+  savedSearchId String      @db.Uuid
+  userId        String      @db.Uuid
+  periodKey     String
+  createdAt     DateTime    @default(now())
+  itemCount     Int
+  itemsJson     Json
+  savedSearch   SavedSearch @relation(fields: [savedSearchId], references: [id], onDelete: Cascade)
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([savedSearchId, periodKey])
+  @@index([userId, createdAt])
+  @@index([savedSearchId, createdAt])
+  @@index([periodKey])
 }
 
 model Tag {

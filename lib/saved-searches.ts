@@ -149,3 +149,17 @@ export async function runSavedSearchEvents(args: {
     return sourceLat != null && sourceLng != null && isWithinRadiusKm(lat, lng, sourceLat, sourceLng, radiusKm);
   });
 }
+
+export async function previewSavedSearch(args: {
+  eventDb: EventSearchDb;
+  body: unknown;
+}) {
+  const parsed = savedSearchParamsSchema.parse(args.body);
+  const items = await runSavedSearchEvents({
+    eventDb: args.eventDb,
+    type: parsed.type,
+    paramsJson: parsed.params,
+    limit: 10,
+  });
+  return { items: items.slice(0, 10) };
+}
