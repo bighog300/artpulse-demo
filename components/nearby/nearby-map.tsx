@@ -24,6 +24,20 @@ export function NearbyMap({ events, lat, lng, radiusKm, days, onSearchArea }: Ne
 
   const { markers, omittedCount } = useMemo(() => getMarkerEvents(events), [events]);
 
+  const fitToResults = () => {
+    const map = mapRef.current as { fitBounds?: (bounds: unknown, opts?: { padding?: number; maxZoom?: number }) => void } | null;
+    if (!map?.fitBounds || markers.length === 0) return;
+    import("mapbox-gl").then((mb) => {
+      const mapboxgl = mb.default ?? mb;
+      const bounds = new mapboxgl.LngLatBounds();
+      markers.forEach((markerEvent) => bounds.extend([markerEvent.lng, markerEvent.lat]));
+      if (!bounds.isEmpty()) map.fitBounds?.(bounds, { padding: 40, maxZoom: 12 });
+    }).catch(() => {
+      // noop
+    });
+  };
+
+
   useEffect(() => {
     if (typeof window === "undefined" || !mapToken || !mapContainerRef.current || markers.length === 0) return;
 
@@ -119,6 +133,14 @@ export function NearbyMap({ events, lat, lng, radiusKm, days, onSearchArea }: Ne
       </div>
       {omittedCount > 0 ? <p className="text-xs text-amber-700">{omittedCount} additional markers omitted. Reduce radius/days to see more.</p> : null}
       <div ref={mapContainerRef} className="h-[420px] w-full rounded border" aria-label="Nearby events map" />
+      <div className="flex flex-wrap gap-2">
+      <button
+        className="rounded border px-3 py-1 text-sm"
+        type="button"
+        onClick={fitToResults}
+      >
+        Center on results
+      </button>
       <button
         className="rounded border px-3 py-1 text-sm"
         type="button"
@@ -135,9 +157,17 @@ export function NearbyMap({ events, lat, lng, radiusKm, days, onSearchArea }: Ne
         }}
         disabled={isSearchingArea}
       >
-        {isSearchingArea ? "Searching..." : "Search this area"}
+        {isSearchingArea ? "Searching area..." : "Search this area"}
       </button>
-      {selected ? <EventPreviewCard event={selected} /> : <p className="text-xs text-gray-600">Select a marker to preview an event.</p>}
+      </div>
+      {selected ? (
+        <>
+          <div className="hidden md:block"><EventPreviewCard event={selected} /></div>
+          <div className="fixed inset-x-0 bottom-16 z-20 border-t bg-white p-3 shadow-lg md:hidden">
+            <EventPreviewCard event={selected} />
+          </div>
+        </>
+      ) : <p className="text-xs text-gray-600">Select a marker to preview an event.</p>}
     </div>
   );
 }

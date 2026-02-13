@@ -17,6 +17,7 @@ const QUICK_ACTIONS = [
   { label: "Create venue", description: "Add a venue you manage", href: "/my/venues/new" },
   { label: "Invite members", description: "Invite your venue team", href: "/my/venues" },
   { label: "Notifications", description: "Review updates", href: "/notifications" },
+  { label: "Preferences", description: "Tune personalization signals", href: "/preferences" },
 ] as const;
 
 function NotificationLink({ unread }: { unread: number }) {

@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { SiteNav } from "@/components/navigation/site-nav";
+import { MobileBottomNav } from "@/components/navigation/mobile-bottom-nav";
+import { getSessionUser } from "@/lib/auth";
 
 export const metadata: Metadata = {
   title: { default: 'Artpulse', template: '%s | Artpulse' },
@@ -9,12 +11,15 @@ export const metadata: Metadata = {
   twitter: { card: 'summary_large_image', title: 'Artpulse', description: 'Discover art events near you.' },
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const user = await getSessionUser();
+
   return (
     <html lang="en">
       <body className="min-h-screen bg-white text-zinc-900">
         <SiteNav />
-        {children}
+        <div className="pb-20 md:pb-0">{children}</div>
+        <MobileBottomNav isAuthenticated={Boolean(user)} />
       </body>
     </html>
   );
