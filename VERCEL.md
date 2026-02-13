@@ -8,7 +8,7 @@ This document describes how to deploy Artpulse from GitHub to Vercel.
 - Build: `pnpm build`
 
 ## Environment variables
-See `ENVIRONMENT.md`.
+See `ENVIRONMENT.md`. Optional: `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` enables the `/nearby` map view.
 
 ## Database
 - Provision Postgres (Vercel Postgres recommended)

@@ -3,8 +3,9 @@ import { db } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { NearbyClient } from "@/app/nearby/nearby-client";
+import { resolveNearbyView } from "@/lib/nearby-map";
 
-export default async function NearbyPage() {
+export default async function NearbyPage({ searchParams }: { searchParams: Promise<{ view?: string }> }) {
   if (!hasDatabaseUrl()) {
     return (
       <main className="p-6">
@@ -22,6 +23,8 @@ export default async function NearbyPage() {
     })
     : null;
 
+  const query = await searchParams;
+
   return (
     <main className="space-y-4 p-6">
       <h1 className="text-2xl font-semibold">Nearby events</h1>
@@ -30,6 +33,7 @@ export default async function NearbyPage() {
       </p>
       <NearbyClient
         isAuthenticated={Boolean(user)}
+        initialView={resolveNearbyView(query.view)}
         initialLocation={{
           locationLabel: location?.locationLabel ?? "",
           lat: location?.locationLat != null ? String(location.locationLat) : "",

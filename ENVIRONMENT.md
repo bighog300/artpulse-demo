@@ -21,10 +21,8 @@ AUTH_SECRET=replace-with-long-random-string
 AUTH_GOOGLE_ID=
 AUTH_GOOGLE_SECRET=
 
-# Maps
-NEXT_PUBLIC_MAP_PROVIDER=mapbox
-NEXT_PUBLIC_MAPBOX_TOKEN=
-MAPBOX_ACCESS_TOKEN=
+# Maps (optional, enables Nearby map view)
+NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=
 
 # Optional / Observability
 SENTRY_DSN=
@@ -42,6 +40,9 @@ Minimum required:
 - `AUTH_SECRET`
 - `AUTH_GOOGLE_ID`
 - `AUTH_GOOGLE_SECRET`
+
+Optional:
+- `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` (enables `/nearby` map view)
 
 ---
 
