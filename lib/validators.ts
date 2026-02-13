@@ -93,6 +93,20 @@ export const analyticsWindowQuerySchema = z.object({
   days: z.enum(["7", "30"]).default("7").transform((value) => Number(value) as 7 | 30),
 });
 
+export const adminAnalyticsDrilldownQuerySchema = z.object({
+  days: z.enum(["7", "30"]).default("7").transform((value) => Number(value) as 7 | 30),
+  targetType: z.enum(["EVENT", "VENUE", "ARTIST"]),
+  targetId: z.string().trim().min(1).max(80),
+  metric: z.enum(["clicks", "views"]).default("clicks"),
+});
+
+export const adminAnalyticsTopTargetsQuerySchema = z.object({
+  days: z.enum(["7", "30"]).default("7").transform((value) => Number(value) as 7 | 30),
+  targetType: z.enum(["EVENT", "VENUE", "ARTIST"]),
+  metric: z.enum(["clicks", "views"]).default("clicks"),
+  limit: z.coerce.number().int().min(5).max(50).default(20),
+});
+
 export const forYouRecommendationsQuerySchema = z.object({
   days: z.enum(["7", "30"]).default("7").transform((value) => Number(value) as 7 | 30),
   limit: z.coerce.number().int().min(5).max(30).default(20),
