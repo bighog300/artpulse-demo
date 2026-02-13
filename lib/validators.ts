@@ -66,7 +66,7 @@ export const engagementMetaSchema = z.object({
   digestRunId: z.string().uuid().optional(),
   position: z.number().int().min(0).max(500).optional(),
   query: z.string().trim().min(1).max(120).optional(),
-
+  feedback: z.enum(["up", "down"]).optional(),
 }).strict();
 
 export const engagementBodySchema = z.object({
@@ -75,7 +75,14 @@ export const engagementBodySchema = z.object({
   targetType: z.enum(["EVENT", "VENUE", "ARTIST", "SAVED_SEARCH", "DIGEST_RUN"]),
   targetId: z.string().trim().min(1).max(120),
   meta: engagementMetaSchema.optional(),
-
+}).superRefine((data, ctx) => {
+  if (data.meta?.feedback && data.action !== "CLICK") {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["meta", "feedback"],
+      message: "feedback is only valid when action is CLICK",
+    });
+  }
 });
 
 export const geocodeQuerySchema = z.object({
