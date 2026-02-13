@@ -53,6 +53,12 @@ export async function POST(_: Request, { params }: { params: Promise<{ eventId: 
         status: updated.status,
         submittedAt: updated.submittedAt?.toISOString() ?? null,
       },
+      inApp: {
+        userId: user.id,
+        title: "Submission sent for review",
+        body: "Your event submission is now pending moderation.",
+        href: `/my/events/${parsedId.data.eventId}`,
+      },
     });
 
     return NextResponse.json(updated);

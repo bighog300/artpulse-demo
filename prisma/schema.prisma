@@ -51,6 +51,11 @@ enum NotificationStatus {
   FAILED
 }
 
+enum NotificationInboxStatus {
+  UNREAD
+  READ
+}
+
 enum EventType {
   EXHIBITION
   OPENING
@@ -91,6 +96,7 @@ model User {
   ownedAssets          Asset[]
   follows              Follow[]
   perfSnapshotsCreated PerfSnapshot[]
+  notifications        Notification[]
 }
 
 model PerfSnapshot {
@@ -267,6 +273,22 @@ model NotificationOutbox {
   errorMessage String?
 
   @@index([status, createdAt])
+}
+
+model Notification {
+  id        String                  @id @default(uuid()) @db.Uuid
+  userId    String                  @db.Uuid
+  type      NotificationType
+  title     String
+  body      String
+  href      String?
+  dedupeKey String                  @unique
+  status    NotificationInboxStatus @default(UNREAD)
+  createdAt DateTime                @default(now())
+  user      User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, status])
 }
 
 model Tag {

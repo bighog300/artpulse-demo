@@ -62,6 +62,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           status: submission.status,
           submittedAt: submission.submittedAt?.toISOString() ?? null,
         },
+        inApp: {
+          userId: user.id,
+          title: "Submission sent for review",
+          body: "Your venue submission is now pending moderation.",
+          href: `/my/venues/${existing.id}`,
+        },
       });
     }
 

@@ -24,7 +24,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const parsedBody = submissionDecisionSchema.safeParse(await parseBody(req));
     if (!parsedBody.success) return apiError(400, "invalid_request", "Invalid payload", zodDetails(parsedBody.error));
 
-    const submission = await db.submission.findUnique({ where: { id: parsedId.data.id }, include: { submitter: { select: { email: true } } } });
+    const submission = await db.submission.findUnique({
+      where: { id: parsedId.data.id },
+      include: { submitter: { select: { id: true, email: true } } },
+    });
     if (!submission) return apiError(404, "not_found", "Submission not found");
     if (submission.status !== "SUBMITTED") return apiError(409, "invalid_state", "Submission is not pending moderation");
 
@@ -54,6 +57,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           status: updated.status,
           decidedAt: updated.decidedAt?.toISOString() ?? null,
         },
+        inApp: {
+          userId: submission.submitter.id,
+          title: "Submission approved",
+          body: "Your submission has been approved and published.",
+          href: submission.type === "EVENT" && submission.targetEventId ? `/my/events/${submission.targetEventId}` : submission.type === "VENUE" && submission.targetVenueId ? `/my/venues/${submission.targetVenueId}` : undefined,
+        },
       });
       return NextResponse.json(updated);
     }
@@ -76,6 +85,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         status: updated.status,
         decisionReason: updated.decisionReason,
         decidedAt: updated.decidedAt?.toISOString() ?? null,
+      },
+      inApp: {
+        userId: submission.submitter.id,
+        title: "Submission needs changes",
+        body: updated.decisionReason ?? "Your submission was rejected by moderation.",
+        href: submission.type === "EVENT" && submission.targetEventId ? `/my/events/${submission.targetEventId}` : submission.type === "VENUE" && submission.targetVenueId ? `/my/venues/${submission.targetVenueId}` : undefined,
       },
     });
     return NextResponse.json(updated);
