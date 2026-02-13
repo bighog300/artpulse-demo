@@ -70,6 +70,7 @@ pnpm db:seed
    - `AUTH_SECRET`
    - `AUTH_GOOGLE_ID`
    - `AUTH_GOOGLE_SECRET`
+   - Optional: `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` (enables `/nearby` map view)
 2. Ensure the production database is reachable from Vercel.
 3. Run migrations on deploy (`pnpm prisma:deploy`) before serving traffic.
 4. Optionally run `pnpm db:seed` for initial sample/admin data.

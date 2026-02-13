@@ -82,6 +82,9 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     items: page.map((event) => ({
       ...event,
+      venueName: event.venue?.name ?? null,
+      mapLat: event.lat ?? event.venue?.lat ?? null,
+      mapLng: event.lng ?? event.venue?.lng ?? null,
       primaryImageUrl: resolveImageUrl(event.images?.[0]?.asset?.url, event.images?.[0]?.url ?? undefined),
       tags: (event.eventTags ?? []).map((eventTag) => ({ name: eventTag.tag.name, slug: eventTag.tag.slug })),
     })),
