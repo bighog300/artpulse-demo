@@ -4,6 +4,7 @@ import { getSessionUser } from "@/lib/auth";
 import { redirectToLogin } from "@/lib/auth-redirect";
 import VenueSelfServeForm from "@/app/my/_components/VenueSelfServeForm";
 import VenueMembersManager from "@/app/my/_components/VenueMembersManager";
+import { PageHeader } from "@/components/ui/page-header";
 
 export default async function MyVenueEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -39,8 +40,8 @@ export default async function MyVenueEditPage({ params }: { params: Promise<{ id
   const submission = membership.venue.targetSubmissions[0] ?? null;
 
   return (
-    <main className="p-6 space-y-6">
-      <h1 className="text-2xl font-semibold">Edit Venue</h1>
+    <main className="space-y-6 p-6">
+      <PageHeader title="Edit Venue" subtitle="Update venue details and team access settings." />
 
       {submission ? (
         <section className="border rounded p-3 space-y-1">

@@ -5,6 +5,7 @@ import { SearchSaveSearchInline } from "@/app/search/save-search-inline";
 import { getSessionUser } from "@/lib/auth";
 import { SearchResultsList } from "@/app/search/search-results-list";
 import { SearchClient } from "@/app/search/search-client";
+import { PageHeader } from "@/components/ui/page-header";
 
 export const dynamic = "force-dynamic";
 
@@ -16,8 +17,8 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
 
   if (!hasDatabaseUrl()) {
     return (
-      <main className="space-y-2 p-6">
-        <h1 className="text-2xl font-semibold">Search</h1>
+      <main className="space-y-4 p-6">
+        <PageHeader title="Search" subtitle="Find events by date, tags, venue, artist, and distance." />
         {user ? <SearchSaveSearchInline /> : null}
         <p>Set DATABASE_URL to view events locally.</p>
       </main>
@@ -40,8 +41,8 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   });
 
   return (
-    <main className="space-y-2 p-6">
-      <h1 className="text-2xl font-semibold">Search</h1>
+    <main className="space-y-4 p-6">
+      <PageHeader title="Search" subtitle="Find events by date, tags, venue, artist, and distance." />
       <SearchClient filters={Object.fromEntries(Object.entries(filters).map(([k, v]) => [k, v == null ? "" : String(v)]))} />
       {user ? <SearchSaveSearchInline /> : null}
       <form className="grid gap-2 md:grid-cols-2">

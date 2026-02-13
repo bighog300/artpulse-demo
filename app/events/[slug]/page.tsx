@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { resolveImageUrl } from "@/lib/assets";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { ShareButton } from "@/components/share-button";
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { buildDetailMetadata, buildEventJsonLd, getDetailUrl } from "@/lib/seo.public-profiles";
 
 export const dynamic = "force-dynamic";
@@ -63,6 +64,7 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
 
   return (
     <main className="space-y-3 p-6">
+      <Breadcrumbs items={[{ label: "Events", href: "/events" }, { label: event.title, href: `/events/${slug}` }]} />
       <h1 className="text-3xl font-semibold">{event.title}</h1>
       <ShareButton />
       {primaryImage ? (

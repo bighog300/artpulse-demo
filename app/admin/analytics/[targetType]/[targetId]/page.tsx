@@ -5,6 +5,7 @@ import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { adminAnalyticsDrilldownQuerySchema } from "@/lib/validators";
 import { getDrilldown } from "@/lib/admin-analytics-drilldown";
 import { db } from "@/lib/db";
+import { PageHeader } from "@/components/ui/page-header";
 
 type DrilldownPayload = {
   windowDays: number;
@@ -32,10 +33,13 @@ export default async function AdminAnalyticsDrilldownPage({
 
   if (!hasDatabaseUrl()) {
     return (
-      <main className="p-6 space-y-3">
-        <h1 className="text-2xl font-semibold">Analytics drilldown</h1>
+      <main className="space-y-4 p-6">
+        <PageHeader
+          title="Analytics drilldown"
+          subtitle="Detailed engagement metrics for a single target."
+          actions={<Link className="underline text-sm" href="/admin/analytics">Back to analytics</Link>}
+        />
         <p className="rounded border p-3 text-sm text-neutral-700">Set DATABASE_URL to view drilldown analytics.</p>
-        <Link className="underline text-sm" href="/admin/analytics">Back to analytics</Link>
       </main>
     );
   }
@@ -54,15 +58,17 @@ export default async function AdminAnalyticsDrilldownPage({
   const payload = (await getDrilldown(parsed.data.days, parsed.data.targetType, parsed.data.targetId, db as never)) as DrilldownPayload;
 
   return (
-    <main className="p-6 space-y-4">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold">Drilldown: {payload.resolved.label ?? payload.targetId}</h1>
-        <p className="text-sm text-neutral-600">{payload.targetType} · last {payload.windowDays} days</p>
-        <div className="flex gap-3 text-sm">
-          <Link className="underline" href="/admin/analytics">Back to analytics</Link>
-          {payload.resolved.href ? <Link className="underline" href={payload.resolved.href}>Open target page</Link> : null}
-        </div>
-      </div>
+    <main className="space-y-4 p-6">
+      <PageHeader
+        title={`Drilldown: ${payload.resolved.label ?? payload.targetId}`}
+        subtitle={`${payload.targetType} · last ${payload.windowDays} days`}
+        actions={
+          <div className="flex gap-3 text-sm">
+            <Link className="underline" href="/admin/analytics">Back to analytics</Link>
+            {payload.resolved.href ? <Link className="underline" href={payload.resolved.href}>Open target page</Link> : null}
+          </div>
+        }
+      />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="border rounded p-3"><p className="text-xs uppercase text-neutral-500">Events</p><p className="text-xl font-semibold">{payload.totals.events}</p></div>

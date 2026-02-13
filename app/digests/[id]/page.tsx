@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getSessionUser, requireAuth } from "@/lib/auth";
 import { digestSnapshotItemsSchema } from "@/lib/digest";
 import { DigestEngagement } from "@/app/digests/[id]/digest-engagement";
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 
 async function disableSavedSearch(id: string) {
   "use server";
@@ -25,6 +26,7 @@ export default async function DigestDetailPage({ params }: { params: Promise<{ i
 
   return (
     <main className="space-y-4 p-6">
+      <Breadcrumbs items={[{ label: "Saved Searches", href: "/saved-searches" }, { label: digest.savedSearch.name, href: `/saved-searches/${digest.savedSearch.id}` }, { label: digest.periodKey, href: `/digests/${digest.id}` }]} />
       <h1 className="text-2xl font-semibold">{digest.savedSearch.name} · {digest.periodKey}</h1>
       <DigestEngagement digestRunId={digest.id} items={items} />
       <div className="flex items-center gap-3">

@@ -5,6 +5,7 @@ import { redirectToLogin } from "@/lib/auth-redirect";
 import { OnboardingPanel } from "@/components/onboarding/onboarding-panel";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
 
 export const dynamic = "force-dynamic";
 
@@ -14,8 +15,8 @@ export default async function MyVenuesPage() {
 
   if (!hasDatabaseUrl()) {
     return (
-      <main className="p-6 space-y-3">
-        <h1 className="text-2xl font-semibold">My Venues</h1>
+      <main className="space-y-4 p-6">
+        <PageHeader title="My Venues" subtitle="Manage your venues, members, and submission status." />
         <p>Set DATABASE_URL to manage venues locally.</p>
       </main>
     );
@@ -54,7 +55,7 @@ export default async function MyVenuesPage() {
 
   return (
     <main className="p-6 space-y-3">
-      <h1 className="text-2xl font-semibold">My Venues</h1>
+      <PageHeader title="My Venues" subtitle="Manage your venues, members, and submission status." />
       <OnboardingPanel />
 
       {pendingInvites.length > 0 ? (

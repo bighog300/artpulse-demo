@@ -2,6 +2,7 @@ import { getSessionUser } from "@/lib/auth";
 import { redirectToLogin } from "@/lib/auth-redirect";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { ForYouClient } from "@/components/recommendations/for-you-client";
+import { PageHeader } from "@/components/ui/page-header";
 
 export default async function ForYouPage() {
   const user = await getSessionUser();
@@ -9,8 +10,8 @@ export default async function ForYouPage() {
 
   if (!hasDatabaseUrl()) {
     return (
-      <main className="p-6">
-        <h1 className="mb-2 text-2xl font-semibold">For You</h1>
+      <main className="space-y-4 p-6">
+        <PageHeader title="For You" subtitle="Personalized picks based on your follows and engagement." />
         <p>Set DATABASE_URL to view personalized recommendations locally.</p>
       </main>
     );
@@ -18,7 +19,7 @@ export default async function ForYouPage() {
 
   return (
     <main className="space-y-4 p-6">
-      <h1 className="text-2xl font-semibold">For You</h1>
+      <PageHeader title="For You" subtitle="Personalized picks based on your follows and engagement." />
       <ForYouClient />
     </main>
   );

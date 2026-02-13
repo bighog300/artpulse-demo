@@ -7,6 +7,7 @@ import { getSessionUser } from "@/lib/auth";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { FollowButton } from "@/components/follows/follow-button";
 import { ShareButton } from "@/components/share-button";
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { buildDetailMetadata, buildVenueJsonLd, getDetailUrl } from "@/lib/seo.public-profiles";
 
 export const dynamic = "force-dynamic";
@@ -63,6 +64,7 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
 
   return (
     <main className="space-y-3 p-6">
+      <Breadcrumbs items={[{ label: "Venues", href: "/venues" }, { label: venue.name, href: `/venues/${slug}` }]} />
       <h1 className="text-3xl font-semibold">{venue.name}</h1>
       <ShareButton />
       <FollowButton
