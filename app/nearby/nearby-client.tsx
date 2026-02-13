@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { LocationPreferencesForm } from "@/components/location/location-preferences-form";
 import { NearbyMap } from "@/components/nearby/nearby-map";
 import { resolveNearbyView, type NearbyEventItem, type NearbyView } from "@/lib/nearby-map";
 import { SaveSearchButton } from "@/components/saved-searches/save-search-button";
+import { trackEngagement } from "@/lib/engagement-client";
 
 type LocationDraft = {
   locationLabel: string;
@@ -26,6 +27,8 @@ export function NearbyClient({ initialLocation, isAuthenticated, initialView }: 
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+
+  const viewedImpressionKeys = useRef<Set<string>>(new Set());
 
   const canSearch = useMemo(() => form.lat.trim() !== "" && form.lng.trim() !== "", [form.lat, form.lng]);
 
@@ -79,6 +82,16 @@ export function NearbyClient({ initialLocation, isAuthenticated, initialView }: 
   useEffect(() => {
     if (canSearch) void loadEvents();
   }, [canSearch, loadEvents]);
+
+  useEffect(() => {
+    const visible = items.slice(0, 10);
+    for (const [index, item] of visible.entries()) {
+      const key = `${item.id}:${index}`;
+      if (viewedImpressionKeys.current.has(key)) continue;
+      viewedImpressionKeys.current.add(key);
+      trackEngagement({ surface: "NEARBY", action: "VIEW", targetType: "EVENT", targetId: item.id, meta: { position: index } });
+    }
+  }, [items]);
 
   return (
     <div className="space-y-4">
@@ -137,7 +150,7 @@ export function NearbyClient({ initialLocation, isAuthenticated, initialView }: 
             <ul className="space-y-2">
               {items.map((item) => (
                 <li key={item.id} className="rounded border p-3">
-                  <Link className="font-medium underline" href={`/events/${item.slug}`}>{item.title}</Link>
+                  <Link className="font-medium underline" href={`/events/${item.slug}`} onClick={() => trackEngagement({ surface: "NEARBY", action: "CLICK", targetType: "EVENT", targetId: item.id, meta: { position: items.findIndex((eventItem) => eventItem.id === item.id) } })}>{item.title}</Link>
                   <p className="text-sm text-gray-600">
                     {new Date(item.startAt).toLocaleString()} {item.venueName ? <>{" · "}{item.venueName}</> : null}
                   </p>

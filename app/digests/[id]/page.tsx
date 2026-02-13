@@ -2,6 +2,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { getSessionUser, requireAuth } from "@/lib/auth";
 import { digestSnapshotItemsSchema } from "@/lib/digest";
+import { DigestEngagement } from "@/app/digests/[id]/digest-engagement";
 
 async function disableSavedSearch(id: string) {
   "use server";
@@ -25,14 +26,7 @@ export default async function DigestDetailPage({ params }: { params: Promise<{ i
   return (
     <main className="space-y-4 p-6">
       <h1 className="text-2xl font-semibold">{digest.savedSearch.name} · {digest.periodKey}</h1>
-      <ul className="space-y-2">
-        {items.map((item) => (
-          <li key={`${digest.id}-${item.slug}`} className="rounded border p-3">
-            <Link className="font-medium underline" href={`/events/${item.slug}`}>{item.title}</Link>
-            <p className="text-sm text-gray-600">{new Date(item.startAt).toLocaleString()}{item.venueName ? ` · ${item.venueName}` : ""}</p>
-          </li>
-        ))}
-      </ul>
+      <DigestEngagement digestRunId={digest.id} items={items} />
       <div className="flex items-center gap-3">
         <form action={disableSavedSearch.bind(null, digest.savedSearch.id)}>
           <button type="submit" className="rounded border px-3 py-1 text-sm">Disable this saved search</button>
