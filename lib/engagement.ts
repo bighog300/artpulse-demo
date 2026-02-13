@@ -8,12 +8,7 @@ export function generateSessionId() {
   return randomUUID();
 }
 
-export function sanitizeEngagementMeta(meta: { digestRunId?: string; position?: number; query?: string } | undefined) {
-  if (!meta) return undefined;
-  const next: { digestRunId?: string; position?: number; query?: string } = {};
-  if (meta.digestRunId) next.digestRunId = meta.digestRunId;
-  if (typeof meta.position === "number") next.position = meta.position;
-  if (meta.query) next.query = meta.query.slice(0, 120);
+
   return Object.keys(next).length ? next : undefined;
 }
 

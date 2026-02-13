@@ -10,6 +10,7 @@ export default function AdminHomePage() {
         <li><Link className="underline" href="/admin/artists">Artists</Link></li>
               <li><Link className="underline" href="/admin/submissions">Submissions</Link></li>
         <li><Link className="underline" href="/admin/perf">Performance</Link></li>
+        <li><Link className="underline" href="/admin/analytics">Analytics</Link></li>
       </ul>
     </main>
   );

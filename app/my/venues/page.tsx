@@ -1,14 +1,25 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
+import { redirectToLogin } from "@/lib/auth-redirect";
 import { OnboardingPanel } from "@/components/onboarding/onboarding-panel";
+import { hasDatabaseUrl } from "@/lib/runtime-db";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export const dynamic = "force-dynamic";
 
 export default async function MyVenuesPage() {
   const user = await getSessionUser();
-  if (!user) redirect("/login");
+  if (!user) redirectToLogin("/my/venues");
+
+  if (!hasDatabaseUrl()) {
+    return (
+      <main className="p-6 space-y-3">
+        <h1 className="text-2xl font-semibold">My Venues</h1>
+        <p>Set DATABASE_URL to manage venues locally.</p>
+      </main>
+    );
+  }
 
   const memberships = await db.venueMembership.findMany({
     where: { userId: user.id },
@@ -62,12 +73,15 @@ export default async function MyVenuesPage() {
       ) : null}
 
       {hasNoMemberships && hasNoInvites ? (
-        <section className="rounded border bg-zinc-50 p-5 text-sm">
-          <h2 className="text-lg font-semibold">You’re not part of any venue yet</h2>
-          <p className="mt-2 text-zinc-700">Ask a venue owner to invite {user.email}, or start by creating a venue with an admin/editor.</p>
-          <p className="mt-2 text-zinc-700">Need help? Share this email for invites: <span className="font-medium">{user.email}</span></p>
-          <p className="mt-3"><Link className="underline" href="/my/venues/new">Create a venue</Link></p>
-        </section>
+        <EmptyState
+          title="Create a venue or join one"
+          description="Create a venue to start posting events, or accept an invite."
+          actions={[
+            { label: "Create venue", href: "/my/venues/new" },
+            { label: "Browse venues", href: "/venues", variant: "secondary" },
+            { label: "Check notifications", href: "/notifications", variant: "secondary" },
+          ]}
+        />
       ) : (
         <ul className="space-y-2">
           {memberships.map((item) => (

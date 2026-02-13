@@ -19,55 +19,64 @@ export function NearbyMap({ events, lat, lng, radiusKm, days, onSearchArea }: Ne
   const markerRefs = useRef<Array<{ remove: () => void }>>([]);
   const [selected, setSelected] = useState<MarkerEvent | null>(null);
   const [isSearchingArea, setIsSearchingArea] = useState(false);
+  const [isMapboxUnavailable, setIsMapboxUnavailable] = useState(false);
   const mapToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
 
   const { markers, omittedCount } = useMemo(() => getMarkerEvents(events), [events]);
 
   useEffect(() => {
-    if (!mapToken || !mapContainerRef.current || markers.length === 0) return;
+    if (typeof window === "undefined" || !mapToken || !mapContainerRef.current || markers.length === 0) return;
+
+    setIsMapboxUnavailable(false);
 
     let isCancelled = false;
 
     void (async () => {
-      const mapboxModule = await import("mapbox-gl");
-      if (isCancelled) return;
-      const mapboxgl = mapboxModule.default;
-      mapboxgl.accessToken = mapToken;
+      try {
+        const mb = await import("mapbox-gl");
+        if (isCancelled) return;
+        const mapboxgl = mb.default ?? mb;
+        mapboxgl.accessToken = mapToken;
 
-      const fallbackCenter: [number, number] = [markers[0].lng, markers[0].lat];
-      const numericLat = Number.parseFloat(lat);
-      const numericLng = Number.parseFloat(lng);
-      const center: [number, number] = Number.isFinite(numericLat) && Number.isFinite(numericLng)
-        ? [numericLng, numericLat]
-        : fallbackCenter;
+        const fallbackCenter: [number, number] = [markers[0].lng, markers[0].lat];
+        const numericLat = Number.parseFloat(lat);
+        const numericLng = Number.parseFloat(lng);
+        const center: [number, number] = Number.isFinite(numericLat) && Number.isFinite(numericLng)
+          ? [numericLng, numericLat]
+          : fallbackCenter;
 
-      const map = new mapboxgl.Map({
-        container: mapContainerRef.current as HTMLDivElement,
-        style: "mapbox://styles/mapbox/streets-v12",
-        center,
-        zoom: 10,
-      });
+        const map = new mapboxgl.Map({
+          container: mapContainerRef.current as HTMLDivElement,
+          style: "mapbox://styles/mapbox/streets-v12",
+          center,
+          zoom: 10,
+        });
 
-      mapRef.current = map;
+        mapRef.current = map;
 
-      const bounds = new mapboxgl.LngLatBounds();
-      markers.forEach((markerEvent) => {
-        const el = document.createElement("button");
-        el.type = "button";
-        el.className = "h-3 w-3 rounded-full border border-gray-900 bg-blue-500";
-        el.setAttribute("aria-label", `Show ${markerEvent.title}`);
+        const bounds = new mapboxgl.LngLatBounds();
+        markers.forEach((markerEvent) => {
+          const el = document.createElement("button");
+          el.type = "button";
+          el.className = "h-3 w-3 rounded-full border border-gray-900 bg-blue-500";
+          el.setAttribute("aria-label", `Show ${markerEvent.title}`);
 
-        const marker = new mapboxgl.Marker({ element: el })
-          .setLngLat([markerEvent.lng, markerEvent.lat])
-          .addTo(map);
+          const marker = new mapboxgl.Marker({ element: el })
+            .setLngLat([markerEvent.lng, markerEvent.lat])
+            .addTo(map);
 
-        el.addEventListener("click", () => setSelected(markerEvent));
-        markerRefs.current.push(marker);
-        bounds.extend([markerEvent.lng, markerEvent.lat]);
-      });
+          el.addEventListener("click", () => setSelected(markerEvent));
+          markerRefs.current.push(marker);
+          bounds.extend([markerEvent.lng, markerEvent.lat]);
+        });
 
-      if (!bounds.isEmpty()) {
-        map.fitBounds(bounds, { padding: 40, maxZoom: 12 });
+        if (!bounds.isEmpty()) {
+          map.fitBounds(bounds, { padding: 40, maxZoom: 12 });
+        }
+      } catch {
+        if (!isCancelled) {
+          setIsMapboxUnavailable(true);
+        }
       }
     })();
 
@@ -86,6 +95,14 @@ export function NearbyMap({ events, lat, lng, radiusKm, days, onSearchArea }: Ne
       <div className="rounded border border-dashed p-4 text-sm text-gray-700">
         <p className="font-medium">Map token not configured.</p>
         <p className="mt-1">Set NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN to enable map rendering. List view is still available.</p>
+      </div>
+    );
+  }
+
+  if (isMapboxUnavailable) {
+    return (
+      <div className="rounded border border-dashed p-4 text-sm text-gray-700">
+        <p className="font-medium">Map view unavailable (mapbox not installed). Use List view.</p>
       </div>
     );
   }

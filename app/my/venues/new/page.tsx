@@ -1,10 +1,10 @@
-import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth";
+import { redirectToLogin } from "@/lib/auth-redirect";
 import CreateVenueForm from "@/app/my/_components/CreateVenueForm";
 
 export default async function CreateVenuePage() {
   const user = await getSessionUser();
-  if (!user) redirect("/login");
+  if (!user) redirectToLogin("/my/venues/new");
 
   return (
     <main className="space-y-4 p-6">

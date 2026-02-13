@@ -12,7 +12,7 @@ type EngagementCreate = {
   action: "VIEW" | "CLICK" | "FOLLOW" | "SAVE_SEARCH";
   targetType: "EVENT" | "VENUE" | "ARTIST" | "SAVED_SEARCH" | "DIGEST_RUN";
   targetId: string;
-  metaJson?: { digestRunId?: string; position?: number; query?: string };
+
 };
 
 type EngagementDeps = {
@@ -34,6 +34,7 @@ export async function handleEngagementPost(req: NextRequest, deps: EngagementDep
       limit: RATE_LIMITS.engagementWrite.limit,
       windowMs: RATE_LIMITS.engagementWrite.windowMs,
     });
+
 
     await deps.createEvent({
       userId: user?.id ?? null,

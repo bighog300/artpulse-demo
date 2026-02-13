@@ -7,7 +7,7 @@ type EngagementPayload = {
   action: "VIEW" | "CLICK" | "FOLLOW" | "SAVE_SEARCH";
   targetType: "EVENT" | "VENUE" | "ARTIST" | "SAVED_SEARCH" | "DIGEST_RUN";
   targetId: string;
-  meta?: { digestRunId?: string; position?: number; query?: string };
+
 };
 
 const LAST_VIEW_SENT = new Map<string, number>();
