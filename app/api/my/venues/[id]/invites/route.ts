@@ -3,7 +3,8 @@ import { apiError } from "@/lib/api";
 import { db } from "@/lib/db";
 import { createOrRefreshVenueInvite, normalizeInviteStatus } from "@/lib/invites";
 import { inviteCreatedDedupeKey } from "@/lib/notification-keys";
-import { enqueueNotification } from "@/lib/notifications";
+import { buildInAppFromTemplate, enqueueNotification } from "@/lib/notifications";
+import { buildNotification } from "@/lib/notification-templates";
 import { requireVenueMemberManager } from "@/lib/venue-access";
 import { parseBody, venueIdParamSchema, venueInviteCreateSchema, zodDetails } from "@/lib/validators";
 import { RATE_LIMITS, enforceRateLimit, isRateLimitError, rateLimitErrorResponse } from "@/lib/rate-limit";
@@ -71,7 +72,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       select: { id: true },
     });
 
-    const invitePath = `/invite/${invite.token}`;
+    const template = buildNotification({
+      type: "INVITE_CREATED",
+      payload: {
+        type: "INVITE_CREATED",
+        inviteId: invite.id,
+        inviteToken: invite.token,
+        venueId: invite.venueId,
+        role: invite.role,
+      },
+    });
 
     await enqueueNotification({
       type: "INVITE_CREATED",
@@ -81,15 +91,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         inviteId: invite.id,
         venueId: invite.venueId,
         role: invite.role,
-        invitePath,
+        invitePath: template.href,
         expiresAt: invite.expiresAt.toISOString(),
       },
-      inApp: invitedUser ? {
-        userId: invitedUser.id,
-        title: "You've been invited to manage a venue",
-        body: `You were invited as ${invite.role.toLowerCase()} to collaborate on a venue.`,
-        href: invitePath,
-      } : undefined,
+      inApp: invitedUser ? buildInAppFromTemplate(invitedUser.id, "INVITE_CREATED", {
+        type: "INVITE_CREATED",
+        inviteId: invite.id,
+        inviteToken: invite.token,
+        venueId: invite.venueId,
+        role: invite.role,
+      }) : undefined,
     });
 
     return NextResponse.json({
@@ -98,7 +109,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       role: invite.role,
       status: invite.status,
       expiresAt: invite.expiresAt,
-      invitePath,
+      invitePath: template.href ?? `/invite/${invite.token}`,
     }, { status: 201 });
   } catch (error) {
     if (isRateLimitError(error)) return rateLimitErrorResponse(error);

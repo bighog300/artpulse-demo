@@ -8,12 +8,34 @@ type NotificationPageProps = {
   initialNextCursor: string | null;
 };
 
+function relativeTimeLabel(date: Date) {
+  const diffMs = Date.now() - date.getTime();
+  const diffMinutes = Math.max(1, Math.floor(diffMs / 60_000));
+
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+  const hours = Math.floor(diffMinutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return `${weeks}w ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+  const years = Math.floor(days / 365);
+  return `${years}y ago`;
+}
+
 export function NotificationsClient({ initialItems, initialNextCursor }: NotificationPageProps) {
   const [items, setItems] = useState(initialItems);
   const [nextCursor, setNextCursor] = useState<string | null>(initialNextCursor);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [activeTab, setActiveTab] = useState<"ALL" | "UNREAD">("ALL");
 
   const unreadCount = useMemo(() => items.filter((item) => item.status === "UNREAD").length, [items]);
+  const visibleItems = useMemo(
+    () => activeTab === "UNREAD" ? items.filter((item) => item.status === "UNREAD") : items,
+    [activeTab, items],
+  );
 
   async function markRead(id: string) {
     await fetch(`/api/notifications/${id}/read`, { method: "POST" });
@@ -40,13 +62,30 @@ export function NotificationsClient({ initialItems, initialNextCursor }: Notific
 
   return (
     <section className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-gray-700">Unread: {unreadCount}</p>
-        <button className="rounded border px-3 py-1 text-sm" type="button" onClick={markAllRead}>Mark all as read</button>
+        <button className="rounded border px-3 py-1 text-sm" type="button" onClick={markAllRead}>Mark all read</button>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <button
+          className={`rounded border px-3 py-1 text-sm ${activeTab === "ALL" ? "border-black" : "border-gray-300"}`}
+          type="button"
+          onClick={() => setActiveTab("ALL")}
+        >
+          All
+        </button>
+        <button
+          className={`rounded border px-3 py-1 text-sm ${activeTab === "UNREAD" ? "border-black" : "border-gray-300"}`}
+          type="button"
+          onClick={() => setActiveTab("UNREAD")}
+        >
+          Unread
+        </button>
       </div>
 
       <ul className="space-y-2">
-        {items.map((item) => (
+        {visibleItems.map((item) => (
           <li key={item.id} className={`rounded border p-3 ${item.status === "UNREAD" ? "border-black" : "border-gray-300"}`}>
             <button
               type="button"
@@ -58,7 +97,7 @@ export function NotificationsClient({ initialItems, initialNextCursor }: Notific
             >
               <p className="font-medium">{item.title}</p>
               <p className="text-sm text-gray-700">{item.body}</p>
-              <p className="text-xs text-gray-500">{new Date(item.createdAt).toLocaleString()}</p>
+              <p className="text-xs text-gray-500">{relativeTimeLabel(new Date(item.createdAt))}</p>
             </button>
           </li>
         ))}

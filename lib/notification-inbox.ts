@@ -1,6 +1,12 @@
 import { db } from "@/lib/db";
+import { NotificationType } from "@prisma/client";
+import { buildNotification, NotificationTemplatePayload } from "@/lib/notification-templates";
 
 type InboxDb = Pick<typeof db, "notification">;
+
+export function buildInboxNotification(type: NotificationType, payload: NotificationTemplatePayload) {
+  return buildNotification({ type, payload });
+}
 
 export async function markNotificationReadWithDb(inboxDb: InboxDb, userId: string, notificationId: string) {
   const result = await inboxDb.notification.updateMany({

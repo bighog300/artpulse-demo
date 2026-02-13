@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { requireEditor } from "@/lib/auth";
 import { idParamSchema, parseBody, submissionDecisionSchema, zodDetails } from "@/lib/validators";
 import { submissionDecisionDedupeKey } from "@/lib/notification-keys";
-import { enqueueNotification } from "@/lib/notifications";
+import { buildInAppFromTemplate, enqueueNotification } from "@/lib/notifications";
 import { RATE_LIMITS, enforceRateLimit, isRateLimitError, rateLimitErrorResponse } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -26,7 +26,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const submission = await db.submission.findUnique({
       where: { id: parsedId.data.id },
-      include: { submitter: { select: { id: true, email: true } } },
+      include: {
+        submitter: { select: { id: true, email: true } },
+        targetEvent: { select: { slug: true } },
+        targetVenue: { select: { slug: true } },
+      },
     });
     if (!submission) return apiError(404, "not_found", "Submission not found");
     if (submission.status !== "SUBMITTED") return apiError(409, "invalid_state", "Submission is not pending moderation");
@@ -57,12 +61,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           status: updated.status,
           decidedAt: updated.decidedAt?.toISOString() ?? null,
         },
-        inApp: {
-          userId: submission.submitter.id,
-          title: "Submission approved",
-          body: "Your submission has been approved and published.",
-          href: submission.type === "EVENT" && submission.targetEventId ? `/my/events/${submission.targetEventId}` : submission.type === "VENUE" && submission.targetVenueId ? `/my/venues/${submission.targetVenueId}` : undefined,
-        },
+        inApp: buildInAppFromTemplate(submission.submitter.id, "SUBMISSION_APPROVED", {
+          type: "SUBMISSION_APPROVED",
+          submissionId: updated.id,
+          submissionType: submission.type,
+          targetEventSlug: submission.targetEvent?.slug,
+          targetVenueSlug: submission.targetVenue?.slug,
+        }),
       });
       return NextResponse.json(updated);
     }
@@ -86,12 +91,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         decisionReason: updated.decisionReason,
         decidedAt: updated.decidedAt?.toISOString() ?? null,
       },
-      inApp: {
-        userId: submission.submitter.id,
-        title: "Submission needs changes",
-        body: updated.decisionReason ?? "Your submission was rejected by moderation.",
-        href: submission.type === "EVENT" && submission.targetEventId ? `/my/events/${submission.targetEventId}` : submission.type === "VENUE" && submission.targetVenueId ? `/my/venues/${submission.targetVenueId}` : undefined,
-      },
+      inApp: buildInAppFromTemplate(submission.submitter.id, "SUBMISSION_REJECTED", {
+        type: "SUBMISSION_REJECTED",
+        submissionId: updated.id,
+        submissionType: submission.type,
+        targetVenueId: submission.targetVenueId,
+        decisionReason: updated.decisionReason,
+      }),
     });
     return NextResponse.json(updated);
   } catch (error) {
