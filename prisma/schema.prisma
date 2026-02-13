@@ -98,6 +98,12 @@ model User {
   perfSnapshotsCreated PerfSnapshot[]
   notifications        Notification[]
   onboardingState      OnboardingState?
+  locationLabel        String?
+  locationLat          Float?
+  locationLng          Float?
+  locationRadiusKm     Int               @default(25)
+
+  @@index([locationLat, locationLng])
 }
 
 model OnboardingState {

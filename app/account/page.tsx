@@ -3,6 +3,7 @@ import { getSessionUser } from "@/lib/auth";
 import { LogoutButton } from "@/app/account/logout-button";
 import { db } from "@/lib/db";
 import { OnboardingPanel } from "@/components/onboarding/onboarding-panel";
+import { LocationSettings } from "@/app/account/location-settings";
 
 export default async function AccountPage() {
   const user = await getSessionUser();
@@ -14,7 +15,13 @@ export default async function AccountPage() {
     );
   }
 
-  const unreadCount = await db.notification.count({ where: { userId: user.id, status: "UNREAD" } });
+  const [unreadCount, location] = await Promise.all([
+    db.notification.count({ where: { userId: user.id, status: "UNREAD" } }),
+    db.user.findUnique({
+      where: { id: user.id },
+      select: { locationLabel: true, locationLat: true, locationLng: true, locationRadiusKm: true },
+    }),
+  ]);
 
   return (
     <main className="space-y-2 p-6">
@@ -24,6 +31,14 @@ export default async function AccountPage() {
       <p>Role: {user.role}</p>
       <p><Link className="underline" href="/my/venues">Manage my venues</Link></p>
       <p><Link className="underline" href="/notifications">Notifications ({unreadCount})</Link></p>
+      <LocationSettings
+        initial={{
+          locationLabel: location?.locationLabel ?? "",
+          lat: location?.locationLat != null ? String(location.locationLat) : "",
+          lng: location?.locationLng != null ? String(location.locationLng) : "",
+          radiusKm: String(location?.locationRadiusKm ?? 25),
+        }}
+      />
       <LogoutButton />
     </main>
   );

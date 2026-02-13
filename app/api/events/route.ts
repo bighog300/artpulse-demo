@@ -5,6 +5,7 @@ import { apiError } from "@/lib/api";
 import { resolveImageUrl } from "@/lib/assets";
 import { eventsQuerySchema, paramsToObject, zodDetails } from "@/lib/validators";
 import { buildStartAtIdCursorPredicate, START_AT_ID_ORDER_BY } from "@/lib/cursor-predicate";
+import { getBoundingBox, isWithinRadiusKm } from "@/lib/geo";
 
 type EventWithJoin = {
   id: string;
@@ -20,20 +21,6 @@ export const runtime = "nodejs";
 
 const shouldLogPerf = process.env.NODE_ENV !== "production" || process.env.DEBUG_PERF === "1";
 
-function bounds(lat: number, lng: number, radiusKm: number) {
-  const latDelta = radiusKm / 111;
-  const lngDelta = radiusKm / (111 * Math.cos((lat * Math.PI) / 180));
-  return { minLat: lat - latDelta, maxLat: lat + latDelta, minLng: lng - lngDelta, maxLng: lng + lngDelta };
-}
-
-function isInRadius(lat1: number, lng1: number, lat2: number, lng2: number, radiusKm: number) {
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const r = 6371;
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-  return 2 * r * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) <= radiusKm;
-}
 
 function encodeCursor(item: Pick<EventWithJoin, "id" | "startAt">) {
   return Buffer.from(JSON.stringify({ id: item.id, startAt: item.startAt.toISOString() })).toString("base64url");
@@ -57,7 +44,7 @@ export async function GET(req: NextRequest) {
 
   const { cursor, limit, query, venue, artist, from, to, tags, lat, lng, radiusKm } = parsed.data;
   const tagList = (tags || "").split(",").map((t) => t.trim()).filter(Boolean);
-  const box = lat != null && lng != null && radiusKm != null ? bounds(lat, lng, radiusKm) : null;
+  const box = lat != null && lng != null && radiusKm != null ? getBoundingBox(lat, lng, radiusKm) : null;
   const decodedCursor = cursor ? decodeCursor(cursor) : null;
 
   const filters: Prisma.EventWhereInput[] = [];
@@ -96,7 +83,7 @@ export async function GET(req: NextRequest) {
     ? items.filter((e) => {
         const sourceLat = e.lat ?? e.venue?.lat;
         const sourceLng = e.lng ?? e.venue?.lng;
-        return sourceLat != null && sourceLng != null && isInRadius(lat, lng, sourceLat, sourceLng, radiusKm);
+        return sourceLat != null && sourceLng != null && isWithinRadiusKm(lat, lng, sourceLat, sourceLng, radiusKm);
       })
     : items;
 

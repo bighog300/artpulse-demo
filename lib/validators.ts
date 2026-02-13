@@ -47,6 +47,28 @@ export const followingFeedQuerySchema = z.object({
   type: z.enum(["both", "artist", "venue"]).default("both"),
 });
 
+export const locationPreferenceSchema = z.object({
+  locationLabel: z.string().trim().min(1).max(120).optional().nullable(),
+  lat: z.number().min(-90).max(90).optional().nullable(),
+  lng: z.number().min(-180).max(180).optional().nullable(),
+  radiusKm: z.number().int().min(1).max(200).default(25),
+}).superRefine((data, ctx) => {
+  const hasLat = data.lat != null;
+  const hasLng = data.lng != null;
+  if (hasLat !== hasLng) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: [hasLat ? "lng" : "lat"], message: "lat and lng must be provided together" });
+  }
+});
+
+export const nearbyEventsQuerySchema = z.object({
+  lat: z.coerce.number().min(-90).max(90),
+  lng: z.coerce.number().min(-180).max(180),
+  radiusKm: z.coerce.number().int().min(1).max(200),
+  days: z.enum(["7", "30"]).default("7").transform((value) => Number(value) as 7 | 30),
+  cursor: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+});
+
 export const adminArtistCreateSchema = z.object({
   name: z.string().trim().min(1),
   slug: slugSchema,
