@@ -45,17 +45,18 @@ export default async function FollowingPage({ searchParams }: { searchParams: Se
     {
       now: () => new Date(),
       findFollows: async (userId) => db.follow.findMany({ where: { userId }, select: { targetType: true, targetId: true } }),
-      findEvents: async ({ artistIds, venueIds, from, to, cursor, limit }) => db.event.findMany({
+      findEvents: async ({ artistIds, venueIds, from, to, limit }) => db.event.findMany({
         where: {
           isPublished: true,
           startAt: { gte: from, lte: to },
-          OR: [
-            ...(venueIds.length ? [{ venueId: { in: venueIds } }] : []),
-            ...(artistIds.length ? [{ eventArtists: { some: { artistId: { in: artistIds } } } }] : []),
-          ],
+          AND: [{
+            OR: [
+              ...(venueIds.length ? [{ venueId: { in: venueIds } }] : []),
+              ...(artistIds.length ? [{ eventArtists: { some: { artistId: { in: artistIds } } } }] : []),
+            ],
+          }],
         },
         take: limit,
-        ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
         orderBy: [{ startAt: "asc" }, { id: "asc" }],
         select: {
           id: true,

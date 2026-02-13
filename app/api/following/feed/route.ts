@@ -7,37 +7,70 @@ import { followingFeedQuerySchema, paramsToObject, zodDetails } from "@/lib/vali
 
 export const runtime = "nodejs";
 
+const shouldLogPerf = process.env.NODE_ENV !== "production" || process.env.DEBUG_PERF === "1";
+
 export async function GET(req: NextRequest) {
   const parsed = followingFeedQuerySchema.safeParse(paramsToObject(req.nextUrl.searchParams));
   if (!parsed.success) return apiError(400, "invalid_request", "Invalid query parameters", zodDetails(parsed.error));
 
   try {
     const user = await requireAuth();
+    const followsMemo = new Map<string, Array<{ targetType: "ARTIST" | "VENUE"; targetId: string }>>();
+
     const result = await getFollowingFeedWithDeps(
       {
         now: () => new Date(),
-        findFollows: async (userId) => db.follow.findMany({ where: { userId }, select: { targetType: true, targetId: true } }),
-        findEvents: async ({ artistIds, venueIds, from, to, cursor, limit }) => db.event.findMany({
-          where: {
-            isPublished: true,
-            startAt: { gte: from, lte: to },
-            OR: [
-              ...(venueIds.length ? [{ venueId: { in: venueIds } }] : []),
-              ...(artistIds.length ? [{ eventArtists: { some: { artistId: { in: artistIds } } } }] : []),
-            ],
-          },
-          take: limit,
-          ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
-          orderBy: [{ startAt: "asc" }, { id: "asc" }],
-          select: {
-            id: true,
-            slug: true,
-            title: true,
-            startAt: true,
-            endAt: true,
-            venue: { select: { name: true, slug: true } },
-          },
-        }),
+        findFollows: async (userId) => {
+          const key = `follows:${userId}`;
+          const cached = followsMemo.get(key);
+          if (cached) return cached;
+          const startedAt = performance.now();
+          const follows = await db.follow.findMany({
+            where: { userId },
+            select: { targetType: true, targetId: true },
+            orderBy: { createdAt: "desc" },
+          });
+          if (shouldLogPerf) console.info(`[perf] following/feed follows=${(performance.now() - startedAt).toFixed(1)}ms`);
+          followsMemo.set(key, follows);
+          return follows;
+        },
+        findEvents: async ({ artistIds, venueIds, from, to, cursor, limit }) => {
+          const startedAt = performance.now();
+          const events = await db.event.findMany({
+            where: {
+              isPublished: true,
+              startAt: { gte: from, lte: to },
+              AND: [
+                {
+                  OR: [
+                    ...(venueIds.length ? [{ venueId: { in: venueIds } }] : []),
+                    ...(artistIds.length ? [{ eventArtists: { some: { artistId: { in: artistIds } } } }] : []),
+                  ],
+                },
+                ...(cursor
+                  ? [{
+                      OR: [
+                        { startAt: { gt: cursor.startAt } },
+                        { startAt: cursor.startAt, id: { gt: cursor.id } },
+                      ],
+                    }]
+                  : []),
+              ],
+            },
+            take: limit,
+            orderBy: [{ startAt: "asc" }, { id: "asc" }],
+            select: {
+              id: true,
+              slug: true,
+              title: true,
+              startAt: true,
+              endAt: true,
+              venue: { select: { name: true, slug: true } },
+            },
+          });
+          if (shouldLogPerf) console.info(`[perf] following/feed events=${(performance.now() - startedAt).toFixed(1)}ms`);
+          return events;
+        },
       },
       {
         userId: user.id,

@@ -68,6 +68,49 @@ test("feed returns only published events", async () => {
   assert.equal(result.items[0].slug, "published-event");
 });
 
+test("feed pagination cursor returns stable next page", async () => {
+  const events = [
+    { id: "a", slug: "a", title: "A", startAt: new Date("2026-01-02T00:00:00.000Z"), endAt: null, venue: null },
+    { id: "b", slug: "b", title: "B", startAt: new Date("2026-01-02T00:00:00.000Z"), endAt: null, venue: null },
+    { id: "c", slug: "c", title: "C", startAt: new Date("2026-01-03T00:00:00.000Z"), endAt: null, venue: null },
+  ];
+
+  const deps = {
+    now: () => new Date("2026-01-01T00:00:00.000Z"),
+    findFollows: async () => [{ targetType: "ARTIST" as const, targetId: "artist-1" }],
+    findEvents: async ({ cursor, limit }: { cursor?: { id: string; startAt: Date }; limit: number }) => {
+      const ordered = events.slice().sort((x, y) => x.startAt.getTime() - y.startAt.getTime() || x.id.localeCompare(y.id));
+      const filtered = cursor
+        ? ordered.filter((item) => item.startAt > cursor.startAt || (item.startAt.getTime() === cursor.startAt.getTime() && item.id > cursor.id))
+        : ordered;
+      return filtered.slice(0, limit);
+    },
+  };
+
+  const page1 = await getFollowingFeedWithDeps(deps, { userId: "u1", days: 7, type: "artist", limit: 2 });
+  const page2 = await getFollowingFeedWithDeps(deps, { userId: "u1", days: 7, type: "artist", limit: 2, cursor: page1.nextCursor ?? undefined });
+
+  assert.deepEqual(page1.items.map((i) => i.id), ["a", "b"]);
+  assert.deepEqual(page2.items.map((i) => i.id), ["c"]);
+});
+
+test("feed ordering is deterministic when startAt ties", async () => {
+  const result = await getFollowingFeedWithDeps(
+    {
+      now: () => new Date("2026-01-01T00:00:00.000Z"),
+      findFollows: async () => [{ targetType: "VENUE", targetId: "venue-1" }],
+      findEvents: async () => [
+        { id: "evt-1", slug: "e1", title: "E1", startAt: new Date("2026-01-02T00:00:00.000Z"), endAt: null, venue: null },
+        { id: "evt-2", slug: "e2", title: "E2", startAt: new Date("2026-01-02T00:00:00.000Z"), endAt: null, venue: null },
+      ],
+    },
+    { userId: "u1", days: 7, type: "venue", limit: 10 },
+  );
+
+  assert.deepEqual(result.items.map((item) => item.id), ["evt-1", "evt-2"]);
+  assert.deepEqual(Object.keys(result.items[0]).sort(), ["endAt", "id", "slug", "startAt", "title", "venue"]);
+});
+
 test("counts endpoint returns followersCount and auth-sensitive isFollowing", () => {
   const unauthenticatedResponse = followStatusResponse({ followersCount: 12, isAuthenticated: false, hasFollow: true });
   const authenticatedResponse = followStatusResponse({ followersCount: 12, isAuthenticated: true, hasFollow: true });

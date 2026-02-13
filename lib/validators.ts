@@ -17,7 +17,7 @@ export const eventsQuerySchema = z.object({
   venue: slugSchema.optional(),
   artist: slugSchema.optional(),
   tags: z.string().optional(),
-  cursor: z.string().uuid().optional(),
+  cursor: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
 
@@ -42,7 +42,7 @@ export const followBodySchema = z.object({
 
 export const followingFeedQuerySchema = z.object({
   days: z.enum(["7", "30"]).default("7").transform((value) => Number(value) as 7 | 30),
-  cursor: z.string().uuid().optional(),
+  cursor: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),
   type: z.enum(["both", "artist", "venue"]).default("both"),
 });

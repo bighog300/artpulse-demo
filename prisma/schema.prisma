@@ -172,6 +172,9 @@ model Event {
   @@index([startAt])
   @@index([isPublished])
   @@index([venueId])
+  @@index([isPublished, startAt])
+  @@index([venueId, startAt])
+  @@index([publishedAt])
 }
 
 model VenueMembership {
@@ -186,6 +189,7 @@ model VenueMembership {
   @@unique([userId, venueId])
   @@index([venueId])
   @@index([userId])
+  @@index([venueId, role])
 }
 
 model Submission {
@@ -212,7 +216,9 @@ model Submission {
   @@unique([targetEventId])
   @@unique([targetVenueId])
   @@index([status, submittedAt])
-  @@index([submitterUserId])
+  @@index([type, status])
+  @@index([decidedAt])
+  @@index([submitterUserId, createdAt])
 }
 
 
@@ -263,6 +269,9 @@ model EventTag {
   tag     Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
   @@id([eventId, tagId])
+  @@index([tagId])
+  @@index([eventId])
+  @@index([tagId, eventId])
 }
 
 model EventArtist {
@@ -273,6 +282,9 @@ model EventArtist {
   artist   Artist @relation(fields: [artistId], references: [id], onDelete: Cascade)
 
   @@id([eventId, artistId])
+  @@index([artistId])
+  @@index([eventId])
+  @@index([artistId, eventId])
 }
 
 model EventImage {
@@ -332,4 +344,5 @@ model Follow {
   @@unique([userId, targetType, targetId])
   @@index([userId, createdAt])
   @@index([targetType, targetId])
+  @@index([targetType, targetId, createdAt])
 }
