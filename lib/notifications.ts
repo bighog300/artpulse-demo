@@ -1,6 +1,7 @@
 import { inviteCreatedDedupeKey, submissionDecisionDedupeKey, submissionSubmittedDedupeKey } from "@/lib/notification-keys";
 import { NotificationType, Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
+import { buildNotification, NotificationTemplatePayload } from "@/lib/notification-templates";
 
 type EnqueueNotificationParams = {
   type: NotificationType;
@@ -17,6 +18,17 @@ type EnqueueNotificationParams = {
 };
 
 type NotificationDb = Pick<typeof db, "notificationOutbox" | "notification" | "$transaction">;
+
+export function buildInAppFromTemplate(userId: string, type: NotificationType, payload: NotificationTemplatePayload) {
+  const built = buildNotification({ type, payload });
+  return {
+    userId,
+    title: built.title,
+    body: built.body,
+    href: built.href,
+    dedupeKey: built.dedupeKey,
+  };
+}
 
 export async function enqueueNotificationWithDb(notificationDb: NotificationDb, params: EnqueueNotificationParams) {
   const outboxOp = notificationDb.notificationOutbox.upsert({

@@ -5,7 +5,7 @@ import { requireAuth } from "@/lib/auth";
 import { eventIdParamSchema, zodDetails } from "@/lib/validators";
 import { nextSubmissionStatusForSubmit } from "@/lib/ownership";
 import { submissionSubmittedDedupeKey } from "@/lib/notification-keys";
-import { enqueueNotification } from "@/lib/notifications";
+import { buildInAppFromTemplate, enqueueNotification } from "@/lib/notifications";
 import { RATE_LIMITS, enforceRateLimit, isRateLimitError, rateLimitErrorResponse } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -53,12 +53,11 @@ export async function POST(_: Request, { params }: { params: Promise<{ eventId: 
         status: updated.status,
         submittedAt: updated.submittedAt?.toISOString() ?? null,
       },
-      inApp: {
-        userId: user.id,
-        title: "Submission sent for review",
-        body: "Your event submission is now pending moderation.",
-        href: `/my/events/${parsedId.data.eventId}`,
-      },
+      inApp: buildInAppFromTemplate(user.id, "SUBMISSION_SUBMITTED", {
+        type: "SUBMISSION_SUBMITTED",
+        submissionId: updated.id,
+        submissionType: "EVENT",
+      }),
     });
 
     return NextResponse.json(updated);
