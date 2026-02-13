@@ -11,6 +11,7 @@ import { setOnboardingFlag } from "@/lib/onboarding";
 import { EmptyState } from "@/components/ui/empty-state";
 import { EventCard } from "@/components/events/event-card";
 import { PageHeader } from "@/components/ui/page-header";
+import { GetStartedBanner } from "@/components/onboarding/get-started-banner";
 
 type SearchParams = Promise<{ days?: string; type?: string }>;
 
@@ -84,6 +85,7 @@ export default async function FollowingPage({ searchParams }: { searchParams: Se
     <main className="space-y-4 p-6">
       <PageHeader title="Following" subtitle="Upcoming events from artists and venues you follow." />
       <OnboardingPanel />
+      <GetStartedBanner />
       <form className="flex flex-wrap items-center gap-3" method="get">
         <label className="text-sm">
           Timeframe
