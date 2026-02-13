@@ -49,6 +49,15 @@ function freshnessPoints(now: Date, startAt: Date) {
   return 1;
 }
 
+function freshnessReason(now: Date, startAt: Date) {
+  const ms = startAt.getTime() - now.getTime();
+  const days = ms / (24 * 60 * 60 * 1000);
+  if (days <= 1) return "Happening in the next 24 hours";
+  if (days <= 3) return "Happening in the next few days";
+  if (days <= 7) return "Coming up this week";
+  return "Upcoming soon";
+}
+
 export function scoreForYouEvents(args: {
   now: Date;
   events: CandidateEvent[];
@@ -100,6 +109,8 @@ export function scoreForYouEvents(args: {
     }
 
     score += freshnessPoints(args.now, event.startAt);
+
+    if (reasons.length === 0) reasons.push(freshnessReason(args.now, event.startAt));
 
     return { event, rawScore: score, score, reasons: reasons.slice(0, 3) };
   });
