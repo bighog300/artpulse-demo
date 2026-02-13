@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { getFollowingFeedWithDeps, type FollowingFeedTypeFilter } from "@/lib/following-feed";
+import { getFollowRecommendations } from "@/lib/recommendations-follows";
+import { FollowButton } from "@/components/follows/follow-button";
 
 type SearchParams = Promise<{ days?: string; type?: string }>;
 
@@ -41,7 +43,8 @@ export default async function FollowingPage({ searchParams }: { searchParams: Se
   const days: 7 | 30 = params.days === "30" ? 30 : 7;
   const type: FollowingFeedTypeFilter = params.type === "artist" || params.type === "venue" ? params.type : "both";
 
-  const result = await getFollowingFeedWithDeps(
+  const [result, followCount, recommendations] = await Promise.all([
+    getFollowingFeedWithDeps(
     {
       now: () => new Date(),
       findFollows: async (userId) => db.follow.findMany({ where: { userId }, select: { targetType: true, targetId: true } }),
@@ -69,7 +72,12 @@ export default async function FollowingPage({ searchParams }: { searchParams: Se
       }),
     },
     { userId: user.id, days, type, limit: 50 },
-  );
+  ),
+    db.follow.count({ where: { userId: user.id } }),
+    getFollowRecommendations({ userId: user.id, limit: 8 }),
+  ]);
+
+  const hasNoFollows = followCount === 0;
 
   return (
     <main className="space-y-4 p-6">
@@ -90,20 +98,88 @@ export default async function FollowingPage({ searchParams }: { searchParams: Se
         <button type="submit" className="rounded border px-3 py-1 text-sm">Apply</button>
       </form>
 
-      {result.items.length === 0 ? (
-        <p className="text-sm text-gray-600">No upcoming published events from your follows.</p>
-      ) : (
-        <ul className="space-y-2">
-          {result.items.map((item) => (
-            <li key={item.id} className="rounded border p-3">
-              <Link className="font-medium underline" href={`/events/${item.slug}`}>{item.title}</Link>
-              <p className="text-sm text-gray-600">
-                {item.startAt.toLocaleString()} {item.venue ? <>· <Link className="underline" href={`/venues/${item.venue.slug}`}>{item.venue.name}</Link></> : null}
-              </p>
-            </li>
-          ))}
-        </ul>
-      )}
+      <section className="space-y-2">
+        <h2 className="text-lg font-semibold">Feed</h2>
+        {result.items.length === 0 ? (
+          <p className="text-sm text-gray-600">No upcoming published events from your follows.</p>
+        ) : (
+          <ul className="space-y-2">
+            {result.items.map((item) => (
+              <li key={item.id} className="rounded border p-3">
+                <Link className="font-medium underline" href={`/events/${item.slug}`}>{item.title}</Link>
+                <p className="text-sm text-gray-600">
+                  {item.startAt.toLocaleString()} {item.venue ? <>· <Link className="underline" href={`/venues/${item.venue.slug}`}>{item.venue.name}</Link></> : null}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">Suggested follows</h2>
+
+        {hasNoFollows ? (
+          <div className="rounded border bg-gray-50 p-4 text-sm">
+            <p className="font-medium">Start following artists and venues to personalize your feed.</p>
+            <p className="mt-1 text-gray-600">
+              Explore <Link className="underline" href="/events">events</Link>, <Link className="underline" href="/venues">venues</Link>, or <Link className="underline" href="/artists">artists</Link>.
+            </p>
+          </div>
+        ) : null}
+
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="space-y-2">
+            <h3 className="font-medium">Artists</h3>
+            {recommendations.artists.length === 0 ? (
+              <p className="text-sm text-gray-600">No artist suggestions right now.</p>
+            ) : (
+              recommendations.artists.map((artist) => (
+                <article key={artist.id} className="rounded border p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <Link className="font-medium underline" href={`/artists/${artist.slug}`}>{artist.name}</Link>
+                      <p className="text-xs text-gray-600">{artist.reason}</p>
+                    </div>
+                    <FollowButton
+                      targetType="ARTIST"
+                      targetId={artist.id}
+                      initialIsFollowing={false}
+                      initialFollowersCount={artist.followersCount}
+                      isAuthenticated
+                    />
+                  </div>
+                </article>
+              ))
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <h3 className="font-medium">Venues</h3>
+            {recommendations.venues.length === 0 ? (
+              <p className="text-sm text-gray-600">No venue suggestions right now.</p>
+            ) : (
+              recommendations.venues.map((venue) => (
+                <article key={venue.id} className="rounded border p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <Link className="font-medium underline" href={`/venues/${venue.slug}`}>{venue.name}</Link>
+                      <p className="text-xs text-gray-600">{venue.reason}</p>
+                    </div>
+                    <FollowButton
+                      targetType="VENUE"
+                      targetId={venue.id}
+                      initialIsFollowing={false}
+                      initialFollowersCount={venue.followersCount}
+                      isAuthenticated
+                    />
+                  </div>
+                </article>
+              ))
+            )}
+          </div>
+        </div>
+      </section>
     </main>
   );
 }
