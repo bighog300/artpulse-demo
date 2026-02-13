@@ -4,6 +4,7 @@ import { eventsQuerySchema } from "@/lib/validators";
 import { SearchSaveSearchInline } from "@/app/search/save-search-inline";
 import { getSessionUser } from "@/lib/auth";
 import { SearchResultsList } from "@/app/search/search-results-list";
+import { SearchClient } from "@/app/search/search-client";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     return (
       <main className="space-y-2 p-6">
         <h1 className="text-2xl font-semibold">Search</h1>
-      {user ? <SearchSaveSearchInline /> : null}
+        {user ? <SearchSaveSearchInline /> : null}
         <p>Set DATABASE_URL to view events locally.</p>
       </main>
     );
@@ -35,24 +36,26 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     },
     take: filters.limit,
     orderBy: { startAt: "asc" },
+    include: { venue: { select: { name: true, slug: true } } },
   });
 
   return (
     <main className="space-y-2 p-6">
       <h1 className="text-2xl font-semibold">Search</h1>
+      <SearchClient filters={Object.fromEntries(Object.entries(filters).map(([k, v]) => [k, v == null ? "" : String(v)]))} />
       {user ? <SearchSaveSearchInline /> : null}
       <form className="grid gap-2 md:grid-cols-2">
         {[
-          ["query", "Query"], ["from", "From (ISO)"], ["to", "To (ISO)"], ["lat", "Latitude"], ["lng", "Longitude"], ["radiusKm", "Radius (km)"], ["tags", "Tags (comma slugs)"], ["venue", "Venue slug"], ["artist", "Artist slug"], ["limit", "Limit"],
+          ["query", "Query"], ["from", "From (ISO)"], ["to", "To (ISO)"], ["days", "Days"], ["lat", "Latitude"], ["lng", "Longitude"], ["radiusKm", "Radius (km)"], ["tags", "Tags (comma slugs)"], ["venue", "Venue slug"], ["artist", "Artist slug"], ["limit", "Limit"],
         ].map(([name, label]) => (
           <label key={name} className="block">
             <span className="text-xs">{label}</span>
-            <input name={name} defaultValue={String(filters[name as keyof typeof filters] ?? "")} className="rounded border p-2 w-full" />
+            <input name={name} defaultValue={String(filters[name as keyof typeof filters] ?? "")} className="w-full rounded border p-2" />
           </label>
         ))}
-        <button className="rounded border px-3 py-2 w-fit">Apply</button>
+        <button className="w-fit rounded border px-3 py-2">Apply</button>
       </form>
-      <SearchResultsList items={items.map((item) => ({ id: item.id, slug: item.slug, title: item.title }))} query={filters.query} />
+      <SearchResultsList items={items.map((item) => ({ id: item.id, slug: item.slug, title: item.title, startAt: item.startAt.toISOString(), endAt: item.endAt?.toISOString(), venueName: item.venue?.name, venueSlug: item.venue?.slug }))} query={filters.query} />
     </main>
   );
 }

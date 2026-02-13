@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { SiteNav } from "@/components/navigation/site-nav";
 import { MobileBottomNav } from "@/components/navigation/mobile-bottom-nav";
+import { ToastViewport } from "@/components/ui/toast";
 import { getSessionUser } from "@/lib/auth";
 
 export const metadata: Metadata = {
@@ -19,6 +20,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       <body className="min-h-screen bg-white text-zinc-900">
         <SiteNav />
         <div className="pb-20 md:pb-0">{children}</div>
+        <ToastViewport />
         <MobileBottomNav isAuthenticated={Boolean(user)} />
       </body>
     </html>

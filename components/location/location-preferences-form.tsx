@@ -1,6 +1,7 @@
 "use client";
 
 import { type FormEvent, useState } from "react";
+import { enqueueToast } from "@/lib/toast";
 
 type LocationDraft = {
   locationLabel: string;
@@ -72,6 +73,7 @@ export function LocationPreferencesForm({
       radiusKm: Number(form.radiusKm || "25"),
     });
     setStatus(ok ? "Location saved." : "Unable to save location.");
+    enqueueToast({ title: ok ? "Location saved" : "Unable to save location", variant: ok ? "success" : "error" });
     if (ok && afterSave) afterSave(form);
   }
 

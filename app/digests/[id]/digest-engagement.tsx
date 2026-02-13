@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect } from "react";
 import { trackEngagement } from "@/lib/engagement-client";
 import { digestClickPayload } from "@/lib/digest-engagement";
+import { EventCard } from "@/components/events/event-card";
 
 type DigestItem = {
   slug: string;
@@ -26,15 +26,8 @@ export function DigestEngagement({ digestRunId, items }: { digestRunId: string; 
   return (
     <ul className="space-y-2">
       {items.map((item, index) => (
-        <li key={`${digestRunId}-${item.slug}`} className="rounded border p-3">
-          <Link
-            className="font-medium underline"
-            href={`/events/${item.slug}`}
-            onClick={() => trackEngagement(digestClickPayload({ digestRunId, targetId: item.slug, position: index }))}
-          >
-            {item.title}
-          </Link>
-          <p className="text-sm text-gray-600">{new Date(item.startAt).toLocaleString()}{item.venueName ? ` · ${item.venueName}` : ""}</p>
+        <li key={`${digestRunId}-${item.slug}`} onClick={() => trackEngagement(digestClickPayload({ digestRunId, targetId: item.slug, position: index }))}>
+          <EventCard href={`/events/${item.slug}`} title={item.title} startAt={item.startAt} venueName={item.venueName} badges={["Digest"]} />
         </li>
       ))}
     </ul>

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { trackEngagement } from "@/lib/engagement-client";
+import { enqueueToast } from "@/lib/toast";
 
 type FollowButtonProps = {
   targetType: "ARTIST" | "VENUE";
@@ -40,6 +41,7 @@ export function FollowButton({
     if (!response.ok) {
       setIsFollowing(!nextIsFollowing);
       setFollowersCount((prev) => Math.max(0, prev + (nextIsFollowing ? -1 : 1)));
+      enqueueToast({ title: "Could not update follow", variant: "error" });
     } else {
       trackEngagement({
         surface: "FOLLOWING",
@@ -47,6 +49,7 @@ export function FollowButton({
         targetType,
         targetId,
       });
+      enqueueToast({ title: nextIsFollowing ? "Following updated" : "Unfollowed" });
     }
 
     setIsSaving(false);

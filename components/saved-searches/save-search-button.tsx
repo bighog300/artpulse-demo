@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { trackEngagement } from "@/lib/engagement-client";
+import { enqueueToast } from "@/lib/toast";
+import { EventCard } from "@/components/events/event-card";
 
 type PreviewItem = {
   id: string;
@@ -61,6 +63,7 @@ export function SaveSearchButton({ type, params }: { type: "NEARBY" | "EVENTS_FI
       body: JSON.stringify({ type, name: name.trim(), params }),
     });
     setMessage(response.ok ? "Saved search created." : "Could not save search.");
+    enqueueToast({ title: response.ok ? "Saved search created" : "Could not save search", variant: response.ok ? "success" : "error" });
     if (response.ok) {
       const saved = (await response.json()) as { id: string };
       trackEngagement({ surface: "SEARCH", action: "SAVE_SEARCH", targetType: "SAVED_SEARCH", targetId: saved.id });
@@ -84,11 +87,10 @@ export function SaveSearchButton({ type, params }: { type: "NEARBY" | "EVENTS_FI
             {loadingPreview ? <p className="text-sm text-gray-600">Loading preview…</p> : null}
             {previewMessage ? <p className="text-sm text-gray-600">{previewMessage}</p> : null}
             {(preview ?? []).length > 0 ? (
-              <ul className="space-y-1">
+              <ul className="space-y-2">
                 {preview?.slice(0, 10).map((item) => (
-                  <li key={item.id} className="text-sm">
-                    <span className="font-medium">{item.title}</span>
-                    <span className="text-gray-600"> · {new Date(item.startAt).toLocaleString()}{item.venue?.name ? ` · ${item.venue.name}` : ""}</span>
+                  <li key={item.id}>
+                    <EventCard href={`/events/${item.slug}`} title={item.title} startAt={item.startAt} venueName={item.venue?.name} badges={["Preview"]} />
                   </li>
                 ))}
               </ul>

@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import { ErrorCard } from "@/components/ui/error-card";
 import { LoadingCard } from "@/components/ui/loading-card";
+import { EventCard } from "@/components/events/event-card";
 
 type EventItem = { id: string; slug: string; title: string; startAt: string };
 
@@ -36,9 +36,8 @@ export function SavedSearchRunner({ id }: { id: string }) {
       {isLoading ? <LoadingCard lines={2} /> : null}
       <ul className="space-y-2" aria-busy={isLoading}>
         {items.map((item) => (
-          <li key={item.id} className="rounded border p-3">
-            <Link href={`/events/${item.slug}`} className="font-medium underline">{item.title}</Link>
-            <p className="text-xs text-gray-600">{new Date(item.startAt).toLocaleString()}</p>
+          <li key={item.id}>
+            <EventCard href={`/events/${item.slug}`} title={item.title} startAt={item.startAt} badges={["Preview"]} />
           </li>
         ))}
       </ul>
