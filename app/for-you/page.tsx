@@ -4,6 +4,7 @@ import { getSessionUser } from "@/lib/auth";
 import { redirectToLogin } from "@/lib/auth-redirect";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { FeedbackButtons } from "@/components/recommendations/feedback-buttons";
+import { EmptyState } from "@/components/ui/empty-state";
 
 type ForYouResponse = {
   windowDays: number;
@@ -44,15 +45,16 @@ export default async function ForYouPage() {
       <h1 className="text-2xl font-semibold">For You</h1>
       <p className="text-sm text-gray-700">Personalized events in the next {data.windowDays} days based on your follows, saved searches, location, and recent clicks.</p>
       {data.items.length === 0 ? (
-        <div className="space-y-2 rounded border p-4">
-          <p className="font-medium">No recommendations yet.</p>
-          <p className="text-sm text-gray-700">Help us personalize your feed:</p>
-          <ul className="list-disc space-y-1 pl-5 text-sm">
-            <li><Link className="underline" href="/venues">Follow venues/artists</Link></li>
-            <li><Link className="underline" href="/account">Set location</Link></li>
-            <li><Link className="underline" href="/search">Save a search</Link> or <Link className="underline" href="/nearby">browse nearby</Link></li>
-          </ul>
-        </div>
+        <EmptyState
+          title="We need a little signal to personalize this"
+          description="Follow a venue or artist, save a search, or set your location."
+          actions={[
+            { label: "Follow venues", href: "/venues", variant: "secondary" },
+            { label: "Follow artists", href: "/artists", variant: "secondary" },
+            { label: "Set location", href: "/account", variant: "secondary" },
+            { label: "Save a search", href: "/search", variant: "secondary" },
+          ]}
+        />
       ) : (
         <div className="space-y-3">
           {data.items.map((item) => (

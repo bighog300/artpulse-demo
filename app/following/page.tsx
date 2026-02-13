@@ -8,6 +8,7 @@ import { FollowButton } from "@/components/follows/follow-button";
 import { redirectToLogin } from "@/lib/auth-redirect";
 import { OnboardingPanel } from "@/components/onboarding/onboarding-panel";
 import { setOnboardingFlag } from "@/lib/onboarding";
+import { EmptyState } from "@/components/ui/empty-state";
 
 type SearchParams = Promise<{ days?: string; type?: string }>;
 
@@ -42,34 +43,34 @@ export default async function FollowingPage({ searchParams }: { searchParams: Se
 
   const [result, followCount, recommendations] = await Promise.all([
     getFollowingFeedWithDeps(
-    {
-      now: () => new Date(),
-      findFollows: async (userId) => db.follow.findMany({ where: { userId }, select: { targetType: true, targetId: true } }),
-      findEvents: async ({ artistIds, venueIds, from, to, limit }) => db.event.findMany({
-        where: {
-          isPublished: true,
-          startAt: { gte: from, lte: to },
-          AND: [{
-            OR: [
-              ...(venueIds.length ? [{ venueId: { in: venueIds } }] : []),
-              ...(artistIds.length ? [{ eventArtists: { some: { artistId: { in: artistIds } } } }] : []),
-            ],
-          }],
-        },
-        take: limit,
-        orderBy: [{ startAt: "asc" }, { id: "asc" }],
-        select: {
-          id: true,
-          slug: true,
-          title: true,
-          startAt: true,
-          endAt: true,
-          venue: { select: { name: true, slug: true } },
-        },
-      }),
-    },
-    { userId: user.id, days, type, limit: 50 },
-  ),
+      {
+        now: () => new Date(),
+        findFollows: async (userId) => db.follow.findMany({ where: { userId }, select: { targetType: true, targetId: true } }),
+        findEvents: async ({ artistIds, venueIds, from, to, limit }) => db.event.findMany({
+          where: {
+            isPublished: true,
+            startAt: { gte: from, lte: to },
+            AND: [{
+              OR: [
+                ...(venueIds.length ? [{ venueId: { in: venueIds } }] : []),
+                ...(artistIds.length ? [{ eventArtists: { some: { artistId: { in: artistIds } } } }] : []),
+              ],
+            }],
+          },
+          take: limit,
+          orderBy: [{ startAt: "asc" }, { id: "asc" }],
+          select: {
+            id: true,
+            slug: true,
+            title: true,
+            startAt: true,
+            endAt: true,
+            venue: { select: { name: true, slug: true } },
+          },
+        }),
+      },
+      { userId: user.id, days, type, limit: 50 },
+    ),
     db.follow.count({ where: { userId: user.id } }),
     getFollowRecommendations({ userId: user.id, limit: 8 }),
     setOnboardingFlag(user.id, "hasVisitedFollowing"),
@@ -96,36 +97,42 @@ export default async function FollowingPage({ searchParams }: { searchParams: Se
         </label>
         <button type="submit" className="rounded border px-3 py-1 text-sm">Apply</button>
       </form>
+      <p className="text-xs text-zinc-600">Tip: Save a search to get a weekly digest.</p>
 
       {hasNoFollows ? (
-        <section className="rounded border bg-gray-50 p-5 text-sm">
-          <h2 className="text-lg font-semibold text-gray-900">Your following feed is empty</h2>
-          <p className="mt-2 text-gray-700">
-            Follow artists and venues to build a personalized stream of upcoming events.
-          </p>
-          <p className="mt-2 text-gray-700">
-            Discover from <Link className="underline" href="/events">events</Link>, <Link className="underline" href="/venues">venues</Link>, and <Link className="underline" href="/artists">artists</Link>.
-          </p>
-          <p className="mt-2 text-gray-700">
-            Or <Link className="underline" href="/nearby">find events near you</Link> based on your location.
-          </p>
-        </section>
+        <EmptyState
+          title="Follow artists and venues to build your feed"
+          description="Follow a few to see upcoming events here."
+          actions={[
+            { label: "Browse venues", href: "/venues", variant: "secondary" },
+            { label: "Browse artists", href: "/artists", variant: "secondary" },
+            { label: "Find events near you", href: "/nearby", variant: "secondary" },
+          ]}
+        />
       ) : (
         <section className="space-y-2">
           <h2 className="text-lg font-semibold">Feed</h2>
           {result.items.length === 0 ? (
-            <p className="text-sm text-gray-600">No upcoming published events from your follows.</p>
+            <EmptyState
+              title="Nothing upcoming yet"
+              description="Try expanding the timeframe or follow more venues and artists."
+              actions={[
+                { label: "For You", href: "/for-you", variant: "secondary" },
+                { label: "Saved searches", href: "/saved-searches", variant: "secondary" },
+                { label: "Search", href: "/search", variant: "secondary" },
+              ]}
+            />
           ) : (
-          <ul className="space-y-2">
-            {result.items.map((item) => (
-              <li key={item.id} className="rounded border p-3">
-                <Link className="font-medium underline" href={`/events/${item.slug}`}>{item.title}</Link>
-                <p className="text-sm text-gray-600">
-                  {item.startAt.toLocaleString()} {item.venue ? <>· <Link className="underline" href={`/venues/${item.venue.slug}`}>{item.venue.name}</Link></> : null}
-                </p>
-              </li>
-            ))}
-          </ul>
+            <ul className="space-y-2">
+              {result.items.map((item) => (
+                <li key={item.id} className="rounded border p-3">
+                  <Link className="font-medium underline" href={`/events/${item.slug}`}>{item.title}</Link>
+                  <p className="text-sm text-gray-600">
+                    {item.startAt.toLocaleString()} {item.venue ? <>· <Link className="underline" href={`/venues/${item.venue.slug}`}>{item.venue.name}</Link></> : null}
+                  </p>
+                </li>
+              ))}
+            </ul>
           )}
         </section>
       )}
