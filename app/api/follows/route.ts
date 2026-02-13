@@ -5,6 +5,7 @@ import { requireAuth } from "@/lib/auth";
 import { deleteFollowWithDeps, splitFollowIds, upsertFollowWithDeps } from "@/lib/follows";
 import { followBodySchema, parseBody, zodDetails } from "@/lib/validators";
 import { RATE_LIMITS, enforceRateLimit, isRateLimitError, principalRateLimitKey, rateLimitErrorResponse } from "@/lib/rate-limit";
+import { setOnboardingFlag } from "@/lib/onboarding";
 
 export const runtime = "nodejs";
 
@@ -56,6 +57,7 @@ export async function POST(req: NextRequest) {
     );
 
     if (!result.ok) return apiError(404, "not_found", "Follow target not found");
+    await setOnboardingFlag(user.id, "hasFollowedSomething");
     return NextResponse.json({ ok: true });
   } catch (error) {
     if (isRateLimitError(error)) return rateLimitErrorResponse(error);

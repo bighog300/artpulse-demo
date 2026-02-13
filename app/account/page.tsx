@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getSessionUser } from "@/lib/auth";
 import { LogoutButton } from "@/app/account/logout-button";
 import { db } from "@/lib/db";
+import { OnboardingPanel } from "@/components/onboarding/onboarding-panel";
 
 export default async function AccountPage() {
   const user = await getSessionUser();
@@ -18,6 +19,7 @@ export default async function AccountPage() {
   return (
     <main className="space-y-2 p-6">
       <h1 className="text-2xl font-semibold">Account</h1>
+      <OnboardingPanel />
       <p>{user.email}</p>
       <p>Role: {user.role}</p>
       <p><Link className="underline" href="/my/venues">Manage my venues</Link></p>
