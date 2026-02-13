@@ -12,7 +12,7 @@ type EngagementCreate = {
   action: "VIEW" | "CLICK" | "FOLLOW" | "SAVE_SEARCH";
   targetType: "EVENT" | "VENUE" | "ARTIST" | "SAVED_SEARCH" | "DIGEST_RUN";
   targetId: string;
-  metaJson?: { digestRunId?: string; position?: number; query?: string; feedback?: "up" | "down" };
+
 };
 
 type EngagementDeps = {
@@ -35,13 +35,6 @@ export async function handleEngagementPost(req: NextRequest, deps: EngagementDep
       windowMs: RATE_LIMITS.engagementWrite.windowMs,
     });
 
-    if (parsed.data.meta?.feedback) {
-      await enforceRateLimit({
-        key: user?.id ? principalRateLimitKey(req, "engagement:feedback", user.id) : `engagement:feedback:session:${sessionId}:${principalRateLimitKey(req, "engagement", undefined)}`,
-        limit: RATE_LIMITS.engagementFeedback.limit,
-        windowMs: RATE_LIMITS.engagementFeedback.windowMs,
-      });
-    }
 
     await deps.createEvent({
       userId: user?.id ?? null,

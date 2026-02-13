@@ -5,7 +5,7 @@ import { useEffect } from "react";
 import { trackEngagement } from "@/lib/engagement-client";
 import { digestClickPayload } from "@/lib/digest-engagement";
 
-type DigestItem = { id?: string; slug: string; title: string; startAt: string; venueName: string | null };
+
 
 
 export function DigestEngagement({ digestRunId, items }: { digestRunId: string; items: DigestItem[] }) {
@@ -26,7 +26,7 @@ export function DigestEngagement({ digestRunId, items }: { digestRunId: string; 
           <Link
             className="font-medium underline"
             href={`/events/${item.slug}`}
-            onClick={() => trackEngagement(digestClickPayload({ digestRunId, targetId: item.id ?? item.slug, position: index }))}
+
           >
             {item.title}
           </Link>
