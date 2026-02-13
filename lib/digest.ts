@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const digestSnapshotItemSchema = z.object({
+  id: z.string().trim().min(1).max(120).optional(),
   slug: z.string().trim().min(1),
   title: z.string().trim().min(1),
   startAt: z.iso.datetime({ offset: true }).or(z.iso.datetime({ local: true })),
