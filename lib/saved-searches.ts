@@ -77,7 +77,7 @@ export function normalizeSavedSearchParams(type: SavedSearchType, rawParams: unk
   return type === "NEARBY" ? normalizeNearby(rawParams) : normalizeEventsFilter(rawParams);
 }
 
-type EventSearchDb = { event: { findMany: (args: Prisma.EventFindManyArgs) => Promise<Array<{ id: string; title: string; slug: string; startAt: Date; lat: number | null; lng: number | null; venue: { name: string; slug: string; city: string | null; lat: number | null; lng: number | null } | null; eventTags: Array<{ tag: { name: string; slug: string } }> }>> } };
+type EventSearchDb = { event: { findMany: (args: Prisma.EventFindManyArgs) => Promise<Array<{ id: string; title: string; slug: string; startAt: Date; lat: number | null; lng: number | null; venueId: string | null; venue: { name: string; slug: string; city: string | null; lat: number | null; lng: number | null } | null; eventTags: Array<{ tag: { name: string; slug: string } }>; eventArtists: Array<{ artistId: string }> }>> } };
 
 export async function runSavedSearchEvents(args: {
   eventDb: EventSearchDb;
@@ -105,7 +105,7 @@ export async function runSavedSearchEvents(args: {
       },
       take: limit + 1,
       orderBy: START_AT_ID_ORDER_BY,
-      include: { venue: { select: { name: true, slug: true, city: true, lat: true, lng: true } }, eventTags: { include: { tag: { select: { name: true, slug: true } } } } },
+      include: { venue: { select: { name: true, slug: true, city: true, lat: true, lng: true } }, eventTags: { include: { tag: { select: { name: true, slug: true } } } }, eventArtists: { select: { artistId: true } } },
     });
     const tagSet = new Set(params.tags);
     return items.filter((e) => {
@@ -137,7 +137,7 @@ export async function runSavedSearchEvents(args: {
     where: { isPublished: true, ...(filters.length ? { AND: filters } : {}) },
     take: limit + 1,
     orderBy: START_AT_ID_ORDER_BY,
-    include: { venue: { select: { name: true, slug: true, city: true, lat: true, lng: true } }, eventTags: { include: { tag: { select: { name: true, slug: true } } } } },
+    include: { venue: { select: { name: true, slug: true, city: true, lat: true, lng: true } }, eventTags: { include: { tag: { select: { name: true, slug: true } } } }, eventArtists: { select: { artistId: true } } },
   });
   if (params.lat == null || params.lng == null || params.radiusKm == null) return items;
   const lat = params.lat;

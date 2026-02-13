@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { trackEngagement } from "@/lib/engagement-client";
 
 type PreviewItem = {
   id: string;
@@ -61,6 +62,8 @@ export function SaveSearchButton({ type, params }: { type: "NEARBY" | "EVENTS_FI
     });
     setMessage(response.ok ? "Saved search created." : "Could not save search.");
     if (response.ok) {
+      const saved = (await response.json()) as { id: string };
+      trackEngagement({ surface: "SEARCH", action: "SAVE_SEARCH", targetType: "SAVED_SEARCH", targetId: saved.id });
       setName("");
       setOpen(false);
     }

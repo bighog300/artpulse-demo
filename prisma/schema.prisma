@@ -86,6 +86,20 @@ enum FollowTargetType {
   VENUE
 }
 
+enum EngagementSurface {
+  DIGEST
+  NEARBY
+  SEARCH
+  FOLLOWING
+}
+
+enum EngagementAction {
+  VIEW
+  CLICK
+  FOLLOW
+  SAVE_SEARCH
+}
+
 enum AssetKind {
   IMAGE
 }
@@ -109,6 +123,7 @@ model User {
   notifications        Notification[]
   savedSearches        SavedSearch[]
   digestRuns           DigestRun[]
+  engagementEvents     EngagementEvent[]
   onboardingState      OnboardingState?
   locationLabel        String?
   locationLat          Float?
@@ -116,6 +131,24 @@ model User {
   locationRadiusKm     Int               @default(25)
 
   @@index([locationLat, locationLng])
+}
+
+model EngagementEvent {
+  id        String            @id @default(uuid()) @db.Uuid
+  userId    String?           @db.Uuid
+  sessionId String?
+  surface   EngagementSurface
+  action    EngagementAction
+  targetType String
+  targetId  String
+  metaJson  Json?
+  createdAt DateTime          @default(now())
+  user      User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([surface, createdAt])
+  @@index([targetType, targetId, createdAt])
+  @@index([userId, surface, createdAt])
 }
 
 model OnboardingState {

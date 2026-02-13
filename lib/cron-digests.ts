@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { digestDedupeKey, digestSnapshotItemsSchema, isoWeekStamp } from "@/lib/digest";
 import { runSavedSearchEvents } from "@/lib/saved-searches";
+import { applyConservativeRanking, computeEngagementBoosts } from "@/lib/ranking";
 
 export type DigestDb = {
   savedSearch: {
@@ -11,7 +12,10 @@ export type DigestDb = {
     upsert: (args: Prisma.DigestRunUpsertArgs) => Promise<{ id: string }>;
   };
   notification: { upsert: (args: Prisma.NotificationUpsertArgs) => Promise<unknown> };
-  event: { findMany: (args: Prisma.EventFindManyArgs) => Promise<Array<{ id: string; title: string; slug: string; startAt: Date; lat: number | null; lng: number | null; venue: { name: string; slug: string; city: string | null; lat: number | null; lng: number | null } | null; eventTags: Array<{ tag: { name: string; slug: string } }> }>> };
+  engagementEvent?: {
+    findMany: (args: Prisma.EngagementEventFindManyArgs) => Promise<Array<{ targetId: string }>>;
+  };
+  event: { findMany: (args: Prisma.EventFindManyArgs) => Promise<Array<{ id: string; title: string; slug: string; startAt: Date; lat: number | null; lng: number | null; venueId: string | null; venue: { name: string; slug: string; city: string | null; lat: number | null; lng: number | null } | null; eventTags: Array<{ tag: { name: string; slug: string } }>; eventArtists: Array<{ artistId: string }> }>> };
 };
 
 export async function runWeeklyDigests(headerSecret: string | null, digestDb: DigestDb) {
@@ -35,7 +39,8 @@ export async function runWeeklyDigests(headerSecret: string | null, digestDb: Di
   for (const search of savedSearches) {
     processed += 1;
     const events = await runSavedSearchEvents({ eventDb: digestDb, type: search.type, paramsJson: search.paramsJson, limit: 10 });
-    const page = events.slice(0, 10);
+    const boosts = digestDb.engagementEvent ? await computeEngagementBoosts(digestDb as never, search.userId, events) : new Map<string, number>();
+    const page = applyConservativeRanking(events, boosts).slice(0, 10);
     if (!page.length) {
       skipped += 1;
       continue;
