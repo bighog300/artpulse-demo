@@ -9,6 +9,22 @@ export type FollowingFeedItem = {
   venue: { name: string; slug: string } | null;
 };
 
+function encodeCursor(item: Pick<FollowingFeedItem, "id" | "startAt">) {
+  return Buffer.from(JSON.stringify({ id: item.id, startAt: item.startAt.toISOString() })).toString("base64url");
+}
+
+function decodeCursor(cursor: string) {
+  try {
+    const parsed = JSON.parse(Buffer.from(cursor, "base64url").toString("utf-8")) as { id?: string; startAt?: string };
+    if (!parsed.id || !parsed.startAt) return null;
+    const startAt = new Date(parsed.startAt);
+    if (Number.isNaN(startAt.getTime())) return null;
+    return { id: parsed.id, startAt };
+  } catch {
+    return null;
+  }
+}
+
 export async function getFollowingFeedWithDeps(
   deps: {
     now: () => Date;
@@ -18,7 +34,7 @@ export async function getFollowingFeedWithDeps(
       venueIds: string[];
       from: Date;
       to: Date;
-      cursor?: string;
+      cursor?: { id: string; startAt: Date };
       limit: number;
     }) => Promise<FollowingFeedItem[]>;
   },
@@ -43,12 +59,14 @@ export async function getFollowingFeedWithDeps(
 
   const from = deps.now();
   const to = new Date(from.getTime() + args.days * 24 * 60 * 60 * 1000);
+  const decodedCursor = args.cursor ? decodeCursor(args.cursor) : undefined;
+
   const results = await deps.findEvents({
     artistIds,
     venueIds,
     from,
     to,
-    cursor: args.cursor,
+    cursor: decodedCursor ?? undefined,
     limit: args.limit + 1,
   });
 
@@ -57,6 +75,6 @@ export async function getFollowingFeedWithDeps(
 
   return {
     items: page,
-    nextCursor: hasMore ? page[page.length - 1].id : null,
+    nextCursor: hasMore ? encodeCursor(page[page.length - 1]) : null,
   };
 }

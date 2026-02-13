@@ -2,7 +2,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 30;
 
 export default async function EventsPage() {
   if (!hasDatabaseUrl()) {

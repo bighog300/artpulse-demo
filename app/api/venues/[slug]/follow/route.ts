@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { apiError } from "@/lib/api";
 import { getSessionUser } from "@/lib/auth";
 import { slugParamSchema, zodDetails } from "@/lib/validators";
-import { followStatusResponse } from "@/lib/follow-counts";
+import { followStatusResponse, getFollowersCount } from "@/lib/follow-counts";
 
 export const runtime = "nodejs";
 
@@ -16,7 +16,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ slug: stri
 
   const user = await getSessionUser();
   const [followersCount, follow] = await Promise.all([
-    db.follow.count({ where: { targetType: "VENUE", targetId: venue.id } }),
+    getFollowersCount("VENUE", venue.id),
     user ? db.follow.findUnique({ where: { userId_targetType_targetId: { userId: user.id, targetType: "VENUE", targetId: venue.id } }, select: { id: true } }) : Promise.resolve(null),
   ]);
 
