@@ -128,6 +128,16 @@ export const myVenuePatchSchema = z.object({
   note: z.string().trim().max(2000).optional().nullable(),
 });
 
+export const myVenueCreateSchema = z.object({
+  name: z.string().trim().min(1),
+  slug: slugSchema.optional(),
+  description: z.string().optional().nullable(),
+  address: z.string().optional().nullable(),
+  website: httpUrlSchema.optional().nullable(),
+  lat: z.number().min(-90).max(90).optional().nullable(),
+  lng: z.number().min(-180).max(180).optional().nullable(),
+});
+
 const eventImageSchema = z.object({
   assetId: z.string().uuid().optional().nullable(),
   url: httpUrlSchema.optional().nullable(),

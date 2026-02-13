@@ -37,8 +37,22 @@ export async function getOnboardingState(userId: string): Promise<OnboardingStat
   return db.onboardingState.findUnique({ where: { userId } });
 }
 
+export async function maybeCompleteOnboarding(state: OnboardingStateRecord) {
+  const meetsRequirements =
+    state.hasFollowedSomething
+    && (state.hasAcceptedInvite || state.hasCreatedVenue)
+    && state.hasViewedNotifications;
+
+  if (!meetsRequirements || state.completedAt) return state;
+
+  return db.onboardingState.update({
+    where: { userId: state.userId },
+    data: { completedAt: new Date() },
+  });
+}
+
 export async function setOnboardingFlag(userId: string, flagName: OnboardingFlagName, value = true) {
-  await db.onboardingState.upsert({
+  const state = await db.onboardingState.upsert({
     where: { userId },
     create: {
       userId,
@@ -48,6 +62,8 @@ export async function setOnboardingFlag(userId: string, flagName: OnboardingFlag
       [flagName]: value,
     },
   });
+
+  await maybeCompleteOnboarding(state);
 }
 
 export async function markOnboardingCompleted(userId: string) {
