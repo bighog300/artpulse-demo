@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/digests/weekly",
       "schedule": "0 9 * * 1"
+    },
+    {
+      "path": "/api/cron/retention/engagement",
+      "schedule": "15 3 * * 1"
     }
   ]
 }

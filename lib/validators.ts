@@ -80,6 +80,15 @@ export const geocodeQuerySchema = z.object({
   q: z.string().trim().min(3).max(120),
 });
 
+export const analyticsWindowQuerySchema = z.object({
+  days: z.enum(["7", "30"]).default("7").transform((value) => Number(value) as 7 | 30),
+});
+
+export const engagementRetentionQuerySchema = z.object({
+  dryRun: z.enum(["true", "false"]).default("true").transform((value) => value === "true"),
+  keepDays: z.coerce.number().int().min(30).max(365).default(90),
+});
+
 export const nearbyEventsQuerySchema = z.object({
   lat: z.coerce.number().min(-90).max(90),
   lng: z.coerce.number().min(-180).max(180),
