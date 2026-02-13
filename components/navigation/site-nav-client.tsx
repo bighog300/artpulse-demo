@@ -1,12 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getNavItems } from "@/components/navigation/nav-config";
 
 type SiteNavClientProps = {
   isAuthenticated: boolean;
 };
+
+const QUICK_ACTIONS = [
+  { label: "For You", description: "Personalized picks", href: "/for-you" },
+  { label: "Following", description: "From artists and venues you follow", href: "/following" },
+  { label: "Find nearby", description: "Explore around you", href: "/nearby" },
+  { label: "Save a search", description: "Save filters for alerts", href: "/search" },
+  { label: "Saved searches", description: "Manage saved alerts", href: "/saved-searches" },
+  { label: "Create venue", description: "Add a venue you manage", href: "/my/venues/new" },
+  { label: "Invite members", description: "Invite your venue team", href: "/my/venues" },
+  { label: "Notifications", description: "Review updates", href: "/notifications" },
+] as const;
 
 function NotificationLink({ unread }: { unread: number }) {
   return (
@@ -19,7 +30,9 @@ function NotificationLink({ unread }: { unread: number }) {
 
 export function SiteNavClient({ isAuthenticated }: SiteNavClientProps) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isQuickActionsOpen, setIsQuickActionsOpen] = useState(false);
   const [unread, setUnread] = useState(0);
+  const quickActionsRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -50,7 +63,32 @@ export function SiteNavClient({ isAuthenticated }: SiteNavClientProps) {
     };
   }, [isAuthenticated]);
 
+  useEffect(() => {
+    if (!isQuickActionsOpen) return;
+
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (quickActionsRef.current?.contains(target)) return;
+      setIsQuickActionsOpen(false);
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsQuickActionsOpen(false);
+    };
+
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isQuickActionsOpen]);
+
   const items = getNavItems(isAuthenticated);
+  const notificationOrAccountItems = items.filter((item) => item.href === "/notifications" || item.href === "/account");
+  const otherItems = items.filter((item) => item.href !== "/notifications" && item.href !== "/account");
 
   return (
     <header className="border-b bg-white">
@@ -58,11 +96,50 @@ export function SiteNavClient({ isAuthenticated }: SiteNavClientProps) {
         <Link className="text-lg font-semibold" href="/">Artpulse</Link>
 
         <nav className="hidden items-center gap-4 md:flex">
-          {items.map((item) => (
+          {otherItems.map((item) => (
             item.href === "/notifications" && isAuthenticated
               ? <NotificationLink key={item.href} unread={unread} />
               : <Link key={item.href} className="text-sm text-zinc-700 hover:text-zinc-900" href={item.href}>{item.label}</Link>
           ))}
+
+          {isAuthenticated ? (
+            <div className="relative" ref={quickActionsRef}>
+              <button
+                type="button"
+                className="rounded border px-3 py-1.5 text-sm text-zinc-700 hover:text-zinc-900"
+                aria-haspopup="menu"
+                aria-expanded={isQuickActionsOpen}
+                aria-controls="quick-actions-menu"
+                onClick={() => setIsQuickActionsOpen((prev) => !prev)}
+              >
+                Quick Actions
+              </button>
+              {isQuickActionsOpen ? (
+                <div id="quick-actions-menu" className="absolute right-0 top-10 z-20 w-72 rounded-md border bg-white p-2 shadow-lg" role="menu">
+                  <p className="px-2 pb-2 text-xs text-zinc-500">Tip: Follow a venue/artist to personalize For You.</p>
+                  {QUICK_ACTIONS.map((action) => (
+                    <Link
+                      key={action.href + action.label}
+                      className="block rounded px-2 py-1.5 hover:bg-zinc-100"
+                      href={action.href}
+                      role="menuitem"
+                      onClick={() => setIsQuickActionsOpen(false)}
+                    >
+                      <span className="block text-sm text-zinc-900">{action.label}</span>
+                      <span className="block text-xs text-zinc-500">{action.description}</span>
+                    </Link>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {notificationOrAccountItems.map((item) => (
+            item.href === "/notifications" && isAuthenticated
+              ? <NotificationLink key={item.href} unread={unread} />
+              : <Link key={item.href} className="text-sm text-zinc-700 hover:text-zinc-900" href={item.href}>{item.label}</Link>
+          ))}
+
           {isAuthenticated ? null : <Link className="rounded border px-3 py-1.5 text-sm" href="/login">Sign in</Link>}
         </nav>
 
@@ -84,6 +161,23 @@ export function SiteNavClient({ isAuthenticated }: SiteNavClientProps) {
               ? <div key={item.href}><NotificationLink unread={unread} /></div>
               : <Link key={item.href} className="block text-sm text-zinc-700 hover:text-zinc-900" href={item.href} onClick={() => setIsMobileOpen(false)}>{item.label}</Link>
           ))}
+          {isAuthenticated ? (
+            <div className="mt-3 space-y-1 border-t pt-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Quick actions</p>
+              <p className="text-xs text-zinc-500">Tip: Follow a venue/artist to personalize For You.</p>
+              {QUICK_ACTIONS.map((action) => (
+                <Link
+                  key={`mobile-${action.href}-${action.label}`}
+                  className="block rounded px-1 py-1 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
+                  href={action.href}
+                  onClick={() => setIsMobileOpen(false)}
+                >
+                  <span className="block">{action.label}</span>
+                  <span className="block text-xs text-zinc-500">{action.description}</span>
+                </Link>
+              ))}
+            </div>
+          ) : null}
           {isAuthenticated ? null : <Link className="inline-block rounded border px-3 py-1.5 text-sm" href="/login">Sign in</Link>}
         </nav>
       ) : null}
