@@ -5,6 +5,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { LocationPreferencesForm } from "@/components/location/location-preferences-form";
 import { NearbyMap } from "@/components/nearby/nearby-map";
+import { LoadingCard } from "@/components/ui/loading-card";
+import { ErrorCard } from "@/components/ui/error-card";
 import { resolveNearbyView, type NearbyEventItem, type NearbyView } from "@/lib/nearby-map";
 import { SaveSearchButton } from "@/components/saved-searches/save-search-button";
 import { trackEngagement } from "@/lib/engagement-client";
@@ -23,6 +25,7 @@ export function NearbyClient({ initialLocation, isAuthenticated, initialView }: 
   const [form, setForm] = useState<LocationDraft>(initialLocation);
   const [items, setItems] = useState<NearbyEventItem[]>([]);
   const [message, setMessage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [view, setView] = useState<NearbyView>(initialView);
   const router = useRouter();
   const pathname = usePathname();
@@ -62,6 +65,7 @@ export function NearbyClient({ initialLocation, isAuthenticated, initialView }: 
     if (targetLat.trim() === "" || targetLng.trim() === "") return;
 
     setMessage(null);
+    setIsLoading(true);
     const query = new URLSearchParams({
       lat: targetLat,
       lng: targetLng,
@@ -69,14 +73,21 @@ export function NearbyClient({ initialLocation, isAuthenticated, initialView }: 
       days: String(DAYS_FILTER),
       limit: "300",
     });
-    const response = await fetch(`/api/events/nearby?${query.toString()}`, { cache: "no-store" });
-    if (!response.ok) {
+    try {
+      const response = await fetch(`/api/events/nearby?${query.toString()}`, { cache: "no-store" });
+      if (!response.ok) {
+        setMessage("Unable to load nearby events.");
+        setItems([]);
+        return;
+      }
+      const data = (await response.json()) as { items: NearbyEventItem[] };
+      setItems(data.items);
+    } catch {
       setMessage("Unable to load nearby events.");
       setItems([]);
-      return;
+    } finally {
+      setIsLoading(false);
     }
-    const data = (await response.json()) as { items: NearbyEventItem[] };
-    setItems(data.items);
   }, [form.lat, form.lng, form.radiusKm]);
 
   useEffect(() => {
@@ -126,11 +137,12 @@ export function NearbyClient({ initialLocation, isAuthenticated, initialView }: 
         </div>
       </div>
 
-      {message ? <p className="text-sm text-gray-600">{message}</p> : null}
+      {message ? <ErrorCard message={message} onRetry={() => void loadEvents()} /> : null}
 
-      <section className="space-y-2">
+      <section className="space-y-2" aria-busy={isLoading}>
         <h2 className="text-lg font-semibold">Upcoming nearby events</h2>
-        {view === "map" ? (
+        {isLoading ? (<div className="space-y-2"><LoadingCard lines={2} /><LoadingCard lines={2} /></div>) : null}
+        {view === "map" && !isLoading ? (
           <NearbyMap
             events={items}
             lat={form.lat}
@@ -145,7 +157,7 @@ export function NearbyClient({ initialLocation, isAuthenticated, initialView }: 
             }}
           />
         ) : null}
-        {view === "list" ? (
+        {view === "list" && !isLoading ? (
           items.length === 0 ? <p className="text-sm text-gray-600">No events found for this area yet.</p> : (
             <ul className="space-y-2">
               {items.map((item) => (

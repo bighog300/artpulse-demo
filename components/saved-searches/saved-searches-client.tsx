@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { SavedSearchesEmptyState } from "@/components/saved-searches/saved-searches-empty-state";
+import { ErrorCard } from "@/components/ui/error-card";
+import { LoadingCard } from "@/components/ui/loading-card";
 
 type SavedSearch = { id: string; name: string; type: "NEARBY" | "EVENTS_FILTER"; frequency: "WEEKLY"; isEnabled: boolean; lastSentAt: string | null };
 
@@ -10,17 +12,21 @@ export function SavedSearchesClient() {
   const [items, setItems] = useState<SavedSearch[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const load = async () => {
+    setIsLoading(true);
     const res = await fetch("/api/saved-searches", { cache: "no-store" });
     if (!res.ok) {
       setLoadError("Unable to load saved searches right now.");
       setItems([]);
+      setIsLoading(false);
       return;
     }
     const data = await res.json();
     setLoadError(null);
     setItems(data.items ?? []);
+    setIsLoading(false);
   };
 
   useEffect(() => { void load(); }, []);
@@ -28,9 +34,10 @@ export function SavedSearchesClient() {
   return (
     <div className="space-y-3">
       {message ? <p className="text-sm text-gray-600">{message}</p> : null}
-      {loadError ? <p className="text-sm text-gray-700">{loadError}</p> : null}
-      {!loadError && items.length === 0 ? <SavedSearchesEmptyState /> : null}
-      <ul className="space-y-2">
+      {loadError ? <ErrorCard message={loadError} onRetry={() => void load()} /> : null}
+      {isLoading ? (<div className="space-y-2" aria-busy="true"><LoadingCard lines={2} /><LoadingCard lines={2} /></div>) : null}
+      {!isLoading && !loadError && items.length === 0 ? <SavedSearchesEmptyState /> : null}
+      <ul className="space-y-2" aria-busy={isLoading}>
         {items.map((item) => (
           <li key={item.id} className="rounded border p-3">
             <p className="font-medium">{item.name}</p>

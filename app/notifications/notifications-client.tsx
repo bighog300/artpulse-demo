@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { ErrorCard } from "@/components/ui/error-card";
+import { LoadingCard } from "@/components/ui/loading-card";
 import type { Notification, NotificationInboxStatus } from "@prisma/client";
 
 type NotificationPageProps = {
@@ -30,6 +32,7 @@ export function NotificationsClient({ initialItems, initialNextCursor }: Notific
   const [nextCursor, setNextCursor] = useState<string | null>(initialNextCursor);
   const [loadingMore, setLoadingMore] = useState(false);
   const [activeTab, setActiveTab] = useState<"ALL" | "UNREAD">("ALL");
+  const [error, setError] = useState<string | null>(null);
 
   const unreadCount = useMemo(() => items.filter((item) => item.status === "UNREAD").length, [items]);
   const visibleItems = useMemo(
@@ -51,7 +54,12 @@ export function NotificationsClient({ initialItems, initialNextCursor }: Notific
     if (!nextCursor) return;
     setLoadingMore(true);
     try {
+      setError(null);
       const response = await fetch(`/api/notifications?cursor=${nextCursor}&limit=20`);
+      if (!response.ok) {
+        setError("Unable to load more notifications right now.");
+        return;
+      }
       const data = await response.json() as { items: Notification[]; nextCursor: string | null };
       setItems((current) => [...current, ...data.items]);
       setNextCursor(data.nextCursor);
@@ -61,7 +69,7 @@ export function NotificationsClient({ initialItems, initialNextCursor }: Notific
   }
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-4" aria-busy={loadingMore}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-gray-700">Unread: {unreadCount}</p>
         <button className="rounded border px-3 py-1 text-sm" type="button" onClick={markAllRead}>Mark all read</button>
@@ -84,6 +92,7 @@ export function NotificationsClient({ initialItems, initialNextCursor }: Notific
         </button>
       </div>
 
+      {error ? <ErrorCard message={error} onRetry={() => void loadMore()} /> : null}
       <ul className="space-y-2">
         {visibleItems.map((item) => (
           <li key={item.id} className={`rounded border p-3 ${item.status === "UNREAD" ? "border-black" : "border-gray-300"}`}>
@@ -103,6 +112,7 @@ export function NotificationsClient({ initialItems, initialNextCursor }: Notific
         ))}
       </ul>
 
+      {loadingMore ? <LoadingCard lines={2} /> : null}
       {nextCursor ? (
         <button className="rounded border px-3 py-1 text-sm" type="button" disabled={loadingMore} onClick={loadMore}>
           {loadingMore ? "Loading..." : "Load more"}

@@ -27,6 +27,7 @@ export default async function AccountPage() {
       <p><Link className="underline" href="/my/venues">Manage my venues</Link></p>
       <p><Link className="underline" href="/notifications">Notifications ({unreadCount})</Link></p>
       <p><Link className="underline" href="/for-you">For You recommendations</Link></p>
+      <p><Link className="underline" href="/preferences">Preferences</Link></p>
       <LocationSettings
         initial={{
           locationLabel: location?.locationLabel ?? "",
