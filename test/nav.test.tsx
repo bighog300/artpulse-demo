@@ -8,6 +8,7 @@ test("nav renders Sign in for unauthenticated visitors", () => {
   assert.match(html, /Sign in/);
   assert.doesNotMatch(html, /For You/);
   assert.doesNotMatch(html, /Saved Searches/);
+  assert.doesNotMatch(html, /Quick Actions/);
 });
 
 test("nav shows auth links for authenticated users", () => {
@@ -17,5 +18,9 @@ test("nav shows auth links for authenticated users", () => {
   assert.match(html, /Saved Searches/);
   assert.match(html, /Notifications/);
   assert.match(html, /Account/);
+  assert.match(html, /Quick Actions/);
+  assert.match(html, /Find nearby/);
+  assert.match(html, /Create venue/);
+  assert.match(html, /Invite members/);
   assert.doesNotMatch(html, /Sign in/);
 });
