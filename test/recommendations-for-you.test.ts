@@ -95,5 +95,6 @@ test("candidate pool cap and published filtering are respected", async () => {
 
   const result = await getForYouRecommendations(db, { userId: "u1", days: 30, limit: 30 });
   assert.ok(result.candidateCount <= 400);
-  assert.ok(result.items.every((item) => !item.event.id.endsWith("-1") || item.event.id !== "id-1"));
+  const unpublishedIds = new Set(allEvents.filter((e) => !e.isPublished).map((e) => e.id));
+  assert.equal(result.items.some((item) => unpublishedIds.has(item.event.id)), false);
 });
