@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 
 type UploadResult = { assetId: string; url: string };
@@ -53,7 +54,11 @@ export default function ImageUploader({
       <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => onFileChange(e.target.files?.[0] ?? null)} />
       {isUploading ? <p className="text-xs text-gray-600">Uploading...</p> : null}
       {error ? <p className="text-xs text-red-600">{error}</p> : null}
-      {previewUrl ? <img src={previewUrl} alt="Preview" className="h-32 w-32 rounded object-cover border" /> : null}
+      {previewUrl ? (
+        <div className="relative h-32 w-32 overflow-hidden rounded border">
+          <Image src={previewUrl} alt="Preview" fill sizes="128px" className="object-cover" />
+        </div>
+      ) : null}
     </div>
   );
 }
