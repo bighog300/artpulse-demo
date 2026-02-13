@@ -2,13 +2,24 @@ import { inviteCreatedDedupeKey, submissionDecisionDedupeKey, submissionSubmitte
 import { NotificationType, Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 
-export async function enqueueNotification(params: {
+type EnqueueNotificationParams = {
   type: NotificationType;
   toEmail: string;
   payload: Prisma.InputJsonValue;
   dedupeKey: string;
-}) {
-  return db.notificationOutbox.upsert({
+  inApp?: {
+    userId: string;
+    title: string;
+    body: string;
+    href?: string;
+    dedupeKey?: string;
+  };
+};
+
+type NotificationDb = Pick<typeof db, "notificationOutbox" | "notification" | "$transaction">;
+
+export async function enqueueNotificationWithDb(notificationDb: NotificationDb, params: EnqueueNotificationParams) {
+  const outboxOp = notificationDb.notificationOutbox.upsert({
     where: { dedupeKey: params.dedupeKey },
     create: {
       type: params.type,
@@ -18,6 +29,30 @@ export async function enqueueNotification(params: {
     },
     update: {},
   });
+
+  if (!params.inApp) {
+    return outboxOp;
+  }
+
+  const inboxOp = notificationDb.notification.upsert({
+    where: { dedupeKey: params.inApp.dedupeKey ?? params.dedupeKey },
+    create: {
+      userId: params.inApp.userId,
+      type: params.type,
+      title: params.inApp.title,
+      body: params.inApp.body,
+      href: params.inApp.href,
+      dedupeKey: params.inApp.dedupeKey ?? params.dedupeKey,
+    },
+    update: {},
+  });
+
+  const [outbox] = await notificationDb.$transaction([outboxOp, inboxOp]);
+  return outbox;
+}
+
+export async function enqueueNotification(params: EnqueueNotificationParams) {
+  return enqueueNotificationWithDb(db, params);
 }
 
 export { inviteCreatedDedupeKey, submissionDecisionDedupeKey, submissionSubmittedDedupeKey };

@@ -66,6 +66,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       invitedByUserId: user.id,
     });
 
+    const invitedUser = await db.user.findUnique({
+      where: { email: invite.email.toLowerCase() },
+      select: { id: true },
+    });
+
     const invitePath = `/invite/${invite.token}`;
 
     await enqueueNotification({
@@ -79,6 +84,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         invitePath,
         expiresAt: invite.expiresAt.toISOString(),
       },
+      inApp: invitedUser ? {
+        userId: invitedUser.id,
+        title: "You've been invited to manage a venue",
+        body: `You were invited as ${invite.role.toLowerCase()} to collaborate on a venue.`,
+        href: invitePath,
+      } : undefined,
     });
 
     return NextResponse.json({
