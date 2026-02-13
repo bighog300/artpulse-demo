@@ -111,6 +111,9 @@ export default async function FollowingPage({ searchParams }: { searchParams: Se
           <p className="mt-2 text-gray-700">
             Discover from <Link className="underline" href="/events">events</Link>, <Link className="underline" href="/venues">venues</Link>, and <Link className="underline" href="/artists">artists</Link>.
           </p>
+          <p className="mt-2 text-gray-700">
+            Or <Link className="underline" href="/nearby">find events near you</Link> based on your location.
+          </p>
         </section>
       ) : (
         <section className="space-y-2">

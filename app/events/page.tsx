@@ -18,7 +18,8 @@ export default async function EventsPage() {
 
   return (
     <main className="p-6">
-      <h1 className="mb-4 text-2xl font-semibold">Events</h1>
+      <h1 className="mb-1 text-2xl font-semibold">Events</h1>
+      <p className="mb-4 text-sm text-gray-700">Looking for something local? <Link className="underline" href="/nearby">Find events near you</Link>.</p>
       <ul className="space-y-2">
         {items?.map((e: { id: string; title?: string; slug?: string }) => (
           <li key={e.id}>
