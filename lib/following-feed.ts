@@ -9,6 +9,13 @@ export type FollowingFeedItem = {
   venue: { name: string; slug: string } | null;
 };
 
+export function buildFollowingFeedCursorFilter(cursor?: { id: string; startAt: Date }) {
+  if (!cursor) return [] as Array<{ OR: Array<{ startAt: { gt: Date } } | { startAt: Date; id: { gt: string } }> }>;
+  return [{ OR: [{ startAt: { gt: cursor.startAt } }, { startAt: cursor.startAt, id: { gt: cursor.id } }] }];
+}
+
+export const FOLLOWING_FEED_ORDER_BY = [{ startAt: "asc" as const }, { id: "asc" as const }];
+
 function encodeCursor(item: Pick<FollowingFeedItem, "id" | "startAt">) {
   return Buffer.from(JSON.stringify({ id: item.id, startAt: item.startAt.toISOString() })).toString("base64url");
 }

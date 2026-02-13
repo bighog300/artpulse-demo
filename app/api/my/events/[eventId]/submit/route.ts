@@ -6,12 +6,20 @@ import { eventIdParamSchema, zodDetails } from "@/lib/validators";
 import { nextSubmissionStatusForSubmit } from "@/lib/ownership";
 import { submissionSubmittedDedupeKey } from "@/lib/notification-keys";
 import { enqueueNotification } from "@/lib/notifications";
+import { RATE_LIMITS, enforceRateLimit, isRateLimitError, rateLimitErrorResponse } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
 export async function POST(_: Request, { params }: { params: Promise<{ eventId: string }> }) {
   try {
     const user = await requireAuth();
+
+    await enforceRateLimit({
+      key: `submissions:submit:user:${user.id}`,
+      limit: RATE_LIMITS.submissions.limit,
+      windowMs: RATE_LIMITS.submissions.windowMs,
+    });
+
     const parsedId = eventIdParamSchema.safeParse(await params);
     if (!parsedId.success) return apiError(400, "invalid_request", "Invalid route parameter", zodDetails(parsedId.error));
 
@@ -49,6 +57,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ eventId: 
 
     return NextResponse.json(updated);
   } catch (error) {
+    if (isRateLimitError(error)) return rateLimitErrorResponse(error);
     if (error instanceof Error && error.message === "unauthorized") {
       return apiError(401, "unauthorized", "Authentication required");
     }

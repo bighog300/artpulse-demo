@@ -5,12 +5,20 @@ import { requireEditor } from "@/lib/auth";
 import { idParamSchema, parseBody, submissionDecisionSchema, zodDetails } from "@/lib/validators";
 import { submissionDecisionDedupeKey } from "@/lib/notification-keys";
 import { enqueueNotification } from "@/lib/notifications";
+import { RATE_LIMITS, enforceRateLimit, isRateLimitError, rateLimitErrorResponse } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await requireEditor();
+
+    await enforceRateLimit({
+      key: `submissions:decision:user:${user.id}`,
+      limit: RATE_LIMITS.submissions.limit,
+      windowMs: RATE_LIMITS.submissions.windowMs,
+    });
+
     const parsedId = idParamSchema.safeParse(await params);
     if (!parsedId.success) return apiError(400, "invalid_request", "Invalid route parameter", zodDetails(parsedId.error));
     const parsedBody = submissionDecisionSchema.safeParse(await parseBody(req));
@@ -72,6 +80,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     });
     return NextResponse.json(updated);
   } catch (error) {
+    if (isRateLimitError(error)) return rateLimitErrorResponse(error);
     if (error instanceof Error && error.message === "unauthorized") {
       return apiError(401, "unauthorized", "Authentication required");
     }

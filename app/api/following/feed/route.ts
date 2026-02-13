@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api";
 import { requireAuth } from "@/lib/auth";
-import { getFollowingFeedWithDeps } from "@/lib/following-feed";
+import { FOLLOWING_FEED_ORDER_BY, buildFollowingFeedCursorFilter, getFollowingFeedWithDeps } from "@/lib/following-feed";
 import { followingFeedQuerySchema, paramsToObject, zodDetails } from "@/lib/validators";
 
 export const runtime = "nodejs";
@@ -47,18 +47,11 @@ export async function GET(req: NextRequest) {
                     ...(artistIds.length ? [{ eventArtists: { some: { artistId: { in: artistIds } } } }] : []),
                   ],
                 },
-                ...(cursor
-                  ? [{
-                      OR: [
-                        { startAt: { gt: cursor.startAt } },
-                        { startAt: cursor.startAt, id: { gt: cursor.id } },
-                      ],
-                    }]
-                  : []),
+...buildFollowingFeedCursorFilter(cursor),
               ],
             },
             take: limit,
-            orderBy: [{ startAt: "asc" }, { id: "asc" }],
+            orderBy: FOLLOWING_FEED_ORDER_BY,
             select: {
               id: true,
               slug: true,

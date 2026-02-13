@@ -6,6 +6,7 @@ import { inviteCreatedDedupeKey } from "@/lib/notification-keys";
 import { enqueueNotification } from "@/lib/notifications";
 import { requireVenueMemberManager } from "@/lib/venue-access";
 import { parseBody, venueIdParamSchema, venueInviteCreateSchema, zodDetails } from "@/lib/validators";
+import { RATE_LIMITS, enforceRateLimit, isRateLimitError, rateLimitErrorResponse } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -31,6 +32,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
       expiresAt: invite.expiresAt,
     })));
   } catch (error) {
+    if (isRateLimitError(error)) return rateLimitErrorResponse(error);
     if (error instanceof Error && error.message === "unauthorized") {
       return apiError(401, "unauthorized", "Authentication required");
     }
@@ -47,6 +49,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!parsedId.success) return apiError(400, "invalid_request", "Invalid route parameter", zodDetails(parsedId.error));
 
     const user = await requireVenueMemberManager(parsedId.data.id);
+
+    await enforceRateLimit({
+      key: `invites:create:venue:${parsedId.data.id}:user:${user.id}`,
+      limit: RATE_LIMITS.invitesCreate.limit,
+      windowMs: RATE_LIMITS.invitesCreate.windowMs,
+    });
 
     const parsedBody = venueInviteCreateSchema.safeParse(await parseBody(req));
     if (!parsedBody.success) return apiError(400, "invalid_request", "Invalid payload", zodDetails(parsedBody.error));
@@ -82,6 +90,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       invitePath,
     }, { status: 201 });
   } catch (error) {
+    if (isRateLimitError(error)) return rateLimitErrorResponse(error);
     if (error instanceof Error && error.message === "unauthorized") {
       return apiError(401, "unauthorized", "Authentication required");
     }

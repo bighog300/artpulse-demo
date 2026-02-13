@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { apiError } from "@/lib/api";
 import { resolveImageUrl } from "@/lib/assets";
 import { eventsQuerySchema, paramsToObject, zodDetails } from "@/lib/validators";
+import { buildStartAtIdCursorPredicate, START_AT_ID_ORDER_BY } from "@/lib/cursor-predicate";
 
 type EventWithJoin = {
   id: string;
@@ -73,9 +74,7 @@ export async function GET(req: NextRequest) {
       ],
     });
   }
-  if (decodedCursor) {
-    filters.push({ OR: [{ startAt: { gt: decodedCursor.startAt } }, { startAt: decodedCursor.startAt, id: { gt: decodedCursor.id } }] });
-  }
+  filters.push(...buildStartAtIdCursorPredicate(decodedCursor));
 
   const startedAt = performance.now();
   const items = (await db.event.findMany({
@@ -84,7 +83,7 @@ export async function GET(req: NextRequest) {
       ...(filters.length ? { AND: filters } : {}),
     },
     take: limit + 1,
-    orderBy: [{ startAt: "asc" }, { id: "asc" }],
+    orderBy: START_AT_ID_ORDER_BY,
     include: {
       venue: { select: { name: true, slug: true, city: true, lat: true, lng: true } },
       images: { take: 1, orderBy: { sortOrder: "asc" }, include: { asset: { select: { url: true } } } },
