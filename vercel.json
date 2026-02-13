@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/outbox/send",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/digests/weekly",
+      "schedule": "0 9 * * 1"
     }
   ]
 }

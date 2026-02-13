@@ -2,10 +2,13 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { eventsQuerySchema } from "@/lib/validators";
+import { SearchSaveSearchInline } from "@/app/search/save-search-inline";
+import { getSessionUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function SearchPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const user = await getSessionUser();
   const raw = await searchParams;
   const parsed = eventsQuerySchema.safeParse(Object.fromEntries(Object.entries(raw).map(([k, v]) => [k, Array.isArray(v) ? v[0] : v])));
   const filters = parsed.success ? parsed.data : { limit: 20 };
@@ -14,6 +17,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     return (
       <main className="space-y-2 p-6">
         <h1 className="text-2xl font-semibold">Search</h1>
+      {user ? <SearchSaveSearchInline /> : null}
         <p>Set DATABASE_URL to view events locally.</p>
       </main>
     );
@@ -36,6 +40,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   return (
     <main className="space-y-2 p-6">
       <h1 className="text-2xl font-semibold">Search</h1>
+      {user ? <SearchSaveSearchInline /> : null}
       <form className="grid gap-2 md:grid-cols-2">
         {[
           ["query", "Query"], ["from", "From (ISO)"], ["to", "To (ISO)"], ["lat", "Latitude"], ["lng", "Longitude"], ["radiusKm", "Radius (km)"], ["tags", "Tags (comma slugs)"], ["venue", "Venue slug"], ["artist", "Artist slug"], ["limit", "Limit"],

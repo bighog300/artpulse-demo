@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { LocationPreferencesForm } from "@/components/location/location-preferences-form";
 import { NearbyMap } from "@/components/nearby/nearby-map";
 import { resolveNearbyView, type NearbyEventItem, type NearbyView } from "@/lib/nearby-map";
+import { SaveSearchButton } from "@/components/saved-searches/save-search-button";
 
 type LocationDraft = {
   locationLabel: string;
@@ -104,6 +105,7 @@ export function NearbyClient({ initialLocation, isAuthenticated, initialView }: 
         />
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <button className="rounded border px-3 py-1 text-sm" type="button" onClick={() => void loadEvents()} disabled={!canSearch}>Find nearby events</button>
+          {isAuthenticated && canSearch ? <SaveSearchButton type="NEARBY" params={{ lat: Number(form.lat), lng: Number(form.lng), radiusKm: Number(form.radiusKm || "25"), days: DAYS_FILTER, tags: [] }} /> : null}
           <div className="inline-flex rounded border p-1 text-sm" role="tablist" aria-label="Nearby view mode">
             <button className={`rounded px-3 py-1 ${view === "list" ? "bg-gray-900 text-white" : ""}`} onClick={() => updateView("list")} type="button" role="tab" aria-selected={view === "list"}>List</button>
             <button className={`rounded px-3 py-1 ${view === "map" ? "bg-gray-900 text-white" : ""}`} onClick={() => updateView("map")} type="button" role="tab" aria-selected={view === "map"}>Map</button>

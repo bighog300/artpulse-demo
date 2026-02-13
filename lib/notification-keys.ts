@@ -9,3 +9,5 @@ export function submissionDecisionDedupeKey(submissionId: string, status: "APPRO
 export function inviteCreatedDedupeKey(inviteId: string) {
   return `invite:${inviteId}:created`;
 }
+
+export { digestDedupeKey } from "@/lib/digest";

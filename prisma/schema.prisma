@@ -42,6 +42,16 @@ enum NotificationType {
   SUBMISSION_APPROVED
   SUBMISSION_REJECTED
   INVITE_CREATED
+  DIGEST_READY
+}
+
+enum SavedSearchType {
+  NEARBY
+  EVENTS_FILTER
+}
+
+enum DigestFrequency {
+  WEEKLY
 }
 
 enum NotificationStatus {
@@ -97,6 +107,7 @@ model User {
   follows              Follow[]
   perfSnapshotsCreated PerfSnapshot[]
   notifications        Notification[]
+  savedSearches        SavedSearch[]
   onboardingState      OnboardingState?
   locationLabel        String?
   locationLat          Float?
@@ -311,6 +322,23 @@ model Notification {
 
   @@index([userId, createdAt])
   @@index([userId, status])
+}
+
+model SavedSearch {
+  id         String           @id @default(uuid()) @db.Uuid
+  userId     String           @db.Uuid
+  type       SavedSearchType
+  name       String
+  paramsJson Json
+  frequency  DigestFrequency  @default(WEEKLY)
+  isEnabled  Boolean          @default(true)
+  lastSentAt DateTime?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([isEnabled, frequency, lastSentAt])
 }
 
 model Tag {
