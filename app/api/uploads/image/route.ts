@@ -3,12 +3,20 @@ import { apiError } from "@/lib/api";
 import { requireAuth } from "@/lib/auth";
 import { uploadImageAsset } from "@/lib/assets";
 import { db } from "@/lib/db";
+import { RATE_LIMITS, enforceRateLimit, isRateLimitError, principalRateLimitKey, rateLimitErrorResponse } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   try {
     const user = await requireAuth();
+
+    await enforceRateLimit({
+      key: principalRateLimitKey(req, "uploads:image", user.id),
+      limit: RATE_LIMITS.uploads.limit,
+      windowMs: RATE_LIMITS.uploads.windowMs,
+    });
+
     const form = await req.formData();
     const fileEntry = form.get("file");
     const altEntry = form.get("alt");
@@ -24,6 +32,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(uploaded, { status: 201 });
   } catch (error) {
+    if (isRateLimitError(error)) return rateLimitErrorResponse(error);
     if (error instanceof Error && error.message === "unauthorized") {
       return apiError(401, "unauthorized", "Authentication required");
     }

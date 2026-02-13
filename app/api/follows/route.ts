@@ -4,6 +4,7 @@ import { apiError } from "@/lib/api";
 import { requireAuth } from "@/lib/auth";
 import { deleteFollowWithDeps, splitFollowIds, upsertFollowWithDeps } from "@/lib/follows";
 import { followBodySchema, parseBody, zodDetails } from "@/lib/validators";
+import { RATE_LIMITS, enforceRateLimit, isRateLimitError, principalRateLimitKey, rateLimitErrorResponse } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -26,6 +27,12 @@ export async function POST(req: NextRequest) {
     const user = await requireAuth();
     const parsed = followBodySchema.safeParse(await parseBody(req));
     if (!parsed.success) return apiError(400, "invalid_request", "Invalid follow payload", zodDetails(parsed.error));
+
+    await enforceRateLimit({
+      key: principalRateLimitKey(req, "follows:write", user.id),
+      limit: RATE_LIMITS.followsWrite.limit,
+      windowMs: RATE_LIMITS.followsWrite.windowMs,
+    });
 
     const result = await upsertFollowWithDeps(
       {
@@ -50,7 +57,8 @@ export async function POST(req: NextRequest) {
 
     if (!result.ok) return apiError(404, "not_found", "Follow target not found");
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (error) {
+    if (isRateLimitError(error)) return rateLimitErrorResponse(error);
     return apiError(401, "unauthorized", "Login required");
   }
 }
@@ -60,6 +68,12 @@ export async function DELETE(req: NextRequest) {
     const user = await requireAuth();
     const parsed = followBodySchema.safeParse(await parseBody(req));
     if (!parsed.success) return apiError(400, "invalid_request", "Invalid follow payload", zodDetails(parsed.error));
+
+    await enforceRateLimit({
+      key: principalRateLimitKey(req, "follows:write", user.id),
+      limit: RATE_LIMITS.followsWrite.limit,
+      windowMs: RATE_LIMITS.followsWrite.windowMs,
+    });
 
     await deleteFollowWithDeps(
       {
@@ -71,7 +85,8 @@ export async function DELETE(req: NextRequest) {
     );
 
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (error) {
+    if (isRateLimitError(error)) return rateLimitErrorResponse(error);
     return apiError(401, "unauthorized", "Login required");
   }
 }
