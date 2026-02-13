@@ -66,6 +66,7 @@ export default async function MyVenuesPage() {
           <h2 className="text-lg font-semibold">You’re not part of any venue yet</h2>
           <p className="mt-2 text-zinc-700">Ask a venue owner to invite {user.email}, or start by creating a venue with an admin/editor.</p>
           <p className="mt-2 text-zinc-700">Need help? Share this email for invites: <span className="font-medium">{user.email}</span></p>
+          <p className="mt-3"><Link className="underline" href="/my/venues/new">Create a venue</Link></p>
         </section>
       ) : (
         <ul className="space-y-2">

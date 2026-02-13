@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { computeChecklist, type OnboardingStateRecord } from "../lib/onboarding.ts";
+import { computeChecklist, maybeCompleteOnboarding, type OnboardingStateRecord } from "../lib/onboarding.ts";
+import { db } from "../lib/db.ts";
 import { isOnboardingPanelDismissed, setOnboardingPanelDismissed } from "../lib/onboarding-panel-storage.ts";
 import { GET as getOnboarding } from "../app/api/onboarding/route.ts";
 
@@ -73,4 +74,28 @@ test("dismissed onboarding panel state is client-only", () => {
 test("/api/onboarding requires authentication", async () => {
   const response = await getOnboarding();
   assert.equal(response.status, 401);
+});
+
+
+test("onboarding auto-complete sets completedAt when core flags are done", async () => {
+  const originalUpdate = db.onboardingState.update;
+  let updated = false;
+
+  db.onboardingState.update = (async () => {
+    updated = true;
+    return { ...baseState, completedAt: new Date("2026-01-02T00:00:00.000Z"), hasFollowedSomething: true, hasCreatedVenue: true, hasViewedNotifications: true };
+  }) as typeof db.onboardingState.update;
+
+  try {
+    await maybeCompleteOnboarding({
+      ...baseState,
+      hasFollowedSomething: true,
+      hasCreatedVenue: true,
+      hasViewedNotifications: true,
+    });
+
+    assert.equal(updated, true);
+  } finally {
+    db.onboardingState.update = originalUpdate;
+  }
 });
