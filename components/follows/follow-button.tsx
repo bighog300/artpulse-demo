@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { trackEngagement } from "@/lib/engagement-client";
 
 type FollowButtonProps = {
   targetType: "ARTIST" | "VENUE";
@@ -39,6 +40,13 @@ export function FollowButton({
     if (!response.ok) {
       setIsFollowing(!nextIsFollowing);
       setFollowersCount((prev) => Math.max(0, prev + (nextIsFollowing ? -1 : 1)));
+    } else {
+      trackEngagement({
+        surface: "FOLLOWING",
+        action: "FOLLOW",
+        targetType,
+        targetId,
+      });
     }
 
     setIsSaving(false);

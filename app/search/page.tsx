@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { db } from "@/lib/db";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { eventsQuerySchema } from "@/lib/validators";
 import { SearchSaveSearchInline } from "@/app/search/save-search-inline";
 import { getSessionUser } from "@/lib/auth";
+import { SearchResultsList } from "@/app/search/search-results-list";
 
 export const dynamic = "force-dynamic";
 
@@ -52,13 +52,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
         ))}
         <button className="rounded border px-3 py-2 w-fit">Apply</button>
       </form>
-      <ul>
-        {items?.map((e) => (
-          <li key={e.id}>
-            <Link className="underline" href={`/events/${e.slug}`}>{e.title}</Link>
-          </li>
-        ))}
-      </ul>
+      <SearchResultsList items={items.map((item) => ({ id: item.id, slug: item.slug, title: item.title }))} query={filters.query} />
     </main>
   );
 }

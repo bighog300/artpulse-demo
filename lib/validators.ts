@@ -61,6 +61,21 @@ export const locationPreferenceSchema = z.object({
 });
 
 
+
+export const engagementMetaSchema = z.object({
+  digestRunId: z.string().uuid().optional(),
+  position: z.number().int().min(0).max(500).optional(),
+  query: z.string().trim().min(1).max(120).optional(),
+}).strict();
+
+export const engagementBodySchema = z.object({
+  surface: z.enum(["DIGEST", "NEARBY", "SEARCH", "FOLLOWING"]),
+  action: z.enum(["VIEW", "CLICK", "FOLLOW", "SAVE_SEARCH"]),
+  targetType: z.enum(["EVENT", "VENUE", "ARTIST", "SAVED_SEARCH", "DIGEST_RUN"]),
+  targetId: z.string().trim().min(1).max(120),
+  meta: engagementMetaSchema.optional(),
+});
+
 export const geocodeQuerySchema = z.object({
   q: z.string().trim().min(3).max(120),
 });
