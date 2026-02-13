@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getSessionUser } from "@/lib/auth";
+import { GetStartedEntryPoint } from "@/components/onboarding/get-started-entry-point";
 
 const publicTiles = [
   { title: "Browse events", description: "See what’s coming up across exhibitions, openings, and talks.", href: "/events" },
@@ -35,7 +36,7 @@ export default async function Home() {
         ))}
       </section>
 
-      {!user ? <Link className="inline-block rounded border px-4 py-2 text-sm" href="/login">Sign in</Link> : null}
+      {!user ? <Link className="inline-block rounded border px-4 py-2 text-sm" href="/login">Sign in</Link> : <GetStartedEntryPoint />}
     </main>
   );
 }

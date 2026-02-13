@@ -3,6 +3,7 @@ import { redirectToLogin } from "@/lib/auth-redirect";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { ForYouClient } from "@/components/recommendations/for-you-client";
 import { PageHeader } from "@/components/ui/page-header";
+import { GetStartedBanner } from "@/components/onboarding/get-started-banner";
 
 export default async function ForYouPage() {
   const user = await getSessionUser();
@@ -20,6 +21,7 @@ export default async function ForYouPage() {
   return (
     <main className="space-y-4 p-6">
       <PageHeader title="For You" subtitle="Personalized picks based on your follows and engagement." />
+      <GetStartedBanner />
       <ForYouClient />
     </main>
   );

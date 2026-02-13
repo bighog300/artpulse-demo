@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { OnboardingPanel } from "@/components/onboarding/onboarding-panel";
 import { LocationSettings } from "@/app/account/location-settings";
 import { redirectToLogin } from "@/lib/auth-redirect";
+import { GetStartedEntryPoint } from "@/components/onboarding/get-started-entry-point";
 
 export default async function AccountPage() {
   const user = await getSessionUser();
@@ -22,6 +23,7 @@ export default async function AccountPage() {
     <main className="space-y-2 p-6">
       <h1 className="text-2xl font-semibold">Account</h1>
       <OnboardingPanel />
+      <GetStartedEntryPoint />
       <p>{user.email}</p>
       <p>Role: {user.role}</p>
       <p><Link className="underline" href="/my/venues">Manage my venues</Link></p>
