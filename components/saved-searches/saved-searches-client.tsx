@@ -2,16 +2,24 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { SavedSearchesEmptyState } from "@/components/saved-searches/saved-searches-empty-state";
 
 type SavedSearch = { id: string; name: string; type: "NEARBY" | "EVENTS_FILTER"; frequency: "WEEKLY"; isEnabled: boolean; lastSentAt: string | null };
 
 export function SavedSearchesClient() {
   const [items, setItems] = useState<SavedSearch[]>([]);
   const [message, setMessage] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = async () => {
     const res = await fetch("/api/saved-searches", { cache: "no-store" });
+    if (!res.ok) {
+      setLoadError("Unable to load saved searches right now.");
+      setItems([]);
+      return;
+    }
     const data = await res.json();
+    setLoadError(null);
     setItems(data.items ?? []);
   };
 
@@ -20,7 +28,8 @@ export function SavedSearchesClient() {
   return (
     <div className="space-y-3">
       {message ? <p className="text-sm text-gray-600">{message}</p> : null}
-      {items.length === 0 ? <p className="text-sm text-gray-700">No saved searches yet.</p> : null}
+      {loadError ? <p className="text-sm text-gray-700">{loadError}</p> : null}
+      {!loadError && items.length === 0 ? <SavedSearchesEmptyState /> : null}
       <ul className="space-y-2">
         {items.map((item) => (
           <li key={item.id} className="rounded border p-3">
