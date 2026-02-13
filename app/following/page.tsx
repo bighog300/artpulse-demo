@@ -6,6 +6,8 @@ import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { getFollowingFeedWithDeps, type FollowingFeedTypeFilter } from "@/lib/following-feed";
 import { getFollowRecommendations } from "@/lib/recommendations-follows";
 import { FollowButton } from "@/components/follows/follow-button";
+import { OnboardingPanel } from "@/components/onboarding/onboarding-panel";
+import { setOnboardingFlag } from "@/lib/onboarding";
 
 type SearchParams = Promise<{ days?: string; type?: string }>;
 
@@ -75,6 +77,7 @@ export default async function FollowingPage({ searchParams }: { searchParams: Se
   ),
     db.follow.count({ where: { userId: user.id } }),
     getFollowRecommendations({ userId: user.id, limit: 8 }),
+    setOnboardingFlag(user.id, "hasVisitedFollowing"),
   ]);
 
   const hasNoFollows = followCount === 0;
@@ -82,6 +85,7 @@ export default async function FollowingPage({ searchParams }: { searchParams: Se
   return (
     <main className="space-y-4 p-6">
       <h1 className="text-2xl font-semibold">Following</h1>
+      <OnboardingPanel />
       <form className="flex flex-wrap items-center gap-3" method="get">
         <label className="text-sm">
           Timeframe
@@ -98,11 +102,22 @@ export default async function FollowingPage({ searchParams }: { searchParams: Se
         <button type="submit" className="rounded border px-3 py-1 text-sm">Apply</button>
       </form>
 
-      <section className="space-y-2">
-        <h2 className="text-lg font-semibold">Feed</h2>
-        {result.items.length === 0 ? (
-          <p className="text-sm text-gray-600">No upcoming published events from your follows.</p>
-        ) : (
+      {hasNoFollows ? (
+        <section className="rounded border bg-gray-50 p-5 text-sm">
+          <h2 className="text-lg font-semibold text-gray-900">Your following feed is empty</h2>
+          <p className="mt-2 text-gray-700">
+            Follow artists and venues to build a personalized stream of upcoming events.
+          </p>
+          <p className="mt-2 text-gray-700">
+            Discover from <Link className="underline" href="/events">events</Link>, <Link className="underline" href="/venues">venues</Link>, and <Link className="underline" href="/artists">artists</Link>.
+          </p>
+        </section>
+      ) : (
+        <section className="space-y-2">
+          <h2 className="text-lg font-semibold">Feed</h2>
+          {result.items.length === 0 ? (
+            <p className="text-sm text-gray-600">No upcoming published events from your follows.</p>
+          ) : (
           <ul className="space-y-2">
             {result.items.map((item) => (
               <li key={item.id} className="rounded border p-3">
@@ -113,20 +128,14 @@ export default async function FollowingPage({ searchParams }: { searchParams: Se
               </li>
             ))}
           </ul>
-        )}
-      </section>
+          )}
+        </section>
+      )}
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Suggested follows</h2>
 
-        {hasNoFollows ? (
-          <div className="rounded border bg-gray-50 p-4 text-sm">
-            <p className="font-medium">Start following artists and venues to personalize your feed.</p>
-            <p className="mt-1 text-gray-600">
-              Explore <Link className="underline" href="/events">events</Link>, <Link className="underline" href="/venues">venues</Link>, or <Link className="underline" href="/artists">artists</Link>.
-            </p>
-          </div>
-        ) : null}
+        {hasNoFollows ? <p className="text-sm text-gray-600">Suggested follows to get your feed started.</p> : null}
 
         <div className="grid gap-3 md:grid-cols-2">
           <div className="space-y-2">

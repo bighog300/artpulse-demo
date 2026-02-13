@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { tokenParamSchema, zodDetails } from "@/lib/validators";
 import { acceptInviteWithDeps } from "@/lib/invite-accept.service";
+import { setOnboardingFlag } from "@/lib/onboarding";
 
 export const runtime = "nodejs";
 
@@ -53,6 +54,8 @@ export async function POST(_: NextRequest, { params }: { params: Promise<{ token
       if (result.code === "forbidden") return apiError(403, "forbidden", result.message);
       return apiError(409, "invalid_state", result.message);
     }
+
+    await setOnboardingFlag(user.id, "hasAcceptedInvite");
 
     return NextResponse.json({
       accepted: true,
