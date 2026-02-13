@@ -90,6 +90,21 @@ model User {
   sentVenueInvites     VenueInvite[]     @relation("VenueInviteInvitedBy")
   ownedAssets          Asset[]
   follows              Follow[]
+  perfSnapshotsCreated PerfSnapshot[]
+}
+
+model PerfSnapshot {
+  id              String   @id @default(uuid()) @db.Uuid
+  name            String
+  createdAt       DateTime @default(now())
+  createdByUserId String?  @db.Uuid
+  paramsJson      Json
+  explainText     String
+  durationMs      Int?
+  createdBy       User?    @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([name, createdAt])
+  @@index([createdByUserId])
 }
 
 model Venue {
