@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { LocationPreferencesForm } from "@/components/location/location-preferences-form";
 
 type LocationDraft = {
   locationLabel: string;
@@ -41,57 +42,41 @@ export function NearbyClient({ initialLocation, isAuthenticated }: { initialLoca
       setItems([]);
       return;
     }
-    const data = await response.json() as { items: NearbyEvent[] };
+    const data = (await response.json()) as { items: NearbyEvent[] };
     setItems(data.items);
   }, [canSearch, form.lat, form.lng, form.radiusKm]);
 
   useEffect(() => {
-    if (canSearch) {
-      void loadEvents();
-    }
+    if (canSearch) void loadEvents();
   }, [canSearch, loadEvents]);
-
-  async function saveLocation() {
-    if (!isAuthenticated) return;
-    const response = await fetch("/api/me/location", {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        locationLabel: form.locationLabel || null,
-        lat: form.lat === "" ? null : Number(form.lat),
-        lng: form.lng === "" ? null : Number(form.lng),
-        radiusKm: Number(form.radiusKm || "25"),
-      }),
-    });
-    setMessage(response.ok ? "Location saved." : "Unable to save location.");
-  }
 
   return (
     <div className="space-y-4">
-      <form
-        className="grid gap-3 rounded border p-4 md:grid-cols-2"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void loadEvents();
-        }}
-      >
-        <label className="text-sm">Location label
-          <input className="mt-1 w-full rounded border p-2" value={form.locationLabel} onChange={(e) => setForm((prev) => ({ ...prev, locationLabel: e.target.value }))} placeholder="Bristol" />
-        </label>
-        <label className="text-sm">Radius (km)
-          <input className="mt-1 w-full rounded border p-2" type="number" min={1} max={200} value={form.radiusKm} onChange={(e) => setForm((prev) => ({ ...prev, radiusKm: e.target.value }))} />
-        </label>
-        <label className="text-sm">Latitude
-          <input className="mt-1 w-full rounded border p-2" type="number" step="any" value={form.lat} onChange={(e) => setForm((prev) => ({ ...prev, lat: e.target.value }))} />
-        </label>
-        <label className="text-sm">Longitude
-          <input className="mt-1 w-full rounded border p-2" type="number" step="any" value={form.lng} onChange={(e) => setForm((prev) => ({ ...prev, lng: e.target.value }))} />
-        </label>
-        <div className="flex gap-2 md:col-span-2">
-          <button className="rounded border px-3 py-1 text-sm" type="submit">Find nearby events</button>
-          {isAuthenticated ? <button className="rounded border px-3 py-1 text-sm" type="button" onClick={() => void saveLocation()}>Save location</button> : null}
+      <div className="rounded border p-4">
+        <LocationPreferencesForm
+          initial={initialLocation}
+          saveButtonLabel={isAuthenticated ? "Save location" : "Use this location"}
+          onSave={async (payload) => {
+            setForm({
+              locationLabel: payload.locationLabel ?? "",
+              lat: payload.lat == null ? "" : String(payload.lat),
+              lng: payload.lng == null ? "" : String(payload.lng),
+              radiusKm: String(payload.radiusKm),
+            });
+            if (!isAuthenticated) return true;
+            const response = await fetch("/api/me/location", {
+              method: "PUT",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            return response.ok;
+          }}
+          afterSave={(next) => setForm(next)}
+        />
+        <div className="mt-3">
+          <button className="rounded border px-3 py-1 text-sm" type="button" onClick={() => void loadEvents()} disabled={!canSearch}>Find nearby events</button>
         </div>
-      </form>
+      </div>
 
       {message ? <p className="text-sm text-gray-600">{message}</p> : null}
 
