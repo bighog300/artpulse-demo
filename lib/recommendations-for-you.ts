@@ -58,6 +58,13 @@ function freshnessReason(now: Date, startAt: Date) {
   return "Upcoming soon";
 }
 
+
+function feedbackFromMeta(metaJson: Prisma.JsonValue | null | undefined) {
+  if (!metaJson || typeof metaJson !== "object" || Array.isArray(metaJson)) return null;
+  const feedback = (metaJson as Record<string, Prisma.JsonValue>).feedback;
+  return feedback === "up" || feedback === "down" ? feedback : null;
+}
+
 export function scoreForYouEvents(args: {
   now: Date;
   events: CandidateEvent[];
@@ -68,6 +75,12 @@ export function scoreForYouEvents(args: {
   affinityVenueIds: Set<string>;
   affinityArtistIds: Set<string>;
   affinityTagIds: Set<string>;
+  likedVenueIds: Set<string>;
+  likedArtistIds: Set<string>;
+  likedTagIds: Set<string>;
+  dislikedVenueIds: Set<string>;
+  dislikedArtistIds: Set<string>;
+  dislikedTagIds: Set<string>;
   locationLabel?: string | null;
   radiusKm?: number;
 }) {
@@ -107,6 +120,20 @@ export function scoreForYouEvents(args: {
       score += 3;
       reasons.push("Has tags you engage with");
     }
+
+    const likedSimilarity = Boolean(
+      (event.venueId && args.likedVenueIds.has(event.venueId))
+      || event.eventArtists.some((artist) => args.likedArtistIds.has(artist.artistId))
+      || event.eventTags.some((tag) => args.likedTagIds.has(tag.tagId)),
+    );
+    if (likedSimilarity) {
+      score += 2;
+      reasons.push("Because you liked similar events");
+    }
+
+    if (event.venueId && args.dislikedVenueIds.has(event.venueId)) score -= 4;
+    if (event.eventArtists.some((artist) => args.dislikedArtistIds.has(artist.artistId))) score -= 4;
+    if (event.eventTags.some((tag) => args.dislikedTagIds.has(tag.tagId))) score -= 4;
 
     score += freshnessPoints(args.now, event.startAt);
 
@@ -203,33 +230,72 @@ export async function getForYouRecommendations(db: Prisma.TransactionClient | Pr
   const since = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
   const clicks = await db.engagementEvent.findMany({
     where: { userId: args.userId, action: "CLICK", targetType: "EVENT", createdAt: { gte: since } },
-    select: { targetId: true },
+    select: { targetId: true, metaJson: true },
     take: 500,
     orderBy: { createdAt: "desc" },
   });
-  const clickedIds = Array.from(new Set(clicks.map((item) => item.targetId)));
+  const likedEventIds = new Set<string>();
+  const dislikedEventIds = new Set<string>();
+  const clickedEventIds = new Set<string>();
+  for (const click of clicks) {
+    const feedback = feedbackFromMeta(click.metaJson);
+    if (feedback === "up") likedEventIds.add(click.targetId);
+    if (feedback === "down") dislikedEventIds.add(click.targetId);
+    if (feedback !== "down") clickedEventIds.add(click.targetId);
+  }
 
   let affinityVenueIds = new Set<string>();
   let affinityArtistIds = new Set<string>();
   let affinityTagIds = new Set<string>();
-  if (clickedIds.length) {
+  let likedVenueIds = new Set<string>();
+  let likedArtistIds = new Set<string>();
+  let likedTagIds = new Set<string>();
+  let dislikedVenueIds = new Set<string>();
+  let dislikedArtistIds = new Set<string>();
+  let dislikedTagIds = new Set<string>();
+  if (clickedEventIds.size || likedEventIds.size || dislikedEventIds.size) {
+    const idsToLoad = Array.from(new Set([...clickedEventIds, ...likedEventIds, ...dislikedEventIds]));
     const clickedEvents = await db.event.findMany({
-      where: { id: { in: clickedIds } },
-      select: { venueId: true, eventArtists: { select: { artistId: true } }, eventTags: { select: { tagId: true } } },
+      where: { id: { in: idsToLoad } },
+      select: { id: true, venueId: true, eventArtists: { select: { artistId: true } }, eventTags: { select: { tagId: true } } },
     });
 
     const top = (counts: Map<string, number>) => new Set(Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 10).map(([id]) => id));
     const venueCounts = new Map<string, number>();
     const artistCounts = new Map<string, number>();
     const tagCounts = new Map<string, number>();
+    const likedVenueCounts = new Map<string, number>();
+    const likedArtistCounts = new Map<string, number>();
+    const likedTagCounts = new Map<string, number>();
+    const dislikedVenueCounts = new Map<string, number>();
+    const dislikedArtistCounts = new Map<string, number>();
+    const dislikedTagCounts = new Map<string, number>();
     for (const event of clickedEvents) {
-      if (event.venueId) venueCounts.set(event.venueId, (venueCounts.get(event.venueId) ?? 0) + 1);
-      for (const artist of event.eventArtists) artistCounts.set(artist.artistId, (artistCounts.get(artist.artistId) ?? 0) + 1);
-      for (const tag of event.eventTags) tagCounts.set(tag.tagId, (tagCounts.get(tag.tagId) ?? 0) + 1);
+      if (clickedEventIds.has(event.id) && event.venueId) venueCounts.set(event.venueId, (venueCounts.get(event.venueId) ?? 0) + 1);
+      if (clickedEventIds.has(event.id)) {
+        for (const artist of event.eventArtists) artistCounts.set(artist.artistId, (artistCounts.get(artist.artistId) ?? 0) + 1);
+        for (const tag of event.eventTags) tagCounts.set(tag.tagId, (tagCounts.get(tag.tagId) ?? 0) + 1);
+      }
+      if (likedEventIds.has(event.id)) {
+        if (event.venueId) likedVenueCounts.set(event.venueId, (likedVenueCounts.get(event.venueId) ?? 0) + 1);
+        for (const artist of event.eventArtists) likedArtistCounts.set(artist.artistId, (likedArtistCounts.get(artist.artistId) ?? 0) + 1);
+        for (const tag of event.eventTags) likedTagCounts.set(tag.tagId, (likedTagCounts.get(tag.tagId) ?? 0) + 1);
+      }
+      if (dislikedEventIds.has(event.id)) {
+        if (event.venueId) dislikedVenueCounts.set(event.venueId, (dislikedVenueCounts.get(event.venueId) ?? 0) + 1);
+        for (const artist of event.eventArtists) dislikedArtistCounts.set(artist.artistId, (dislikedArtistCounts.get(artist.artistId) ?? 0) + 1);
+        for (const tag of event.eventTags) dislikedTagCounts.set(tag.tagId, (dislikedTagCounts.get(tag.tagId) ?? 0) + 1);
+      }
     }
     affinityVenueIds = top(venueCounts);
     affinityArtistIds = top(artistCounts);
     affinityTagIds = top(tagCounts);
+    likedVenueIds = top(likedVenueCounts);
+    likedArtistIds = top(likedArtistCounts);
+    likedTagIds = top(likedTagCounts);
+    dislikedVenueIds = top(dislikedVenueCounts);
+    dislikedArtistIds = top(dislikedArtistCounts);
+    dislikedTagIds = top(dislikedTagCounts);
 
     if (affinityVenueIds.size || affinityArtistIds.size || affinityTagIds.size) {
       const affinity = await db.event.findMany({
@@ -250,7 +316,7 @@ export async function getForYouRecommendations(db: Prisma.TransactionClient | Pr
     }
   }
 
-  const trimmed = candidateIds.slice(0, MAX_CANDIDATES);
+  const trimmed = candidateIds.filter((id) => !dislikedEventIds.has(id)).slice(0, MAX_CANDIDATES);
   const events = await db.event.findMany({
     where: { id: { in: trimmed }, isPublished: true, startAt: { gte: now, lte: to } },
     select: {
@@ -278,6 +344,12 @@ export async function getForYouRecommendations(db: Prisma.TransactionClient | Pr
     affinityVenueIds,
     affinityArtistIds,
     affinityTagIds,
+    likedVenueIds,
+    likedArtistIds,
+    likedTagIds,
+    dislikedVenueIds,
+    dislikedArtistIds,
+    dislikedTagIds,
     locationLabel: user?.locationLabel,
     radiusKm: user?.locationRadiusKm,
   });
