@@ -13,6 +13,30 @@ type FollowButtonProps = {
   isAuthenticated: boolean;
 };
 
+type ToggleDeps = {
+  fetcher: (nextIsFollowing: boolean) => Promise<boolean>;
+  onOptimistic: (nextIsFollowing: boolean) => void;
+  onRevert: (nextIsFollowing: boolean) => void;
+  onSuccess: (nextIsFollowing: boolean) => void;
+  onError: () => void;
+};
+
+export async function runOptimisticFollowToggle(nextIsFollowing: boolean, deps: ToggleDeps) {
+  deps.onOptimistic(nextIsFollowing);
+  try {
+    const ok = await deps.fetcher(nextIsFollowing);
+    if (!ok) {
+      deps.onRevert(nextIsFollowing);
+      deps.onError();
+      return;
+    }
+    deps.onSuccess(nextIsFollowing);
+  } catch {
+    deps.onRevert(nextIsFollowing);
+    deps.onError();
+  }
+}
+
 export function FollowButton({
   targetType,
   targetId,
@@ -28,31 +52,38 @@ export function FollowButton({
     if (!isAuthenticated || isSaving) return;
 
     const nextIsFollowing = !isFollowing;
-    setIsFollowing(nextIsFollowing);
-    setFollowersCount((prev) => Math.max(0, prev + (nextIsFollowing ? 1 : -1)));
     setIsSaving(true);
 
-    const response = await fetch("/api/follows", {
-      method: nextIsFollowing ? "POST" : "DELETE",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ targetType, targetId }),
+    await runOptimisticFollowToggle(nextIsFollowing, {
+      onOptimistic: (next) => {
+        setIsFollowing(next);
+        setFollowersCount((prev) => Math.max(0, prev + (next ? 1 : -1)));
+      },
+      fetcher: async (next) => {
+        const response = await fetch("/api/follows", {
+          method: next ? "POST" : "DELETE",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ targetType, targetId }),
+        });
+        return response.ok;
+      },
+      onRevert: (next) => {
+        setIsFollowing(!next);
+        setFollowersCount((prev) => Math.max(0, prev + (next ? -1 : 1)));
+      },
+      onSuccess: (next) => {
+        trackEngagement({
+          surface: "FOLLOWING",
+          action: "FOLLOW",
+          targetType,
+          targetId,
+        });
+        enqueueToast({ title: next ? "Following updated" : "Unfollowed" });
+      },
+      onError: () => enqueueToast({ title: "Could not update follow", variant: "error" }),
     });
 
-    if (!response.ok) {
-      setIsFollowing(!nextIsFollowing);
-      setFollowersCount((prev) => Math.max(0, prev + (nextIsFollowing ? -1 : 1)));
-      enqueueToast({ title: "Could not update follow", variant: "error" });
-    } else {
-      trackEngagement({
-        surface: "FOLLOWING",
-        action: "FOLLOW",
-        targetType,
-        targetId,
-      });
-      enqueueToast({ title: nextIsFollowing ? "Following updated" : "Unfollowed" });
-    }
-
-    setIsSaving(false);
+    setTimeout(() => setIsSaving(false), 600);
   }
 
   if (!isAuthenticated) {

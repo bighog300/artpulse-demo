@@ -10,6 +10,7 @@ import { OnboardingPanel } from "@/components/onboarding/onboarding-panel";
 import { setOnboardingFlag } from "@/lib/onboarding";
 import { EmptyState } from "@/components/ui/empty-state";
 import { EventCard } from "@/components/events/event-card";
+import { PageHeader } from "@/components/ui/page-header";
 
 type SearchParams = Promise<{ days?: string; type?: string }>;
 
@@ -31,8 +32,8 @@ export default async function FollowingPage({ searchParams }: { searchParams: Se
 
   if (!hasDatabaseUrl()) {
     return (
-      <main className="p-6">
-        <h1 className="mb-4 text-2xl font-semibold">Following</h1>
+      <main className="space-y-4 p-6">
+        <PageHeader title="Following" subtitle="Upcoming events from artists and venues you follow." />
         <p>Set DATABASE_URL to view events locally.</p>
       </main>
     );
@@ -81,7 +82,7 @@ export default async function FollowingPage({ searchParams }: { searchParams: Se
 
   return (
     <main className="space-y-4 p-6">
-      <h1 className="text-2xl font-semibold">Following</h1>
+      <PageHeader title="Following" subtitle="Upcoming events from artists and venues you follow." />
       <OnboardingPanel />
       <form className="flex flex-wrap items-center gap-3" method="get">
         <label className="text-sm">

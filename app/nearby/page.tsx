@@ -4,12 +4,13 @@ import { getSessionUser } from "@/lib/auth";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { NearbyClient } from "@/app/nearby/nearby-client";
 import { resolveNearbyView } from "@/lib/nearby-map";
+import { PageHeader } from "@/components/ui/page-header";
 
 export default async function NearbyPage({ searchParams }: { searchParams: Promise<{ view?: string }> }) {
   if (!hasDatabaseUrl()) {
     return (
-      <main className="p-6">
-        <h1 className="mb-2 text-2xl font-semibold">Nearby events</h1>
+      <main className="space-y-4 p-6">
+        <PageHeader title="Nearby events" subtitle="Upcoming events near your saved location." />
         <p>Set DATABASE_URL to view nearby events locally.</p>
       </main>
     );
@@ -27,7 +28,7 @@ export default async function NearbyPage({ searchParams }: { searchParams: Promi
 
   return (
     <main className="space-y-4 p-6">
-      <h1 className="text-2xl font-semibold">Nearby events</h1>
+      <PageHeader title="Nearby events" subtitle="Upcoming events near your saved location." />
       <p className="text-sm text-gray-700">
         Set your location to discover published events happening near you. {user ? <Link className="underline" href="/account">Manage on account settings</Link> : <Link className="underline" href="/login">Login</Link>} to save this preference.
       </p>

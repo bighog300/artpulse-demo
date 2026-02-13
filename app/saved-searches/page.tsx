@@ -2,6 +2,7 @@ import { getSessionUser } from "@/lib/auth";
 import { SavedSearchesClient } from "@/components/saved-searches/saved-searches-client";
 import { redirectToLogin } from "@/lib/auth-redirect";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
+import { PageHeader } from "@/components/ui/page-header";
 
 export default async function SavedSearchesPage() {
   const user = await getSessionUser();
@@ -10,7 +11,7 @@ export default async function SavedSearchesPage() {
   if (!hasDatabaseUrl()) {
     return (
       <main className="space-y-4 p-6">
-        <h1 className="text-2xl font-semibold">Saved Searches</h1>
+        <PageHeader title="Saved Searches" subtitle="Manage recurring filters and weekly digest triggers." />
         <p>Set DATABASE_URL to manage saved searches locally.</p>
       </main>
     );
@@ -18,7 +19,7 @@ export default async function SavedSearchesPage() {
 
   return (
     <main className="space-y-4 p-6">
-      <h1 className="text-2xl font-semibold">Saved Searches</h1>
+      <PageHeader title="Saved Searches" subtitle="Manage recurring filters and weekly digest triggers." />
       <SavedSearchesClient />
     </main>
   );

@@ -34,6 +34,7 @@ export function NotificationsClient({ initialItems, initialNextCursor }: Notific
   const [loadingMore, setLoadingMore] = useState(false);
   const [activeTab, setActiveTab] = useState<"ALL" | "UNREAD">("ALL");
   const [error, setError] = useState<string | null>(null);
+  const [markingAllRead, setMarkingAllRead] = useState(false);
 
   const unreadCount = useMemo(() => items.filter((item) => item.status === "UNREAD").length, [items]);
   const visibleItems = useMemo(
@@ -47,13 +48,19 @@ export function NotificationsClient({ initialItems, initialNextCursor }: Notific
   }
 
   async function markAllRead() {
-    const response = await fetch("/api/notifications/read-all", { method: "POST" });
-    if (!response.ok) {
-      enqueueToast({ title: "Unable to mark all read", variant: "error" });
-      return;
+    if (markingAllRead) return;
+    setMarkingAllRead(true);
+    try {
+      const response = await fetch("/api/notifications/read-all", { method: "POST" });
+      if (!response.ok) {
+        enqueueToast({ title: "Unable to mark all read", variant: "error" });
+        return;
+      }
+      setItems((current) => current.map((item) => ({ ...item, status: "READ" as NotificationInboxStatus })));
+      enqueueToast({ title: "All notifications marked read" });
+    } finally {
+      setMarkingAllRead(false);
     }
-    setItems((current) => current.map((item) => ({ ...item, status: "READ" as NotificationInboxStatus })));
-    enqueueToast({ title: "All notifications marked read" });
   }
 
   async function loadMore() {
@@ -78,7 +85,7 @@ export function NotificationsClient({ initialItems, initialNextCursor }: Notific
     <section className="space-y-4" aria-busy={loadingMore}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-gray-700">Unread: {unreadCount}</p>
-        <button className="rounded border px-3 py-1 text-sm" type="button" onClick={markAllRead}>Mark all read</button>
+        <button className="rounded border px-3 py-1 text-sm" type="button" onClick={markAllRead} disabled={markingAllRead}>{markingAllRead ? "Marking..." : "Mark all read"}</button>
       </div>
 
       <div className="flex items-center gap-2">

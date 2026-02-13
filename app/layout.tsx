@@ -18,8 +18,11 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   return (
     <html lang="en">
       <body className="min-h-screen bg-white text-zinc-900">
+        <a href="#main" className="sr-only z-50 m-2 inline-block rounded bg-black px-3 py-2 text-sm text-white focus:not-sr-only focus:absolute focus:left-2 focus:top-2">
+          Skip to content
+        </a>
         <SiteNav />
-        <div className="pb-20 md:pb-0">{children}</div>
+        <main id="main" className="pb-20 md:pb-0">{children}</main>
         <ToastViewport />
         <MobileBottomNav isAuthenticated={Boolean(user)} />
       </body>
