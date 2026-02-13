@@ -47,6 +47,7 @@ export async function runWeeklyDigests(headerSecret: string | null, digestDb: Di
     }
 
     const snapshotItems = digestSnapshotItemsSchema.parse(page.map((event) => ({
+      id: event.id,
       slug: event.slug,
       title: event.title,
       startAt: event.startAt.toISOString(),
