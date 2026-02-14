@@ -5,7 +5,7 @@
 - Search: keyword + filters (persist in URL)
 - Events list: chronological
 - Event detail: hero, key facts, map, CTA, gallery, tags, related
-- Venue detail: profile + map + events
+- Venue detail: profile + gallery + grouped upcoming/past events + strong event CTAs
 - Artist detail: profile + events
 - Calendar: month/week/list + filters
 
