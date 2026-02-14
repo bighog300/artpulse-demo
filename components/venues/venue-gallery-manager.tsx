@@ -10,9 +10,18 @@ import { enqueueToast } from "@/lib/toast";
 
 type VenueImage = { id: string; url: string; alt: string | null; sortOrder: number };
 
-export function VenueGalleryManager({ venueId, initialImages }: { venueId: string; initialImages: VenueImage[] }) {
+export function VenueGalleryManager({
+  venueId,
+  initialImages,
+  initialCover,
+}: {
+  venueId: string;
+  initialImages: VenueImage[];
+  initialCover: { featuredImageUrl: string | null };
+}) {
   const router = useRouter();
   const [images, setImages] = useState<VenueImage[]>(initialImages);
+  const [coverImageUrl, setCoverImageUrl] = useState(initialCover.featuredImageUrl);
   const [isUploading, setIsUploading] = useState(false);
   const [loadingMap, setLoadingMap] = useState<Record<string, boolean>>({});
 
@@ -137,6 +146,34 @@ export function VenueGalleryManager({ venueId, initialImages }: { venueId: strin
     enqueueToast({ title: "Image deleted", variant: "success" });
   }
 
+  async function setAsCover(image: VenueImage) {
+    const previous = coverImageUrl;
+    setCoverImageUrl(image.url);
+    setLoadingMap((prev) => ({ ...prev, [`cover:${image.id}`]: true }));
+
+    try {
+      const res = await fetch(`/api/my/venues/${venueId}/cover`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ imageId: image.id }),
+      });
+
+      if (handleAuth(res)) return;
+      if (!res.ok) {
+        setCoverImageUrl(previous);
+        enqueueToast({ title: "Failed to update cover", variant: "error" });
+        return;
+      }
+
+      const data = (await res.json()) as { cover: { featuredImageUrl: string | null } };
+      setCoverImageUrl(data.cover.featuredImageUrl ?? image.url);
+      enqueueToast({ title: "Cover updated", variant: "success" });
+      router.refresh();
+    } finally {
+      setLoadingMap((prev) => ({ ...prev, [`cover:${image.id}`]: false }));
+    }
+  }
+
   return (
     <section className="space-y-3 rounded border p-4">
       <div className="flex items-center justify-between">
@@ -156,6 +193,7 @@ export function VenueGalleryManager({ venueId, initialImages }: { venueId: strin
             <div className="relative h-36 w-full overflow-hidden rounded border">
               <Image src={image.url} alt={image.alt ?? "Venue image"} fill className="object-cover" sizes="(max-width: 768px) 100vw, 50vw" />
             </div>
+            {coverImageUrl === image.url ? <p className="text-xs font-medium text-emerald-700">Current cover</p> : null}
             <input
               className="w-full rounded border px-2 py-1 text-sm"
               defaultValue={image.alt ?? ""}
@@ -164,6 +202,7 @@ export function VenueGalleryManager({ venueId, initialImages }: { venueId: strin
               disabled={Boolean(loadingMap[image.id])}
             />
             <div className="flex gap-2 text-sm">
+              <button className="rounded border px-2 py-1" disabled={coverImageUrl === image.url || Boolean(loadingMap[`cover:${image.id}`])} onClick={() => setAsCover(image)}>Set as cover</button>
               <button className="rounded border px-2 py-1" disabled={index === 0} onClick={() => move(image.id, -1)}>Up</button>
               <button className="rounded border px-2 py-1" disabled={index === sorted.length - 1} onClick={() => move(image.id, 1)}>Down</button>
               <button className="rounded border px-2 py-1 text-red-700" disabled={Boolean(loadingMap[image.id])} onClick={() => remove(image.id)}>Delete</button>

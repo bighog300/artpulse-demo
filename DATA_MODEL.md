@@ -45,12 +45,23 @@ Represents a gallery, museum, or other location.
 - `websiteUrl` (optional)
 - `instagramUrl` (optional)
 - `contactEmail` (optional)
+- `featuredAssetId` (optional, UUID)
+- `featuredImageUrl` (optional, legacy URL fallback)
 - `isPublished` (boolean, default false)
 - `createdAt`
 - `updatedAt`
 
 **Relationships**
 - Venue `hasMany` Events
+- Venue `belongsTo` Asset (optional featured cover)
+
+**Cover image precedence**
+- Public venue cards and share metadata use: `featuredAsset.url` first, then `featuredImageUrl`.
+- Setting a venue cover from gallery writes one of these fields:
+  - if selected `VenueImage.assetId` exists: set `featuredAssetId`, clear `featuredImageUrl`
+  - otherwise: set `featuredImageUrl`, clear `featuredAssetId`
+
+
 - Venue `hasMany` VenueImage
 
 ---
