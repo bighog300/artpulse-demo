@@ -81,7 +81,7 @@
 ### `/my/artist` additions
 - New **Venues** panel lets artists:
   - Search/select from published venues
-  - Choose association role (`represented_by`, `exhibited_at`, `resident`, `collaborator`)
+  - Choose association role (`represented_by`, `exhibited_at`, `resident_artist`, `collaborator`, `other`)
   - Add an optional request message
   - Submit association requests and see grouped statuses (`pending`, `approved`, `rejected`)
   - Cancel pending requests
@@ -92,14 +92,14 @@
   - Approve or reject each request inline
 
 ### Public `/artists/[slug]`
-- New **Associated venues** section with two readable groups:
-  - **Verified**: approved explicit associations to published venues
-  - **From exhibitions**: venues derived from published exhibitions
-- Venue links are deduplicated by venue id across groups.
+- New **Associated venues** section with role badges and lightweight filter pills (`All`, role keys present, `Exhibitions`).
+  - **Verified**: approved explicit associations to published venues with normalized role badges
+  - **From exhibitions**: venues derived from published exhibitions marked as `Exhibition venue`
+- Venue links are deduplicated by venue id across groups, with filtering done client-side against already-fetched data.
 
 ### Public `/venues/[slug]`
-- New **Artists** section with two readable groups:
+- New **Artists** section with role badges and lightweight filter pills (`All`, role keys present, `From exhibitions`).
   - **Verified**: approved explicit associations from `ArtistVenueAssociation` where the artist is published
-  - **From exhibitions**: artists derived from `EventArtist` on published venue exhibitions
-- Artist links are deduplicated by artist id, with verified associations taking precedence.
+  - **From exhibitions**: artists derived from `EventArtist` on published venue exhibitions (badge: `From exhibitions`)
+- Artist links are deduplicated by artist id, with verified associations taking precedence and filtering done client-side.
 

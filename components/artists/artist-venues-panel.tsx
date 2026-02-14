@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { buildLoginRedirectUrl } from "@/lib/auth-redirect";
+import { ASSOCIATION_ROLES, DEFAULT_ASSOCIATION_ROLE, normalizeAssociationRole, roleLabel } from "@/lib/association-roles";
 import { enqueueToast } from "@/lib/toast";
 
 type VenueOption = { id: string; name: string; slug: string };
@@ -19,7 +20,7 @@ export function ArtistVenuesPanel({ initialVenues }: { initialVenues: VenueOptio
   const [venues] = useState(initialVenues);
   const [query, setQuery] = useState("");
   const [selectedVenueId, setSelectedVenueId] = useState("");
-  const [role, setRole] = useState("represented_by");
+  const [role, setRole] = useState(DEFAULT_ASSOCIATION_ROLE);
   const [message, setMessage] = useState("");
   const [associations, setAssociations] = useState<{ pending: Assoc[]; approved: Assoc[]; rejected: Assoc[] } | null>(null);
 
@@ -53,6 +54,7 @@ export function ArtistVenuesPanel({ initialVenues }: { initialVenues: VenueOptio
     }
     enqueueToast({ title: "Association requested", variant: "success" });
     setMessage("");
+    setRole(DEFAULT_ASSOCIATION_ROLE);
     await loadAssociations();
     router.refresh();
   }
@@ -80,11 +82,8 @@ export function ArtistVenuesPanel({ initialVenues }: { initialVenues: VenueOptio
           <option value="">Select a venue</option>
           {filtered.map((venue) => <option key={venue.id} value={venue.id}>{venue.name}</option>)}
         </select>
-        <select className="w-full rounded border px-2 py-1" value={role} onChange={(e) => setRole(e.target.value)}>
-          <option value="represented_by">Represented by</option>
-          <option value="exhibited_at">Exhibited at</option>
-          <option value="resident">Resident</option>
-          <option value="collaborator">Collaborator</option>
+        <select className="w-full rounded border px-2 py-1" value={role} onChange={(e) => setRole(normalizeAssociationRole(e.target.value))}>
+          {ASSOCIATION_ROLES.map((roleKey) => <option key={roleKey} value={roleKey}>{roleLabel(roleKey)}</option>)}
         </select>
         <textarea className="w-full rounded border px-2 py-1" rows={3} placeholder="Optional note" value={message} onChange={(e) => setMessage(e.target.value)} />
         <div className="flex gap-2">
@@ -99,14 +98,17 @@ export function ArtistVenuesPanel({ initialVenues }: { initialVenues: VenueOptio
             <div key={group}>
               <h3 className="text-sm font-semibold uppercase">{group}</h3>
               <ul className="space-y-2">
-                {(associations[group as keyof typeof associations] as Assoc[]).map((item) => (
-                  <li key={item.id} className="rounded border p-2 text-sm">
-                    <div className="font-medium">{item.venue.name}</div>
-                    <div className="text-zinc-600">Role: {item.role ?? "n/a"}</div>
-                    {item.message ? <div className="text-zinc-600">{item.message}</div> : null}
-                    {item.status === "PENDING" ? <button className="mt-1 rounded border px-2 py-1" onClick={() => cancelAssociation(item.id)}>Cancel</button> : null}
-                  </li>
-                ))}
+                {(associations[group as keyof typeof associations] as Assoc[]).map((item) => {
+                  const normalizedRole = normalizeAssociationRole(item.role);
+                  return (
+                    <li key={item.id} className="rounded border p-2 text-sm">
+                      <div className="font-medium">{item.venue.name}</div>
+                      <div className="mt-1 inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">{roleLabel(normalizedRole)}</div>
+                      {item.message ? <div className="text-zinc-600">{item.message}</div> : null}
+                      {item.status === "PENDING" ? <button className="mt-1 rounded border px-2 py-1" onClick={() => cancelAssociation(item.id)}>Cancel</button> : null}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ))}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { RATE_LIMITS, enforceRateLimit, isRateLimitError, principalRateLimitKey, rateLimitErrorResponse } from "@/lib/rate-limit";
-import { artistVenueRequestBodySchema, associationIdParamSchema, parseBody, zodDetails } from "@/lib/validators";
+import { associationIdParamSchema, artistVenueRequestBodySchema, parseBody, zodDetails } from "@/lib/validators";
+import { normalizeAssociationRole } from "@/lib/association-roles";
 
 type SessionUser = { id: string };
 
@@ -71,7 +72,7 @@ export async function handleRequestArtistVenueAssociation(req: NextRequest, deps
     if (existing?.status === "APPROVED") return invalidRequest("Already associated");
     if (existing?.status === "PENDING") return invalidRequest("Already pending");
 
-    const role = parsedBody.data.role ?? null;
+    const role = normalizeAssociationRole(parsedBody.data.role);
     const message = parsedBody.data.message ?? null;
 
     const association = existing?.status === "REJECTED"

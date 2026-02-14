@@ -21,6 +21,7 @@ export function VenueArtistCard({ artist }: { artist: ArtistSummary }) {
         </div>
       )}
       <p className="font-medium underline-offset-2 group-hover:underline">{artist.name}</p>
+      <p className="mt-1 inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">{artist.roleLabel}</p>
     </Link>
   );
 }

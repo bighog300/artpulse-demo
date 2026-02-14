@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { normalizeAssociationRole } from "@/lib/association-roles";
 
 export const slugSchema = z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Must be lowercase and hyphenated");
 export const httpUrlSchema = z.url().refine((value) => value.startsWith("http://") || value.startsWith("https://"), {
@@ -36,7 +37,7 @@ export const imageIdParamSchema = z.object({ imageId: z.string().uuid() });
 export const associationIdParamSchema = z.object({ associationId: z.string().uuid() });
 export const associationModerationParamsSchema = z.object({ id: z.string().uuid(), associationId: z.string().uuid() });
 
-export const artistVenueAssociationRoleSchema = z.enum(["represented_by", "exhibited_at", "resident", "collaborator"]);
+export const artistVenueAssociationRoleSchema = z.unknown().transform((value) => normalizeAssociationRole(value));
 
 export const artistVenueRequestBodySchema = z.object({
   venueId: z.string().uuid(),
