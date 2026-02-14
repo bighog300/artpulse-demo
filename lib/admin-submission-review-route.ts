@@ -9,14 +9,16 @@ type EditorUser = { id: string };
 
 type SubmissionDetail = {
   id: string;
-  type: "EVENT" | "VENUE";
+  type: "EVENT" | "VENUE" | "ARTIST";
   kind: "PUBLISH" | "REVISION" | null;
   details?: unknown;
   targetEventId: string | null;
   targetVenueId: string | null;
+  targetArtistId: string | null;
   status: "SUBMITTED" | "APPROVED" | "REJECTED" | "DRAFT";
   submitter: { id: string; email: string };
   targetVenue: { slug: string | null } | null;
+  targetArtist: { slug: string | null } | null;
 };
 
 type ReviewDeps = {
@@ -24,6 +26,8 @@ type ReviewDeps = {
   findSubmission: (id: string) => Promise<SubmissionDetail | null>;
   publishVenue: (venueId: string) => Promise<void>;
   setVenueDraft: (venueId: string) => Promise<void>;
+  publishArtist: (artistId: string) => Promise<void>;
+  setArtistDraft: (artistId: string) => Promise<void>;
   publishEvent: (eventId: string) => Promise<void>;
   setEventDraft: (eventId: string) => Promise<void>;
   findEventUpdatedAt: (eventId: string) => Promise<Date | null>;
@@ -51,8 +55,11 @@ export async function handleApproveSubmission(params: Promise<{ id: string }>, d
     if (submission.status !== "SUBMITTED") return apiError(400, "invalid_request", "Submission is not pending review");
 
     if (submission.type === "VENUE") {
-      if (!submission.targetVenueId) return apiError(400, "invalid_request", "Venue submission not found");
+      if (!submission.targetVenueId || submission.kind !== "PUBLISH") return apiError(400, "invalid_request", "Venue submission not found");
       await deps.publishVenue(submission.targetVenueId);
+    } else if (submission.type === "ARTIST") {
+      if (!submission.targetArtistId || submission.kind !== "PUBLISH") return apiError(400, "invalid_request", "Artist submission not found");
+      await deps.publishArtist(submission.targetArtistId);
     } else {
       if (!submission.targetEventId) return apiError(400, "invalid_request", "Event submission not found");
       if (submission.kind === "REVISION") {
@@ -89,6 +96,7 @@ export async function handleApproveSubmission(params: Promise<{ id: string }>, d
           submissionId: submission.id,
           submissionType: submission.type,
           targetVenueSlug: submission.targetVenue?.slug ?? undefined,
+          targetArtistSlug: submission.targetArtist?.slug ?? undefined,
         }),
       });
     }
@@ -115,8 +123,11 @@ export async function handleRequestChangesSubmission(req: NextRequest, params: P
     if (submission.status !== "SUBMITTED") return apiError(400, "invalid_request", "Submission is not pending review");
 
     if (submission.type === "VENUE") {
-      if (!submission.targetVenueId) return apiError(400, "invalid_request", "Venue submission not found");
+      if (!submission.targetVenueId || submission.kind !== "PUBLISH") return apiError(400, "invalid_request", "Venue submission not found");
       await deps.setVenueDraft(submission.targetVenueId);
+    } else if (submission.type === "ARTIST") {
+      if (!submission.targetArtistId || submission.kind !== "PUBLISH") return apiError(400, "invalid_request", "Artist submission not found");
+      await deps.setArtistDraft(submission.targetArtistId);
     } else if (submission.kind !== "REVISION") {
       if (!submission.targetEventId) return apiError(400, "invalid_request", "Event submission not found");
       await deps.setEventDraft(submission.targetEventId);
@@ -137,6 +148,7 @@ export async function handleRequestChangesSubmission(req: NextRequest, params: P
           submissionId: submission.id,
           submissionType: submission.type,
           targetVenueId: submission.targetVenueId,
+          targetArtistId: submission.targetArtistId,
           decisionReason: parsedBody.data.message,
         }),
       });

@@ -28,6 +28,7 @@ enum VenueInviteStatus {
 enum SubmissionType {
   EVENT
   VENUE
+  ARTIST
 }
 
 enum SubmissionStatus {
@@ -236,6 +237,7 @@ model Artist {
   user             User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
   images           ArtistImage[]
   eventArtists     EventArtist[]
+  targetSubmissions Submission[]  @relation("SubmissionTargetArtist")
   featuredAsset    Asset?        @relation("ArtistFeaturedAsset", fields: [featuredAssetId], references: [id], onDelete: SetNull)
 
   @@index([isPublished])
@@ -300,6 +302,7 @@ model Submission {
   venueId         String?          @db.Uuid
   targetEventId   String?          @db.Uuid
   targetVenueId   String?          @db.Uuid
+  targetArtistId  String?          @db.Uuid
   note            String?
   details         Json?
   decisionReason  String?
@@ -312,10 +315,12 @@ model Submission {
   venue           Venue?           @relation("SubmissionVenue", fields: [venueId], references: [id], onDelete: SetNull)
   targetEvent     Event?           @relation(fields: [targetEventId], references: [id], onDelete: Cascade)
   targetVenue     Venue?           @relation("SubmissionTargetVenue", fields: [targetVenueId], references: [id], onDelete: Cascade)
+  targetArtist    Artist?          @relation("SubmissionTargetArtist", fields: [targetArtistId], references: [id], onDelete: Cascade)
   decidedBy       User?            @relation("SubmissionDecider", fields: [decidedByUserId], references: [id], onDelete: SetNull)
 
   @@unique([targetVenueId])
   @@index([targetEventId])
+  @@index([targetArtistId])
   @@index([status, submittedAt])
   @@index([type, status])
   @@index([decidedAt])

@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 const allowedStatuses = ["SUBMITTED", "APPROVED", "REJECTED"] as const;
 type StatusFilter = (typeof allowedStatuses)[number];
-const allowedTypes = ["EVENT", "VENUE"] as const;
+const allowedTypes = ["EVENT", "VENUE", "ARTIST"] as const;
 type TypeFilter = (typeof allowedTypes)[number] | "ALL";
 
 export default async function AdminSubmissionsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -24,6 +24,7 @@ export default async function AdminSubmissionsPage({ searchParams }: { searchPar
       venue: { select: { id: true, name: true } },
       targetEvent: { select: { id: true, title: true, slug: true } },
       targetVenue: { select: { id: true, name: true, slug: true } },
+      targetArtist: { select: { id: true, name: true, slug: true } },
     },
   });
 
@@ -57,6 +58,7 @@ export default async function AdminSubmissionsPage({ searchParams }: { searchPar
           venue: item.venue,
           targetEvent: item.targetEvent,
           targetVenue: item.targetVenue,
+          targetArtist: item.targetArtist,
         }))}
       />
     </main>

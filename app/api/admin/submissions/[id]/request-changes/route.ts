@@ -17,14 +17,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         details: true,
         targetEventId: true,
         targetVenueId: true,
+        targetArtistId: true,
         status: true,
         submitter: { select: { id: true, email: true } },
         targetVenue: { select: { slug: true } },
+        targetArtist: { select: { slug: true } },
       },
     }),
     publishVenue: async () => undefined,
     setVenueDraft: async (venueId) => {
       await db.venue.update({ where: { id: venueId }, data: { isPublished: false } });
+    },
+    publishArtist: async () => undefined,
+    setArtistDraft: async (artistId) => {
+      await db.artist.update({ where: { id: artistId }, data: { isPublished: false } });
     },
     publishEvent: async () => undefined,
     setEventDraft: async (eventId) => {

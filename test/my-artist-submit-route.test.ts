@@ -1,0 +1,80 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { NextRequest } from "next/server";
+import { handleMyArtistSubmit } from "../lib/my-artist-submit-route.ts";
+
+const completeArtist = {
+  id: "11111111-1111-4111-8111-111111111111",
+  slug: "ari-chen",
+  name: "Ari Chen",
+  bio: "A multidisciplinary artist exploring memory, migration, and speculative architecture through mixed media.",
+  websiteUrl: "https://ari.example",
+  featuredAssetId: "22222222-2222-4222-8222-222222222222",
+  featuredImageUrl: null,
+  images: [{ id: "img-1" }],
+};
+
+test("handleMyArtistSubmit returns unauthorized when user is anonymous", async () => {
+  const req = new NextRequest("http://localhost/api/my/artist/submit", { method: "POST" });
+  const res = await handleMyArtistSubmit(req, {
+    requireAuth: async () => { throw new Error("unauthorized"); },
+    findOwnedArtistByUserId: async () => completeArtist,
+    createSubmission: async () => ({ id: "sub-1", status: "SUBMITTED", createdAt: new Date(), submittedAt: new Date() }),
+    enqueueSubmissionNotification: async () => undefined,
+  });
+  assert.equal(res.status, 401);
+});
+
+test("handleMyArtistSubmit returns forbidden when user has no owned artist", async () => {
+  const req = new NextRequest("http://localhost/api/my/artist/submit", { method: "POST" });
+  const res = await handleMyArtistSubmit(req, {
+    requireAuth: async () => ({ id: "user-1", email: "user@example.com" }),
+    findOwnedArtistByUserId: async () => null,
+    createSubmission: async () => ({ id: "sub-1", status: "SUBMITTED", createdAt: new Date(), submittedAt: new Date() }),
+    enqueueSubmissionNotification: async () => undefined,
+  });
+  assert.equal(res.status, 403);
+  const body = await res.json();
+  assert.equal(body.error.code, "forbidden");
+});
+
+test("handleMyArtistSubmit returns invalid_request with issues", async () => {
+  const req = new NextRequest("http://localhost/api/my/artist/submit", { method: "POST" });
+  const res = await handleMyArtistSubmit(req, {
+    requireAuth: async () => ({ id: "user-1", email: "user@example.com" }),
+    findOwnedArtistByUserId: async () => ({ ...completeArtist, bio: "too short", featuredAssetId: null, images: [] }),
+    createSubmission: async () => ({ id: "sub-1", status: "SUBMITTED", createdAt: new Date(), submittedAt: new Date() }),
+    enqueueSubmissionNotification: async () => undefined,
+  });
+
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.equal(body.error.code, "invalid_request");
+  assert.equal(Array.isArray(body.error.details.issues), true);
+});
+
+test("handleMyArtistSubmit creates submission when artist is complete", async () => {
+  let created = false;
+  const req = new NextRequest("http://localhost/api/my/artist/submit", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ message: "Ready for review" }),
+  });
+
+  const res = await handleMyArtistSubmit(req, {
+    requireAuth: async () => ({ id: "user-1", email: "user@example.com" }),
+    findOwnedArtistByUserId: async () => completeArtist,
+    createSubmission: async (input) => {
+      created = true;
+      assert.equal(input.message, "Ready for review");
+      return { id: "sub-1", status: "SUBMITTED", createdAt: new Date("2026-01-01T00:00:00.000Z"), submittedAt: new Date() };
+    },
+    enqueueSubmissionNotification: async () => undefined,
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(created, true);
+  assert.equal(res.headers.get("Cache-Control"), "no-store");
+  const body = await res.json();
+  assert.equal(body.submission.id, "sub-1");
+});

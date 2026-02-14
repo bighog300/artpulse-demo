@@ -63,3 +63,15 @@
   - Revision statuses are shown as `Live`, `Revision pending`, `Needs changes` (with reviewer feedback), and `Applied`.
 - Admin approval of a revision applies the proposed changes atomically to the published event (without unpublishing it).
 - Admin request-changes leaves the published event untouched and returns reviewer feedback to the member UI.
+
+## Artist self-serve publishing flow
+
+- `/my/artist` includes a **Publishing** panel mirroring venue/event workflows.
+- Status mapping:
+  - Draft (`DRAFT` or no submission)
+  - Pending review (`SUBMITTED`)
+  - Needs changes (`REJECTED`, with reviewer feedback inline)
+  - Published (`APPROVED` and/or `Artist.isPublished=true`)
+- Artists submit with **Submit for review** (`POST /api/my/artist/submit`) and see inline readiness issues returned by the API.
+- Once published, the panel links to the live `/artists/[slug]` page.
+- Public `/artists` and `/artists/[slug]` remain published-only and do not expose draft artist profiles.

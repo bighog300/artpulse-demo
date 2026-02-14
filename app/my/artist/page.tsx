@@ -5,6 +5,8 @@ import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { resolveArtistCoverUrl } from "@/lib/artists";
 import { ArtistProfileForm } from "@/components/artists/artist-profile-form";
 import { ArtistGalleryManager } from "@/components/artists/artist-gallery-manager";
+import { getArtistPublishIssues } from "@/lib/artist-publish";
+import { ArtistPublishPanel } from "@/app/my/_components/ArtistPublishPanel";
 
 export default async function MyArtistPage() {
   const user = await getSessionUser();
@@ -23,16 +25,25 @@ export default async function MyArtistPage() {
     where: { userId: user.id },
     select: {
       id: true,
+      slug: true,
+      isPublished: true,
       name: true,
       bio: true,
       websiteUrl: true,
       instagramUrl: true,
       avatarImageUrl: true,
+      featuredAssetId: true,
       featuredImageUrl: true,
       featuredAsset: { select: { url: true } },
       images: {
         orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
         select: { id: true, url: true, alt: true, sortOrder: true, assetId: true, asset: { select: { url: true } } },
+      },
+      targetSubmissions: {
+        where: { type: "ARTIST", kind: "PUBLISH" },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { status: true, submittedAt: true, decisionReason: true },
       },
     },
   });
@@ -46,9 +57,26 @@ export default async function MyArtistPage() {
     );
   }
 
+  const latestSubmission = artist.targetSubmissions[0] ?? null;
+
   return (
     <main className="space-y-6 p-6">
       <h1 className="text-2xl font-semibold">My Artist Profile</h1>
+      <ArtistPublishPanel
+        artistSlug={artist.slug}
+        isPublished={artist.isPublished}
+        submissionStatus={latestSubmission?.status ?? null}
+        submittedAt={latestSubmission?.submittedAt?.toISOString() ?? null}
+        decisionReason={latestSubmission?.decisionReason ?? null}
+        initialIssues={getArtistPublishIssues({
+          name: artist.name,
+          bio: artist.bio,
+          websiteUrl: artist.websiteUrl,
+          featuredAssetId: artist.featuredAssetId,
+          featuredImageUrl: artist.featuredImageUrl,
+          images: artist.images.map((image) => ({ id: image.id })),
+        })}
+      />
       <ArtistProfileForm
         initialProfile={{
           name: artist.name,

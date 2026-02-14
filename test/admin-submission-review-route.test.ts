@@ -12,14 +12,18 @@ const baseSubmission = {
   details: null,
   targetEventId: null,
   targetVenueId: "22222222-2222-4222-8222-222222222222",
+  targetArtistId: null,
   status: "SUBMITTED" as const,
   submitter: { id: "user-1", email: "submitter@example.com" },
   targetVenue: { slug: "gallery-aurora" },
+  targetArtist: null,
 };
 
 const baseDeps = {
   publishVenue: async () => undefined,
   setVenueDraft: async () => undefined,
+  publishArtist: async () => undefined,
+  setArtistDraft: async () => undefined,
   publishEvent: async () => undefined,
   setEventDraft: async () => undefined,
   findEventUpdatedAt: async () => new Date("2026-01-01T00:00:00.000Z"),
@@ -130,4 +134,46 @@ test("handleRequestChangesSubmission does not update event for revision", async 
   });
   assert.equal(res.status, 200);
   assert.equal(drafted, false);
+});
+
+
+test("handleApproveSubmission returns invalid_request for artist revision submission", async () => {
+  const res = await handleApproveSubmission(Promise.resolve({ id: submissionId }), {
+    requireEditor: async () => ({ id: "editor-1" }),
+    findSubmission: async () => ({ ...baseSubmission, type: "ARTIST", kind: "REVISION", targetVenueId: null, targetArtistId: "44444444-4444-4444-8444-444444444444" }),
+    ...baseDeps,
+  });
+  assert.equal(res.status, 400);
+});
+
+test("handleApproveSubmission publishes artist and marks approved", async () => {
+  let artistPublished = false;
+  let approved = false;
+  const res = await handleApproveSubmission(Promise.resolve({ id: submissionId }), {
+    requireEditor: async () => ({ id: "editor-1" }),
+    findSubmission: async () => ({ ...baseSubmission, type: "ARTIST", kind: "PUBLISH", targetVenueId: null, targetArtistId: "44444444-4444-4444-8444-444444444444", targetArtist: { slug: "ari-chen" } }),
+    ...baseDeps,
+    publishArtist: async () => { artistPublished = true; },
+    markApproved: async () => { approved = true; },
+  });
+  assert.equal(res.status, 200);
+  assert.equal(artistPublished, true);
+  assert.equal(approved, true);
+});
+
+test("handleRequestChangesSubmission keeps artist unpublished and marks needs changes", async () => {
+  let setDraft = false;
+  const req = new NextRequest("http://localhost/api/admin/submissions/id/request-changes", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ message: "Please add a longer statement and stronger cover image." }),
+  });
+  const res = await handleRequestChangesSubmission(req, Promise.resolve({ id: submissionId }), {
+    requireEditor: async () => ({ id: "editor-1" }),
+    findSubmission: async () => ({ ...baseSubmission, type: "ARTIST", kind: "PUBLISH", targetVenueId: null, targetArtistId: "44444444-4444-4444-8444-444444444444", targetArtist: { slug: "ari-chen" } }),
+    ...baseDeps,
+    setArtistDraft: async () => { setDraft = true; },
+  });
+  assert.equal(res.status, 200);
+  assert.equal(setDraft, true);
 });

@@ -350,7 +350,7 @@ Error shape follows global conventions (`error.code` values include `invalid_req
 
 `POST /api/admin/submissions/[id]/approve` (editor/admin required)
 
-Supports both `VENUE` and `EVENT` submissions.
+Supports `VENUE`, `EVENT`, and `ARTIST` publish submissions. Also supports `EVENT` revision submissions (`kind="REVISION"`).
 
 **Response 200**
 
@@ -362,7 +362,7 @@ Supports both `VENUE` and `EVENT` submissions.
 
 `POST /api/admin/submissions/[id]/request-changes` (editor/admin required)
 
-Supports both `VENUE` and `EVENT` submissions.
+Supports `VENUE`, `EVENT`, and `ARTIST` publish submissions. Also supports `EVENT` revision submissions (`kind="REVISION"`).
 
 **Request body**
 
@@ -470,7 +470,7 @@ Used for published events. This creates a moderation submission with `kind="REVI
 }
 ```
 
-Admin moderation endpoints (`/api/admin/submissions/[id]/approve` and `/api/admin/submissions/[id]/request-changes`) now also handle `EVENT` submissions with `kind="REVISION"`.
+Admin moderation endpoints (`/api/admin/submissions/[id]/approve` and `/api/admin/submissions/[id]/request-changes`) handle `VENUE`, `ARTIST`, `EVENT` publish submissions and `EVENT` revision submissions (`kind="REVISION"`).
 
 ## 3. Authenticated Artist Self-Serve APIs
 
@@ -550,3 +550,45 @@ Request body supports partial profile fields:
 - `websiteUrl`
 - `instagramUrl`
 - `avatarImageUrl`
+
+
+### 3.8 Submit my artist profile for review
+
+`POST /api/my/artist/submit` (auth + `Artist.userId` ownership required)
+
+Request body:
+
+```json
+{
+  "message": "Optional note to moderators"
+}
+```
+
+Response 200:
+
+```json
+{
+  "submission": {
+    "id": "uuid",
+    "status": "SUBMITTED",
+    "createdAt": "2026-02-14T10:00:00.000Z"
+  }
+}
+```
+
+Validation failure (400 invalid_request):
+
+```json
+{
+  "error": {
+    "code": "invalid_request",
+    "message": "Artist profile is not ready for review",
+    "details": {
+      "issues": [
+        { "field": "bio", "message": "Artist statement must be at least 50 characters" },
+        { "field": "coverImage", "message": "Add a cover image before submitting" }
+      ]
+    }
+  }
+}
+```
