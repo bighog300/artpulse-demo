@@ -7,6 +7,7 @@ import { ArtistProfileForm } from "@/components/artists/artist-profile-form";
 import { ArtistGalleryManager } from "@/components/artists/artist-gallery-manager";
 import { getArtistPublishIssues } from "@/lib/artist-publish";
 import { ArtistPublishPanel } from "@/app/my/_components/ArtistPublishPanel";
+import { ArtistVenuesPanel } from "@/components/artists/artist-venues-panel";
 
 export default async function MyArtistPage() {
   const user = await getSessionUser();
@@ -39,6 +40,7 @@ export default async function MyArtistPage() {
         orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
         select: { id: true, url: true, alt: true, sortOrder: true, assetId: true, asset: { select: { url: true } } },
       },
+      venueAssociations: { select: { id: true } },
       targetSubmissions: {
         where: { type: "ARTIST", kind: "PUBLISH" },
         orderBy: { createdAt: "desc" },
@@ -58,6 +60,12 @@ export default async function MyArtistPage() {
   }
 
   const latestSubmission = artist.targetSubmissions[0] ?? null;
+  const publishedVenues = await db.venue.findMany({
+    where: { isPublished: true },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, slug: true },
+    take: 100,
+  });
 
   return (
     <main className="space-y-6 p-6">
@@ -90,6 +98,7 @@ export default async function MyArtistPage() {
         initialImages={artist.images}
         initialCover={resolveArtistCoverUrl(artist)}
       />
+      <ArtistVenuesPanel initialVenues={publishedVenues} />
     </main>
   );
 }

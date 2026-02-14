@@ -75,3 +75,24 @@
 - Artists submit with **Submit for review** (`POST /api/my/artist/submit`) and see inline readiness issues returned by the API.
 - Once published, the panel links to the live `/artists/[slug]` page.
 - Public `/artists` and `/artists/[slug]` remain published-only and do not expose draft artist profiles.
+
+## Artist ↔ Venue association UX
+
+### `/my/artist` additions
+- New **Venues** panel lets artists:
+  - Search/select from published venues
+  - Choose association role (`represented_by`, `exhibited_at`, `resident`, `collaborator`)
+  - Add an optional request message
+  - Submit association requests and see grouped statuses (`pending`, `approved`, `rejected`)
+  - Cancel pending requests
+
+### `/my/venues/[id]` additions
+- New **Artist requests** panel for venue members:
+  - Lists pending artist association requests with artist, role, and message
+  - Approve or reject each request inline
+
+### Public `/artists/[slug]`
+- New **Associated venues** section with two readable groups:
+  - **Verified**: approved explicit associations to published venues
+  - **From exhibitions**: venues derived from published exhibitions
+- Venue links are deduplicated by venue id across groups.

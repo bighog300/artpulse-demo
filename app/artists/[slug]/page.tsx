@@ -13,6 +13,7 @@ import { buildArtistJsonLd, getDetailUrl } from "@/lib/seo.public-profiles";
 import { resolveArtistCoverUrl } from "@/lib/artists";
 import { splitArtistEvents } from "@/lib/artist-events";
 import { ArtistGalleryLightbox } from "@/components/artists/artist-gallery-lightbox";
+import { dedupeAssociatedVenues } from "@/lib/artist-associated-venues";
 
 const FALLBACK_METADATA = {
   title: "Artist | Artpulse",
@@ -83,6 +84,10 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
         orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
         select: { id: true, url: true, alt: true, asset: { select: { url: true, alt: true } } },
       },
+      venueAssociations: {
+        where: { status: "APPROVED", venue: { isPublished: true } },
+        select: { venue: { select: { id: true, name: true, slug: true } } },
+      },
       eventArtists: {
         orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
         where: { event: { isPublished: true } },
@@ -96,7 +101,7 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
               description: true,
               startAt: true,
               endAt: true,
-              venue: { select: { name: true, slug: true } },
+              venue: { select: { id: true, name: true, slug: true } },
               images: { take: 1, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { url: true, asset: { select: { url: true } } } },
             },
           },
@@ -134,6 +139,13 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
   }));
   const { upcoming, past } = splitArtistEvents(events, now);
 
+  const verifiedVenues = artist.venueAssociations.map((row) => row.venue);
+  const derivedVenues = artist.eventArtists
+    .map((row) => row.event.venue)
+    .filter((venue): venue is { name: string; slug: string; id: string } => Boolean(venue && venue.slug))
+    .map((venue) => ({ id: venue.id, name: venue.name, slug: venue.slug }));
+  const associatedVenues = dedupeAssociatedVenues(verifiedVenues, derivedVenues);
+
   const detailUrl = getDetailUrl("artist", slug);
   const jsonLd = buildArtistJsonLd({ name: artist.name, description: artist.bio, detailUrl, imageUrl, websiteUrl: artist.websiteUrl });
 
@@ -167,6 +179,29 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
       </section>
 
       {galleryImages.length > 0 ? <ArtistGalleryLightbox images={galleryImages} /> : null}
+
+
+      <section className="space-y-3">
+        <h2 className="text-2xl font-semibold">Associated venues</h2>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <h3 className="text-lg font-medium">Verified</h3>
+            {associatedVenues.verified.length === 0 ? <p className="text-sm text-zinc-600">No verified venues yet.</p> : (
+              <ul className="space-y-2">
+                {associatedVenues.verified.map((venue) => <li key={`v-${venue.id}`}><Link className="underline" href={`/venues/${venue.slug}`}>{venue.name}</Link></li>)}
+              </ul>
+            )}
+          </div>
+          <div>
+            <h3 className="text-lg font-medium">From exhibitions</h3>
+            {associatedVenues.derived.length === 0 ? <p className="text-sm text-zinc-600">No exhibition venues yet.</p> : (
+              <ul className="space-y-2">
+                {associatedVenues.derived.map((venue) => <li key={`d-${venue.id}`}><Link className="underline" href={`/venues/${venue.slug}`}>{venue.name}</Link></li>)}
+              </ul>
+            )}
+          </div>
+        </div>
+      </section>
 
       <section className="space-y-3">
         <h2 className="text-2xl font-semibold">Upcoming exhibitions</h2>

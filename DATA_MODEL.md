@@ -275,3 +275,29 @@ Publishing rule for artists:
 - Public artist pages query `Artist.isPublished = true` only.
 - Admin approval of an artist `PUBLISH` submission sets `Artist.isPublished=true`.
 - Admin request-changes keeps `Artist.isPublished=false` and stores reviewer feedback on the submission.
+
+### 2.3 ArtistVenueAssociation
+
+Explicit association between an artist profile and a venue, independent from EventArtist-derived relationships.
+
+**Fields**
+- `id` (uuid)
+- `artistId` (uuid)
+- `venueId` (uuid)
+- `role` (optional enum-like string: `represented_by | exhibited_at | resident | collaborator`)
+- `status` (`PENDING | APPROVED | REJECTED`)
+- `message` (optional requester note)
+- `requestedByUserId` (optional uuid)
+- `reviewedByUserId` (optional uuid)
+- `reviewedAt` (optional datetime)
+- `createdAt`
+- `updatedAt`
+
+**Constraints**
+- Unique composite: (`artistId`, `venueId`) so each pair has at most one active record
+- Indexes: (`venueId`, `status`, `createdAt`) and (`artistId`, `status`, `createdAt`)
+
+**Semantics**
+- Artists can request associations to published venues.
+- Venue members approve/reject incoming requests.
+- Public artist pages display approved associations (verified) plus derived venues from published events.

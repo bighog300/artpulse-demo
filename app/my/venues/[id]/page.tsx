@@ -10,6 +10,7 @@ import { VenueGalleryManager } from "@/components/venues/venue-gallery-manager";
 import { resolveImageUrl } from "@/lib/assets";
 import { getVenuePublishIssues } from "@/lib/venue-publish";
 import VenuePublishPanel from "@/app/my/_components/VenuePublishPanel";
+import VenueArtistRequestsPanel from "@/app/my/_components/VenueArtistRequestsPanel";
 
 export default async function MyVenueEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -63,6 +64,16 @@ export default async function MyVenueEditPage({ params }: { params: Promise<{ id
           lng: true,
           websiteUrl: true,
           instagramUrl: true,
+          artistAssociations: {
+            where: { status: "PENDING" },
+            orderBy: { createdAt: "asc" },
+            select: {
+              id: true,
+              role: true,
+              message: true,
+              artist: { select: { id: true, name: true, slug: true } },
+            },
+          },
         },
       },
     },
@@ -103,6 +114,16 @@ export default async function MyVenueEditPage({ params }: { params: Promise<{ id
         venueId={membership.venue.id}
         initialImages={membership.venue.images}
         initialCover={{ featuredImageUrl: resolveImageUrl(membership.venue.featuredAsset?.url, membership.venue.featuredImageUrl) }}
+      />
+
+      <VenueArtistRequestsPanel
+        venueId={membership.venue.id}
+        initialRequests={membership.venue.artistAssociations.map((row) => ({
+          id: row.id,
+          role: row.role,
+          message: row.message,
+          artist: row.artist,
+        }))}
       />
 
       {(membership.role === "OWNER" || user.role === "ADMIN") ? (

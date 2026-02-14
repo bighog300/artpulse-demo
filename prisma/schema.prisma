@@ -51,6 +51,12 @@ enum NotificationType {
   DIGEST_READY
 }
 
+enum ArtistVenueAssociationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum SavedSearchType {
   NEARBY
   EVENTS_FILTER
@@ -215,6 +221,7 @@ model Venue {
   submissions       Submission[]      @relation("SubmissionVenue")
   targetSubmissions Submission[]      @relation("SubmissionTargetVenue")
   featuredAsset     Asset?            @relation("VenueFeaturedAsset", fields: [featuredAssetId], references: [id], onDelete: SetNull)
+  artistAssociations ArtistVenueAssociation[]
 
   @@index([isPublished])
   @@index([featuredAssetId])
@@ -239,9 +246,30 @@ model Artist {
   eventArtists     EventArtist[]
   targetSubmissions Submission[]  @relation("SubmissionTargetArtist")
   featuredAsset    Asset?        @relation("ArtistFeaturedAsset", fields: [featuredAssetId], references: [id], onDelete: SetNull)
+  venueAssociations ArtistVenueAssociation[]
 
   @@index([isPublished])
   @@index([featuredAssetId])
+}
+
+model ArtistVenueAssociation {
+  id                String                         @id @default(uuid()) @db.Uuid
+  artistId          String                         @db.Uuid
+  venueId           String                         @db.Uuid
+  role              String?
+  status            ArtistVenueAssociationStatus   @default(PENDING)
+  message           String?
+  createdAt         DateTime                       @default(now())
+  updatedAt         DateTime                       @updatedAt
+  requestedByUserId String?                        @db.Uuid
+  reviewedByUserId  String?                        @db.Uuid
+  reviewedAt        DateTime?
+  artist            Artist                         @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  venue             Venue                          @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@unique([artistId, venueId])
+  @@index([venueId, status, createdAt])
+  @@index([artistId, status, createdAt])
 }
 
 model Event {
