@@ -4,6 +4,7 @@ import { SiteNav } from "@/components/navigation/site-nav";
 import { MobileBottomNav } from "@/components/navigation/mobile-bottom-nav";
 import { ToastViewport } from "@/components/ui/toast";
 import { getSessionUser } from "@/lib/auth";
+import { CommandPalette } from "@/components/command-palette/command-palette";
 
 export const metadata: Metadata = {
   title: { default: 'Artpulse', template: '%s | Artpulse' },
@@ -25,6 +26,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <main id="main" className="pb-20 md:pb-0">{children}</main>
         <ToastViewport />
         <MobileBottomNav isAuthenticated={Boolean(user)} />
+        <CommandPalette isAuthenticated={Boolean(user)} isAdmin={user?.role === "ADMIN"} />
       </body>
     </html>
   );
