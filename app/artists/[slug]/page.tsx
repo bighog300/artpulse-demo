@@ -33,6 +33,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
         name: true,
         bio: true,
         avatarImageUrl: true,
+        featuredImageUrl: true,
         featuredAsset: { select: { url: true } },
         images: { take: 1, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { url: true, asset: { select: { url: true } } } },
       },

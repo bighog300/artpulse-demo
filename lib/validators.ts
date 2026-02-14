@@ -25,6 +25,7 @@ export const searchQuerySchema = z.object({ query: z.string().trim().min(1).opti
 export const slugParamSchema = z.object({ slug: slugSchema });
 export const idParamSchema = z.object({ id: z.string().uuid() });
 export const venueIdParamSchema = z.object({ id: z.string().uuid() });
+export const artistIdParamSchema = z.object({ id: z.string().uuid() });
 export const eventIdParamSchema = z.object({ eventId: z.string().uuid() });
 export const venueEventSubmitParamSchema = z.object({ venueId: z.string().uuid(), eventId: z.string().uuid() });
 export const memberIdParamSchema = z.object({ memberId: z.string().uuid() });
@@ -37,6 +38,38 @@ export const venueUploadUrlRequestSchema = z.object({
   fileName: z.string().trim().min(1).max(200),
   contentType: z.enum(["image/jpeg", "image/png", "image/webp"]),
   size: z.number().int().positive().max(5 * 1024 * 1024),
+});
+
+export const artistUploadRequestSchema = z.object({
+  fileName: z.string().trim().min(1).max(200),
+  contentType: z.enum(["image/jpeg", "image/png", "image/webp"]),
+  size: z.number().int().positive().max(5 * 1024 * 1024),
+});
+
+export const artistImageCreateSchema = z.object({
+  url: httpUrlSchema,
+  alt: z.string().trim().max(300).optional().nullable(),
+  assetId: z.string().uuid().optional().nullable(),
+});
+
+export const artistImageUpdateSchema = z.object({
+  alt: z.string().trim().max(300).optional().nullable(),
+});
+
+export const artistImageReorderSchema = z.object({
+  orderedIds: z.array(z.string().uuid()).min(1).refine((value) => new Set(value).size === value.length, "orderedIds must be unique"),
+});
+
+export const artistCoverPatchSchema = z.object({
+  imageId: z.string().uuid(),
+});
+
+export const myArtistPatchSchema = z.object({
+  name: z.string().trim().min(1).optional(),
+  bio: z.string().trim().max(4000).optional().nullable(),
+  websiteUrl: httpUrlSchema.optional().nullable(),
+  instagramUrl: httpUrlSchema.optional().nullable(),
+  avatarImageUrl: httpUrlSchema.optional().nullable(),
 });
 
 export const venueImageCreateSchema = z.object({

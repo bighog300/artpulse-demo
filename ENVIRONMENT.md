@@ -88,3 +88,13 @@ Recommended scripts:
 - Venue gallery uploads use Vercel Blob server-validated client uploads.
 - Keep `BLOB_READ_WRITE_TOKEN` server-side only; never expose it in `NEXT_PUBLIC_*` variables.
 - Local development supports uploads when `BLOB_READ_WRITE_TOKEN` is set.
+
+## Artist/Venue gallery client uploads (Vercel Blob)
+
+- Keep `BLOB_READ_WRITE_TOKEN` configured **server-side only**.
+- Client uploads use token exchange route handlers (`handleUpload`), then browser uploads directly to Blob.
+- Do not expose `BLOB_READ_WRITE_TOKEN` in browser bundles.
+
+## NextAuth production start requirement
+
+- `NEXTAUTH_SECRET` / `AUTH_SECRET` must be set for `pnpm start` in production mode.
