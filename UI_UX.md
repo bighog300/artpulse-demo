@@ -53,3 +53,13 @@
 - Reviewer feedback is shown for events in `Needs changes`.
 - Authentication failures redirect users to `/login?next=...` and successful actions show toasts.
 - Public event pages and venue event sections continue to display published events only.
+
+## Published event revision workflow
+
+- Published events remain live while venue members submit **revisions** for review.
+- On `/my/venues/[id]/submit-event`:
+  - Draft events continue using submit-to-publish flow.
+  - Published events use **Propose edits** and create `REVISION` submissions.
+  - Revision statuses are shown as `Live`, `Revision pending`, `Needs changes` (with reviewer feedback), and `Applied`.
+- Admin approval of a revision applies the proposed changes atomically to the published event (without unpublishing it).
+- Admin request-changes leaves the published event untouched and returns reviewer feedback to the member UI.

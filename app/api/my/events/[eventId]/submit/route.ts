@@ -24,8 +24,8 @@ export async function POST(_: Request, { params }: { params: Promise<{ eventId: 
     const parsedId = eventIdParamSchema.safeParse(await params);
     if (!parsedId.success) return apiError(400, "invalid_request", "Invalid route parameter", zodDetails(parsedId.error));
 
-    const submission = await db.submission.findUnique({
-      where: { targetEventId: parsedId.data.eventId },
+    const submission = await db.submission.findFirst({
+      where: { targetEventId: parsedId.data.eventId, OR: [{ kind: "PUBLISH" }, { kind: null }] },
       include: { venue: { select: { memberships: { where: { userId: user.id }, select: { id: true } } } } },
     });
 

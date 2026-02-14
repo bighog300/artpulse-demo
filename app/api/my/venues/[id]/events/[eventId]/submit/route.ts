@@ -26,27 +26,37 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         images: { select: { id: true }, take: 1 },
       },
     }),
-    upsertSubmission: async ({ venueId, eventId, userId, message }) => db.submission.upsert({
-      where: { targetEventId: eventId },
-      create: {
-        type: "EVENT",
-        status: "SUBMITTED",
-        submitterUserId: userId,
-        venueId,
-        targetEventId: eventId,
-        note: message ?? null,
-        submittedAt: new Date(),
-      },
-      update: {
-        status: "SUBMITTED",
-        submitterUserId: userId,
-        note: message ?? null,
-        decisionReason: null,
-        submittedAt: new Date(),
-        decidedAt: null,
-        decidedByUserId: null,
-      },
-      select: { id: true, status: true, createdAt: true, submittedAt: true },
-    }),
+    upsertSubmission: async ({ venueId, eventId, userId, message }) => {
+      const existing = await db.submission.findFirst({ where: { targetEventId: eventId, kind: { not: "REVISION" } }, select: { id: true } });
+      if (existing) {
+        return db.submission.update({
+          where: { id: existing.id },
+          data: {
+            kind: "PUBLISH",
+            status: "SUBMITTED",
+            submitterUserId: userId,
+            note: message ?? null,
+            decisionReason: null,
+            submittedAt: new Date(),
+            decidedAt: null,
+            decidedByUserId: null,
+          },
+          select: { id: true, status: true, createdAt: true, submittedAt: true },
+        });
+      }
+      return db.submission.create({
+        data: {
+          type: "EVENT",
+          kind: "PUBLISH",
+          status: "SUBMITTED",
+          submitterUserId: userId,
+          venueId,
+          targetEventId: eventId,
+          note: message ?? null,
+          submittedAt: new Date(),
+        },
+        select: { id: true, status: true, createdAt: true, submittedAt: true },
+      });
+    },
   });
 }

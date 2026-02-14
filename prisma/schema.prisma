@@ -37,6 +37,11 @@ enum SubmissionStatus {
   REJECTED
 }
 
+enum SubmissionKind {
+  PUBLISH
+  REVISION
+}
+
 enum NotificationType {
   SUBMISSION_SUBMITTED
   SUBMISSION_APPROVED
@@ -285,11 +290,13 @@ model Submission {
   id              String           @id @default(uuid()) @db.Uuid
   type            SubmissionType
   status          SubmissionStatus @default(DRAFT)
+  kind            SubmissionKind?
   submitterUserId String           @db.Uuid
   venueId         String?          @db.Uuid
   targetEventId   String?          @db.Uuid
   targetVenueId   String?          @db.Uuid
   note            String?
+  details         Json?
   decisionReason  String?
   decidedByUserId String?          @db.Uuid
   submittedAt     DateTime?
@@ -302,7 +309,7 @@ model Submission {
   targetVenue     Venue?           @relation("SubmissionTargetVenue", fields: [targetVenueId], references: [id], onDelete: Cascade)
   decidedBy       User?            @relation("SubmissionDecider", fields: [decidedByUserId], references: [id], onDelete: SetNull)
 
-  @@unique([targetEventId])
+  @@index([targetEventId])
   @@unique([targetVenueId])
   @@index([status, submittedAt])
   @@index([type, status])

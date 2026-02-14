@@ -352,6 +352,25 @@ export const myEventPatchSchema = z.object({
 });
 
 
+
+export const eventRevisionPatchSchema = z.object({
+  title: z.string().trim().min(1).optional(),
+  description: z.string().trim().min(20).optional().nullable(),
+  startAt: isoDatetimeSchema.optional(),
+  endAt: isoDatetimeSchema.optional().nullable(),
+  ticketUrl: httpUrlSchema.optional().nullable(),
+  images: z.array(eventImageSchema).optional(),
+}).superRefine((data, ctx) => {
+  if (data.startAt && data.endAt && new Date(data.endAt) <= new Date(data.startAt)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["endAt"], message: "endAt must be > startAt" });
+  }
+});
+
+export const eventRevisionBodySchema = z.object({
+  patch: eventRevisionPatchSchema,
+  message: z.string().trim().max(2000).optional(),
+});
+
 export const venueSubmitBodySchema = z.object({
   message: z.string().trim().max(2000).optional(),
 });

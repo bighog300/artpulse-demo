@@ -3,12 +3,15 @@ import { apiError } from "@/lib/api";
 import { adminSubmissionRequestChangesSchema, idParamSchema, parseBody, zodDetails } from "@/lib/validators";
 import { buildInAppFromTemplate, enqueueNotification } from "@/lib/notifications";
 import { submissionDecisionDedupeKey } from "@/lib/notification-keys";
+import { applyEventRevision } from "@/lib/event-revision";
 
 type EditorUser = { id: string };
 
 type SubmissionDetail = {
   id: string;
   type: "EVENT" | "VENUE";
+  kind: "PUBLISH" | "REVISION" | null;
+  details?: unknown;
   targetEventId: string | null;
   targetVenueId: string | null;
   status: "SUBMITTED" | "APPROVED" | "REJECTED" | "DRAFT";
@@ -23,6 +26,8 @@ type ReviewDeps = {
   setVenueDraft: (venueId: string) => Promise<void>;
   publishEvent: (eventId: string) => Promise<void>;
   setEventDraft: (eventId: string) => Promise<void>;
+  findEventUpdatedAt: (eventId: string) => Promise<Date | null>;
+  applyEventRevisionUpdate: (eventId: string, data: Record<string, unknown>) => Promise<void>;
   markApproved: (submissionId: string, decidedByUserId: string) => Promise<void>;
   markNeedsChanges: (submissionId: string, decidedByUserId: string, message: string) => Promise<void>;
   notifyApproved?: (submission: SubmissionDetail) => Promise<void>;
@@ -42,9 +47,7 @@ export async function handleApproveSubmission(params: Promise<{ id: string }>, d
 
     const editor = await deps.requireEditor();
     const submission = await deps.findSubmission(parsedId.submissionId);
-    if (!submission) {
-      return apiError(400, "invalid_request", "Submission not found");
-    }
+    if (!submission) return apiError(400, "invalid_request", "Submission not found");
     if (submission.status !== "SUBMITTED") return apiError(400, "invalid_request", "Submission is not pending review");
 
     if (submission.type === "VENUE") {
@@ -52,8 +55,25 @@ export async function handleApproveSubmission(params: Promise<{ id: string }>, d
       await deps.publishVenue(submission.targetVenueId);
     } else {
       if (!submission.targetEventId) return apiError(400, "invalid_request", "Event submission not found");
-      await deps.publishEvent(submission.targetEventId);
+      if (submission.kind === "REVISION") {
+        const details = submission.details;
+        if (!details || typeof details !== "object") return apiError(400, "invalid_request", "Revision payload is missing");
+        const proposed = (details as Record<string, unknown>).proposed;
+        const baseEventUpdatedAt = (details as Record<string, unknown>).baseEventUpdatedAt;
+        if (!proposed || typeof proposed !== "object" || typeof baseEventUpdatedAt !== "string") {
+          return apiError(400, "invalid_request", "Revision payload is invalid");
+        }
+        const eventUpdatedAt = await deps.findEventUpdatedAt(submission.targetEventId);
+        if (!eventUpdatedAt) return apiError(400, "invalid_request", "Event submission not found");
+        if (eventUpdatedAt.getTime() > new Date(baseEventUpdatedAt).getTime()) {
+          return apiError(400, "invalid_request", "Event changed since this revision was created; please re-submit revision");
+        }
+        await deps.applyEventRevisionUpdate(submission.targetEventId, applyEventRevision(proposed as Record<string, unknown>));
+      } else {
+        await deps.publishEvent(submission.targetEventId);
+      }
     }
+
     await deps.markApproved(submission.id, editor.id);
 
     if (deps.notifyApproved) {
@@ -91,18 +111,17 @@ export async function handleRequestChangesSubmission(req: NextRequest, params: P
 
     const editor = await deps.requireEditor();
     const submission = await deps.findSubmission(parsedId.submissionId);
-    if (!submission) {
-      return apiError(400, "invalid_request", "Submission not found");
-    }
+    if (!submission) return apiError(400, "invalid_request", "Submission not found");
     if (submission.status !== "SUBMITTED") return apiError(400, "invalid_request", "Submission is not pending review");
 
     if (submission.type === "VENUE") {
       if (!submission.targetVenueId) return apiError(400, "invalid_request", "Venue submission not found");
       await deps.setVenueDraft(submission.targetVenueId);
-    } else {
+    } else if (submission.kind !== "REVISION") {
       if (!submission.targetEventId) return apiError(400, "invalid_request", "Event submission not found");
       await deps.setEventDraft(submission.targetEventId);
     }
+
     await deps.markNeedsChanges(submission.id, editor.id, parsedBody.data.message);
 
     if (deps.notifyNeedsChanges) {
