@@ -3,12 +3,13 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { resolveImageUrl } from "@/lib/assets";
+import { getVenueDescriptionExcerpt, resolveVenueCoverUrl } from "@/lib/venues";
 import { getSessionUser } from "@/lib/auth";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { FollowButton } from "@/components/follows/follow-button";
 import { ShareButton } from "@/components/share-button";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
-import { buildDetailMetadata, buildVenueJsonLd, getDetailUrl } from "@/lib/seo.public-profiles";
+import { buildVenueJsonLd, getDetailUrl } from "@/lib/seo.public-profiles";
 import { resolveVenueGalleryAltText } from "@/lib/venue-gallery";
 import { splitVenueEvents } from "@/lib/venue-events";
 import { VenueEventShowcaseCard } from "@/components/venues/venue-event-showcase-card";
@@ -19,24 +20,46 @@ const INITIAL_PAST_EVENTS = 6;
 const MAX_PAST_EVENTS = 12;
 const MAX_UPCOMING_EVENTS = 24;
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
 
   if (!hasDatabaseUrl()) {
-    return buildDetailMetadata({ kind: "venue", slug });
+    return {
+      title: "Venue | Artpulse",
+      description: "Discover venue details and upcoming events on Artpulse.",
+    };
   }
 
   try {
-    const venue = await db.venue.findFirst({ where: { slug, isPublished: true }, include: { featuredAsset: { select: { url: true } } } });
+    const venue = await db.venue.findFirst({
+      where: { slug, isPublished: true },
+      select: { name: true, description: true, featuredImageUrl: true, featuredAsset: { select: { url: true } } },
+    });
+
     if (!venue) {
-      return buildDetailMetadata({ kind: "venue", slug });
+      return {
+        title: "Venue | Artpulse",
+        description: "Discover venue details and upcoming events on Artpulse.",
+      };
     }
-    const imageUrl = resolveImageUrl(venue.featuredAsset?.url, venue.featuredImageUrl);
-    return buildDetailMetadata({ kind: "venue", slug, title: venue.name, description: venue.description, imageUrl });
+
+    const imageUrl = resolveVenueCoverUrl(venue);
+    return {
+      title: `${venue.name} | Artpulse`,
+      description: getVenueDescriptionExcerpt(venue.description, `Explore ${venue.name} on Artpulse.`),
+      openGraph: {
+        title: `${venue.name} | Artpulse`,
+        description: getVenueDescriptionExcerpt(venue.description, `Explore ${venue.name} on Artpulse.`),
+        images: imageUrl ? [{ url: imageUrl, alt: venue.name }] : undefined,
+      },
+    };
   } catch {
-    return buildDetailMetadata({ kind: "venue", slug });
+    return {
+      title: "Venue | Artpulse",
+      description: "Discover venue details and upcoming events on Artpulse.",
+    };
   }
 }
 

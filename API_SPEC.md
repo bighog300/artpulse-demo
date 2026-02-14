@@ -261,7 +261,35 @@ Uses Vercel Blob client-upload handshake and returns the Blob token payload requ
 { "ok": true }
 ```
 
-### 3.5 Delete venue image
+### 3.5 Set venue cover image
+
+`PATCH /api/my/venues/[id]/cover`
+
+Use an existing venue gallery image as the venue cover used on public venue cards and share metadata.
+
+**Request body**
+
+```json
+{ "imageId": "uuid" }
+```
+
+`venueImageId` is accepted as an alias for `imageId`.
+
+**Response 200**
+
+```json
+{
+  "cover": {
+    "featuredAssetId": "uuid-or-null",
+    "featuredImageUrl": "https://...or-null"
+  }
+}
+```
+
+If the selected venue image has an `assetId`, the API sets `featuredAssetId` and clears `featuredImageUrl`.
+If it has no `assetId`, the API sets `featuredImageUrl` and clears `featuredAssetId`.
+
+### 3.6 Delete venue image
 
 `DELETE /api/my/venues/images/[imageId]`
 
@@ -271,6 +299,6 @@ Uses Vercel Blob client-upload handshake and returns the Blob token payload requ
 { "ok": true }
 ```
 
-### 3.6 Errors
+### 3.7 Errors
 
 Error shape follows global conventions (`error.code` values include `invalid_request`, `unauthorized`, `forbidden`, `rate_limited`).

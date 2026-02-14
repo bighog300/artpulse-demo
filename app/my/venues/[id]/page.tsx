@@ -7,6 +7,7 @@ import VenueMembersManager from "@/app/my/_components/VenueMembersManager";
 import { PageHeader } from "@/components/ui/page-header";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { VenueGalleryManager } from "@/components/venues/venue-gallery-manager";
+import { resolveImageUrl } from "@/lib/assets";
 
 export default async function MyVenueEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -24,9 +25,14 @@ export default async function MyVenueEditPage({ params }: { params: Promise<{ id
 
   const membership = await db.venueMembership.findUnique({
     where: { userId_venueId: { userId: user.id, venueId: id } },
-    include: {
+    select: {
+      role: true,
       venue: {
-        include: {
+        select: {
+          id: true,
+          featuredImageUrl: true,
+          featuredAssetId: true,
+          isPublished: true,
           featuredAsset: { select: { url: true } },
           images: { select: { id: true, url: true, alt: true, sortOrder: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
           targetSubmissions: {
@@ -42,6 +48,18 @@ export default async function MyVenueEditPage({ params }: { params: Promise<{ id
             },
             orderBy: [{ role: "desc" }, { createdAt: "asc" }],
           },
+          name: true,
+          description: true,
+          addressLine1: true,
+          addressLine2: true,
+          city: true,
+          region: true,
+          country: true,
+          postcode: true,
+          lat: true,
+          lng: true,
+          websiteUrl: true,
+          instagramUrl: true,
         },
       },
     },
@@ -67,7 +85,11 @@ export default async function MyVenueEditPage({ params }: { params: Promise<{ id
 
       <VenueSelfServeForm venue={membership.venue} submissionStatus={submission?.status ?? null} />
 
-      <VenueGalleryManager venueId={membership.venue.id} initialImages={membership.venue.images} />
+      <VenueGalleryManager
+        venueId={membership.venue.id}
+        initialImages={membership.venue.images}
+        initialCover={{ featuredImageUrl: resolveImageUrl(membership.venue.featuredAsset?.url, membership.venue.featuredImageUrl) }}
+      />
 
       {(membership.role === "OWNER" || user.role === "ADMIN") ? (
         <VenueMembersManager

@@ -13,3 +13,21 @@ export function splitVenueEvents<T extends VenueEventLike>(events: T[], now: Dat
 
   return { upcoming, past };
 }
+
+export type VenueUpcomingEventLike = {
+  venueId: string;
+  slug: string;
+  title: string;
+  startAt: Date;
+};
+
+export function mapNextUpcomingEventByVenueId<T extends VenueUpcomingEventLike>(events: T[]) {
+  const byVenueId = new Map<string, T>();
+  for (const event of events) {
+    const existing = byVenueId.get(event.venueId);
+    if (!existing || event.startAt < existing.startAt) {
+      byVenueId.set(event.venueId, event);
+    }
+  }
+  return byVenueId;
+}

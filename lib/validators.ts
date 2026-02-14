@@ -52,6 +52,16 @@ export const venueImageReorderSchema = z.object({
   orderedIds: z.array(z.string().uuid()).min(1).refine((value) => new Set(value).size === value.length, "orderedIds must be unique"),
 });
 
+export const venueCoverPatchSchema = z.object({
+  imageId: z.string().uuid().optional(),
+  venueImageId: z.string().uuid().optional(),
+}).superRefine((data, ctx) => {
+  const candidateId = data.imageId ?? data.venueImageId;
+  if (!candidateId) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["imageId"], message: "imageId is required" });
+  }
+});
+
 export const favoriteBodySchema = z.object({
   targetType: z.enum(["EVENT", "VENUE", "ARTIST"]),
   targetId: z.string().uuid(),

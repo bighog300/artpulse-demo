@@ -3,7 +3,7 @@ import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { NextRequest, NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
 import { MAX_IMAGE_UPLOAD_BYTES } from "@/lib/assets";
-import { imageIdParamSchema, parseBody, venueIdParamSchema, venueImageCreateSchema, venueImageReorderSchema, venueImageUpdateSchema, venueUploadUrlRequestSchema, zodDetails } from "@/lib/validators";
+import { imageIdParamSchema, parseBody, venueCoverPatchSchema, venueIdParamSchema, venueImageCreateSchema, venueImageReorderSchema, venueImageUpdateSchema, venueUploadUrlRequestSchema, zodDetails } from "@/lib/validators";
 import {
   RATE_LIMITS,
   enforceRateLimit,
@@ -35,6 +35,8 @@ type HandleDeps = {
   reorderVenueImages: (venueId: string, orderedIds: string[]) => Promise<void>;
   deleteVenueImage: (imageId: string) => Promise<VenueImageRecord>;
   deleteBlobByUrl?: (url: string) => Promise<void>;
+  findVenueImageById: (venueId: string, imageId: string) => Promise<Pick<VenueImageRecord, "id" | "url"> & { assetId: string | null } | null>;
+  updateVenueCover: (venueId: string, payload: { featuredAssetId: string | null; featuredImageUrl: string | null }) => Promise<{ featuredAssetId: string | null; featuredImageUrl: string | null }>;
 };
 
 function mapImage(image: VenueImageRecord) {
@@ -256,6 +258,53 @@ export async function handleDeleteVenueImage(
     if (isRateLimitError(error)) return withNoStore(rateLimitErrorResponse(error));
     if (error instanceof Error && error.message === "unauthorized") {
       return withNoStore(apiError(401, "unauthorized", "Authentication required"));
+    }
+    return withNoStore(apiError(500, "internal_error", "Unexpected server error"));
+  }
+}
+
+export async function handleSetVenueCover(
+  req: NextRequest,
+  params: Promise<{ id: string }>,
+  deps: Pick<HandleDeps, "requireAuth" | "requireVenueMembership" | "findVenueImageById" | "updateVenueCover">,
+) {
+  try {
+    const parsedId = await parseVenueId(params);
+    if ("error" in parsedId) return withNoStore(parsedId.error);
+
+    const user = await deps.requireAuth();
+    await deps.requireVenueMembership(user.id, parsedId.venueId);
+
+    await enforceRateLimit({
+      key: principalRateLimitKey(req, `venue-images:cover:${parsedId.venueId}`, user.id),
+      limit: RATE_LIMITS.venueImagesWrite.limit,
+      windowMs: RATE_LIMITS.venueImagesWrite.windowMs,
+    });
+
+    const parsedBody = venueCoverPatchSchema.safeParse(await parseBody(req));
+    if (!parsedBody.success) {
+      return withNoStore(apiError(400, "invalid_request", "Invalid payload", zodDetails(parsedBody.error)));
+    }
+
+    const imageId = parsedBody.data.imageId ?? parsedBody.data.venueImageId;
+    const image = await deps.findVenueImageById(parsedId.venueId, imageId!);
+    if (!image) {
+      return withNoStore(apiError(400, "invalid_request", "Image does not belong to this venue"));
+    }
+
+    const cover = await deps.updateVenueCover(parsedId.venueId, {
+      featuredAssetId: image.assetId,
+      featuredImageUrl: image.assetId ? null : image.url,
+    });
+
+    return withNoStore(NextResponse.json({ cover }, { headers: NO_STORE_HEADERS }));
+  } catch (error) {
+    if (isRateLimitError(error)) return withNoStore(rateLimitErrorResponse(error));
+    if (error instanceof Error && error.message === "unauthorized") {
+      return withNoStore(apiError(401, "unauthorized", "Authentication required"));
+    }
+    if (error instanceof Error && error.message === "forbidden") {
+      return withNoStore(apiError(403, "forbidden", "Venue membership required"));
     }
     return withNoStore(apiError(500, "internal_error", "Unexpected server error"));
   }

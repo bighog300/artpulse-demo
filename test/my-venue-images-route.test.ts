@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { NextRequest } from "next/server";
-import { handleCreateVenueImage, handleDeleteVenueImage, handlePatchVenueImage, handleReorderVenueImages } from "../lib/my-venue-images-route.ts";
+import { handleCreateVenueImage, handleDeleteVenueImage, handlePatchVenueImage, handleReorderVenueImages, handleSetVenueCover } from "../lib/my-venue-images-route.ts";
 
 const venueId = "11111111-1111-4111-8111-111111111111";
 const imageId = "22222222-2222-4222-8222-222222222222";
@@ -74,4 +74,107 @@ test("reorder venue images rejects ids outside venue", async () => {
   assert.equal(res.status, 400);
   const body = await res.json();
   assert.equal(body.error.code, "invalid_request");
+});
+
+test("set venue cover returns unauthorized for anonymous user", async () => {
+  const req = new NextRequest(`http://localhost/api/my/venues/${venueId}/cover`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ imageId }),
+  });
+
+  const res = await handleSetVenueCover(req, Promise.resolve({ id: venueId }), {
+    requireAuth: async () => { throw new Error("unauthorized"); },
+    requireVenueMembership: async () => undefined,
+    findVenueImageById: async () => ({ id: imageId, url: "https://example.com/a.jpg", assetId: null }),
+    updateVenueCover: async () => ({ featuredAssetId: null, featuredImageUrl: "https://example.com/a.jpg" }),
+  });
+
+  assert.equal(res.status, 401);
+  const body = await res.json();
+  assert.equal(body.error.code, "unauthorized");
+});
+
+test("set venue cover returns forbidden when user is not member", async () => {
+  const req = new NextRequest(`http://localhost/api/my/venues/${venueId}/cover`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ imageId }),
+  });
+
+  const res = await handleSetVenueCover(req, Promise.resolve({ id: venueId }), {
+    requireAuth: async () => ({ id: "user-1" }),
+    requireVenueMembership: async () => { throw new Error("forbidden"); },
+    findVenueImageById: async () => ({ id: imageId, url: "https://example.com/a.jpg", assetId: null }),
+    updateVenueCover: async () => ({ featuredAssetId: null, featuredImageUrl: "https://example.com/a.jpg" }),
+  });
+
+  assert.equal(res.status, 403);
+  const body = await res.json();
+  assert.equal(body.error.code, "forbidden");
+});
+
+test("set venue cover returns invalid_request when image does not belong to venue", async () => {
+  const req = new NextRequest(`http://localhost/api/my/venues/${venueId}/cover`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ imageId }),
+  });
+
+  const res = await handleSetVenueCover(req, Promise.resolve({ id: venueId }), {
+    requireAuth: async () => ({ id: "user-1" }),
+    requireVenueMembership: async () => undefined,
+    findVenueImageById: async () => null,
+    updateVenueCover: async () => ({ featuredAssetId: null, featuredImageUrl: "https://example.com/a.jpg" }),
+  });
+
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.equal(body.error.code, "invalid_request");
+});
+
+test("set venue cover sets featuredAssetId when selected image has asset", async () => {
+  const req = new NextRequest(`http://localhost/api/my/venues/${venueId}/cover`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ imageId }),
+  });
+
+  const res = await handleSetVenueCover(req, Promise.resolve({ id: venueId }), {
+    requireAuth: async () => ({ id: "user-1" }),
+    requireVenueMembership: async () => undefined,
+    findVenueImageById: async () => ({ id: imageId, url: "https://example.com/a.jpg", assetId: "33333333-3333-4333-8333-333333333333" }),
+    updateVenueCover: async (_venueId, payload) => {
+      assert.deepEqual(payload, { featuredAssetId: "33333333-3333-4333-8333-333333333333", featuredImageUrl: null });
+      return payload;
+    },
+  });
+
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.cover.featuredAssetId, "33333333-3333-4333-8333-333333333333");
+  assert.equal(body.cover.featuredImageUrl, null);
+});
+
+test("set venue cover sets featuredImageUrl when selected image has no asset", async () => {
+  const req = new NextRequest(`http://localhost/api/my/venues/${venueId}/cover`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ venueImageId: imageId }),
+  });
+
+  const res = await handleSetVenueCover(req, Promise.resolve({ id: venueId }), {
+    requireAuth: async () => ({ id: "user-1" }),
+    requireVenueMembership: async () => undefined,
+    findVenueImageById: async () => ({ id: imageId, url: "https://example.com/no-asset.jpg", assetId: null }),
+    updateVenueCover: async (_venueId, payload) => {
+      assert.deepEqual(payload, { featuredAssetId: null, featuredImageUrl: "https://example.com/no-asset.jpg" });
+      return payload;
+    },
+  });
+
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.cover.featuredAssetId, null);
+  assert.equal(body.cover.featuredImageUrl, "https://example.com/no-asset.jpg");
 });

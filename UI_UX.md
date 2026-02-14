@@ -17,3 +17,9 @@
 - keyboard navigable
 - visible focus states
 - alt text for images
+
+## Venue cover behavior
+- Venue managers can set a gallery image as the venue cover from `/my/venues/[id]` using **Set as cover**.
+- The selected cover is visibly marked in the gallery manager.
+- Venue index cards (`/venues`) use this cover image as the card hero image.
+- Venue detail metadata (Open Graph image) prefers this cover image for sharing previews.
