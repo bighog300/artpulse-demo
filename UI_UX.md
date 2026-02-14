@@ -91,6 +91,11 @@
   - Lists pending artist association requests with artist, role, and message
   - Approve or reject each request inline
 
+- Public `/artists` and `/venues` now include shareable query-string discovery filters:
+  - `assoc=any|verified|exhibitions|none`
+  - `role=<association-role>` (applies only to `assoc=verified`)
+- Filters are public/no-auth and run server-side with efficient relation existence checks (`some`/`none`) for verified associations and exhibition-derived associations.
+
 ### Public `/artists/[slug]`
 - New **Associated venues** section with role badges and lightweight filter pills (`All`, role keys present, `Exhibitions`).
   - **Verified**: approved explicit associations to published venues with normalized role badges

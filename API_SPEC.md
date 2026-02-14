@@ -102,6 +102,18 @@ Use cursor pagination where relevant:
 
 `GET /api/venues`
 
+### 2.3.1 Public page query params (`/venues` and `/artists`)
+
+These are App Router page query params (not API endpoint params) used by public discovery lists:
+
+- `assoc`: `any | verified | exhibitions | none` (default `any`)
+- `role`: optional association role key (`represented_by | exhibited_at | resident_artist | collaborator | other`), applied only when `assoc=verified`
+
+Examples:
+- `/artists?assoc=verified&role=represented_by`
+- `/venues?assoc=exhibitions`
+- `/artists?assoc=none`
+
 ### 2.4 Venue detail
 
 `GET /api/venues/[slug]`
