@@ -9,21 +9,22 @@ export default async function ArtistsPage() {
     return (
       <main className="p-6">
         <h1 className="mb-4 text-2xl font-semibold">Artists</h1>
-        <p>Set DATABASE_URL to view events locally.</p>
+        <p>Set DATABASE_URL to view artists locally.</p>
       </main>
     );
   }
 
-  const items = await db.artist.findMany({ where: { isPublished: true }, orderBy: { name: "asc" } });
+  const items = await db.artist.findMany({ where: { isPublished: true }, orderBy: { name: "asc" }, select: { id: true, name: true, slug: true } });
 
   return (
-    <main className="p-6">
-      <h1 className="mb-4 text-2xl font-semibold">Artists</h1>
+    <main className="space-y-4 p-6">
+      <h1 className="text-2xl font-semibold">Artists</h1>
+      {items.length === 0 ? <p className="rounded border border-dashed p-4 text-sm text-zinc-600">No artists published yet.</p> : null}
       <ul className="space-y-2">
-        {items?.map((a: { id: string; name?: string; slug?: string }) => (
-          <li key={a.id}>
-            <Link className="underline" href={`/artists/${a.slug}`}>
-              {a.name}
+        {items.map((artist) => (
+          <li key={artist.id}>
+            <Link className="underline" href={`/artists/${artist.slug}`}>
+              {artist.name}
             </Link>
           </li>
         ))}
