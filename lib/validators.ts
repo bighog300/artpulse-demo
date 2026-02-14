@@ -33,6 +33,16 @@ export const inviteIdParamSchema = z.object({ inviteId: z.string().uuid() });
 export const tokenParamSchema = z.object({ token: z.string().trim().min(16).max(255) });
 
 export const imageIdParamSchema = z.object({ imageId: z.string().uuid() });
+export const associationIdParamSchema = z.object({ associationId: z.string().uuid() });
+export const associationModerationParamsSchema = z.object({ id: z.string().uuid(), associationId: z.string().uuid() });
+
+export const artistVenueAssociationRoleSchema = z.enum(["represented_by", "exhibited_at", "resident", "collaborator"]);
+
+export const artistVenueRequestBodySchema = z.object({
+  venueId: z.string().uuid(),
+  role: artistVenueAssociationRoleSchema.optional(),
+  message: z.string().trim().max(500).optional(),
+});
 
 export const venueUploadUrlRequestSchema = z.object({
   fileName: z.string().trim().min(1).max(200),

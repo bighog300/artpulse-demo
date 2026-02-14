@@ -592,3 +592,108 @@ Validation failure (400 invalid_request):
   }
 }
 ```
+
+### 3.9 Request artist ↔ venue association
+
+`POST /api/my/artist/venues/request` (auth + `Artist.userId` ownership required)
+
+Request body:
+
+```json
+{
+  "venueId": "uuid",
+  "role": "represented_by",
+  "message": "Optional context for venue staff"
+}
+```
+
+Response 200:
+
+```json
+{
+  "association": {
+    "id": "uuid",
+    "status": "PENDING",
+    "role": "represented_by",
+    "venueId": "uuid"
+  }
+}
+```
+
+### 3.10 List my artist venue associations
+
+`GET /api/my/artist/venues`
+
+Response 200 grouped by status:
+
+```json
+{
+  "pending": [],
+  "approved": [],
+  "rejected": []
+}
+```
+
+### 3.11 Cancel pending artist venue association request
+
+`DELETE /api/my/artist/venues/[associationId]`
+
+Response 200:
+
+```json
+{ "ok": true }
+```
+
+### 3.12 List pending artist requests for a venue
+
+`GET /api/my/venues/[id]/artist-requests` (auth + venue membership required)
+
+Response 200:
+
+```json
+{
+  "requests": [
+    {
+      "id": "uuid",
+      "role": "represented_by",
+      "message": "Optional message",
+      "artist": {
+        "id": "uuid",
+        "name": "Artist name",
+        "slug": "artist-slug",
+        "cover": "https://..."
+      }
+    }
+  ]
+}
+```
+
+### 3.13 Approve artist request for a venue
+
+`POST /api/my/venues/[id]/artist-requests/[associationId]/approve`
+
+Response 200:
+
+```json
+{
+  "association": {
+    "id": "uuid",
+    "status": "APPROVED"
+  }
+}
+```
+
+### 3.14 Reject artist request for a venue
+
+`POST /api/my/venues/[id]/artist-requests/[associationId]/reject`
+
+Response 200:
+
+```json
+{
+  "association": {
+    "id": "uuid",
+    "status": "REJECTED"
+  }
+}
+```
