@@ -95,6 +95,9 @@
   - `assoc=any|verified|exhibitions|none`
   - `role=<association-role>` (applies only to `assoc=verified`)
 - Filters are public/no-auth and run server-side with efficient relation existence checks (`some`/`none`) for verified associations and exhibition-derived associations.
+- Discovery filter chips on `/artists` and `/venues` now show server-computed counts for `Any`, `Verified`, `Exhibitions`, and `None`.
+- When `assoc=verified`, a secondary row of role facet chips appears with per-role counts plus `All roles` (verified total).
+- Role facets are hidden outside verified mode and remain URL-shareable via `role=<association-role>` while counts stay UI-only.
 
 ### Public `/artists/[slug]`
 - New **Associated venues** section with role badges and lightweight filter pills (`All`, role keys present, `Exhibitions`).

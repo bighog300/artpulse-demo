@@ -1,28 +1,32 @@
 "use client";
 
-import { useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ASSOCIATION_ROLES, roleLabel, type AssociationRoleKey } from "@/lib/association-roles";
+import type { AssocCounts, RoleCounts } from "@/lib/discovery-counts";
 import type { AssocMode } from "@/lib/discovery-filters";
 
 type DiscoveryFilterBarProps = {
   assoc: AssocMode;
   role?: AssociationRoleKey;
+  assocCounts?: AssocCounts;
+  roleCounts?: RoleCounts;
 };
 
 const ASSOC_OPTIONS: Array<{ value: AssocMode; label: string }> = [
-  { value: "any", label: "Any association state" },
-  { value: "verified", label: "Verified associations" },
-  { value: "exhibitions", label: "From exhibitions" },
-  { value: "none", label: "No associations" },
+  { value: "any", label: "Any" },
+  { value: "verified", label: "Verified" },
+  { value: "exhibitions", label: "Exhibitions" },
+  { value: "none", label: "None" },
 ];
 
-export function DiscoveryFilterBar({ assoc, role }: DiscoveryFilterBarProps) {
+function withCount(label: string, count?: number): string {
+  return typeof count === "number" ? `${label} (${count})` : label;
+}
+
+export function DiscoveryFilterBar({ assoc, role, assocCounts, roleCounts }: DiscoveryFilterBarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-
-  const roleOptions = useMemo(() => ASSOCIATION_ROLES.map((key) => ({ value: key, label: roleLabel(key) })), []);
 
   const setFilters = (nextAssoc: AssocMode, nextRole?: AssociationRoleKey) => {
     const params = new URLSearchParams(searchParams?.toString() ?? "");
@@ -44,40 +48,62 @@ export function DiscoveryFilterBar({ assoc, role }: DiscoveryFilterBarProps) {
   };
 
   return (
-    <section className="rounded border p-3">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">Association filter</span>
-          <select className="rounded border p-2" value={assoc} onChange={(event) => setFilters(event.target.value as AssocMode, role)}>
-            {ASSOC_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
+    <section className="rounded border p-3 space-y-3">
+      <div className="space-y-2">
+        <p className="text-sm font-medium">Association filter</p>
+        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Association filter">
+          {ASSOC_OPTIONS.map((option) => {
+            const isActive = assoc === option.value;
+            const count = assocCounts?.[option.value];
 
-        {assoc === "verified" ? (
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium">Role</span>
-            <select
-              className="rounded border p-2"
-              value={role ?? ""}
-              onChange={(event) => {
-                const selected = event.target.value;
-                setFilters("verified", selected ? (selected as AssociationRoleKey) : undefined);
-              }}
-            >
-              <option value="">All roles</option>
-              {roleOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
+            return (
+              <button
+                key={option.value}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                className={`rounded-full border px-3 py-1 text-sm transition ${isActive ? "bg-black text-white border-black" : "bg-white text-zinc-800"}`}
+                onClick={() => setFilters(option.value, option.value === "verified" ? role : undefined)}
+              >
+                {withCount(option.label, count)}
+              </button>
+            );
+          })}
+        </div>
       </div>
+
+      {assoc === "verified" ? (
+        <div className="space-y-2">
+          <p className="text-sm font-medium">Role</p>
+          <div className="flex flex-wrap gap-2" role="tablist" aria-label="Verified role filter">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={!role}
+              className={`rounded-full border px-3 py-1 text-sm transition ${!role ? "bg-black text-white border-black" : "bg-white text-zinc-800"}`}
+              onClick={() => setFilters("verified", undefined)}
+            >
+              {withCount("All roles", roleCounts?.all ?? assocCounts?.verified)}
+            </button>
+
+            {ASSOCIATION_ROLES.filter((roleKey) => (roleCounts?.[roleKey] ?? 0) > 0 || !roleCounts).map((roleKey) => {
+              const isActive = role === roleKey;
+              return (
+                <button
+                  key={roleKey}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  className={`rounded-full border px-3 py-1 text-sm transition ${isActive ? "bg-black text-white border-black" : "bg-white text-zinc-800"}`}
+                  onClick={() => setFilters("verified", roleKey)}
+                >
+                  {withCount(roleLabel(roleKey), roleCounts?.[roleKey])}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

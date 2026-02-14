@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { DiscoveryFilterBar } from "@/components/discovery/discovery-filter-bar";
+import { getVenueAssocCounts, getVenueRoleFacetCounts } from "@/lib/discovery-counts";
 import { db } from "@/lib/db";
 import { parseDiscoveryFilters } from "@/lib/discovery-filters";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
@@ -27,59 +28,63 @@ export default async function VenuesPage({ searchParams }: VenuesPageProps) {
     );
   }
 
-  const items = await db.venue.findMany({
-    where: {
-      isPublished: true,
-      ...(filters.assoc === "verified"
-        ? {
-            artistAssociations: {
-              some: {
-                status: "APPROVED",
-                ...(filters.role ? { role: filters.role } : {}),
-              },
-            },
-          }
-        : {}),
-      ...(filters.assoc === "exhibitions"
-        ? {
-            events: {
-              some: {
-                isPublished: true,
-                eventArtists: {
-                  some: {},
+  const [items, assocCounts, roleCounts] = await Promise.all([
+    db.venue.findMany({
+      where: {
+        isPublished: true,
+        ...(filters.assoc === "verified"
+          ? {
+              artistAssociations: {
+                some: {
+                  status: "APPROVED",
+                  ...(filters.role ? { role: filters.role } : {}),
                 },
               },
-            },
-          }
-        : {}),
-      ...(filters.assoc === "none"
-        ? {
-            AND: [
-              { artistAssociations: { none: { status: "APPROVED" } } },
-              {
-                events: {
-                  none: {
-                    isPublished: true,
-                    eventArtists: {
-                      some: {},
-                    },
+            }
+          : {}),
+        ...(filters.assoc === "exhibitions"
+          ? {
+              events: {
+                some: {
+                  isPublished: true,
+                  eventArtists: {
+                    some: {},
                   },
                 },
               },
-            ],
-          }
-        : {}),
-    },
-    orderBy: { name: "asc" },
-    select: {
-      id: true,
-      slug: true,
-      name: true,
-      description: true,
-      featuredImageUrl: true,
-      featuredAsset: { select: { url: true } },
-    },
-  });
+            }
+          : {}),
+        ...(filters.assoc === "none"
+          ? {
+              AND: [
+                { artistAssociations: { none: { status: "APPROVED" } } },
+                {
+                  events: {
+                    none: {
+                      isPublished: true,
+                      eventArtists: {
+                        some: {},
+                      },
+                    },
+                  },
+                },
+              ],
+            }
+          : {}),
+      },
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        description: true,
+        featuredImageUrl: true,
+        featuredAsset: { select: { url: true } },
+      },
+    }),
+    getVenueAssocCounts(db),
+    getVenueRoleFacetCounts(db),
+  ]);
 
   const upcomingEvents =
     items.length > 0
@@ -95,7 +100,7 @@ export default async function VenuesPage({ searchParams }: VenuesPageProps) {
   return (
     <main className="p-6 space-y-4">
       <h1 className="text-2xl font-semibold">Venues</h1>
-      <DiscoveryFilterBar assoc={filters.assoc} role={filters.role} />
+      <DiscoveryFilterBar assoc={filters.assoc} role={filters.role} assocCounts={assocCounts} roleCounts={roleCounts} />
       <ul className="grid gap-4 md:grid-cols-2">
         {items.map((venue) => {
           const coverUrl = resolveVenueCoverUrl(venue);
