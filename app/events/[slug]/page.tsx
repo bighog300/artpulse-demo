@@ -5,8 +5,10 @@ import { db } from "@/lib/db";
 import { resolveImageUrl } from "@/lib/assets";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { ShareButton } from "@/components/share-button";
+import { SaveEventButton } from "@/components/events/save-event-button";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { buildDetailMetadata, buildEventJsonLd, getDetailUrl } from "@/lib/seo.public-profiles";
+import { getSessionUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -44,12 +46,20 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
   }
 
   const { slug } = await params;
-  const event = await db.event.findFirst({
-    where: { slug, isPublished: true },
-    include: { venue: true, eventTags: { include: { tag: true } }, images: { include: { asset: { select: { url: true } } }, orderBy: { sortOrder: "asc" } } },
-  });
+  const [event, user] = await Promise.all([
+    db.event.findFirst({
+      where: { slug, isPublished: true },
+      include: { venue: true, eventTags: { include: { tag: true } }, images: { include: { asset: { select: { url: true } } }, orderBy: { sortOrder: "asc" } } },
+    }),
+    getSessionUser(),
+  ]);
 
   if (!event) notFound();
+
+  const isAuthenticated = Boolean(user);
+  const initialSaved = user
+    ? Boolean(await db.favorite.findUnique({ where: { userId_targetType_targetId: { userId: user.id, targetType: "EVENT", targetId: event.id } }, select: { id: true } }))
+    : false;
   const primaryImage = resolveImageUrl(event.images[0]?.asset?.url, event.images[0]?.url);
   const detailUrl = getDetailUrl("event", slug);
   const jsonLd = buildEventJsonLd({
@@ -74,11 +84,7 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
       ) : null}
       <p>{event.description}</p>
       <p>{new Date(event.startAt).toISOString()}</p>
-      <form action="/api/favorites" method="post">
-        <input type="hidden" name="targetType" value="EVENT" />
-        <input type="hidden" name="targetId" value={event.id} />
-        <button className="rounded border px-3 py-1">Save</button>
-      </form>
+      <SaveEventButton eventId={event.id} initialSaved={initialSaved} nextUrl={`/events/${slug}`} isAuthenticated={isAuthenticated} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
     </main>
   );
