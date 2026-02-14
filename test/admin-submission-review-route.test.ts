@@ -8,6 +8,7 @@ const submissionId = "11111111-1111-4111-8111-111111111111";
 const baseSubmission = {
   id: submissionId,
   type: "VENUE" as const,
+  targetEventId: null,
   targetVenueId: "22222222-2222-4222-8222-222222222222",
   status: "SUBMITTED" as const,
   submitter: { id: "user-1", email: "submitter@example.com" },
@@ -20,6 +21,8 @@ test("handleApproveSubmission returns unauthorized for anonymous users", async (
     findSubmission: async () => baseSubmission,
     publishVenue: async () => undefined,
     setVenueDraft: async () => undefined,
+    publishEvent: async () => undefined,
+    setEventDraft: async () => undefined,
     markApproved: async () => undefined,
     markNeedsChanges: async () => undefined,
     notifyApproved: async () => undefined,
@@ -37,6 +40,8 @@ test("handleApproveSubmission returns forbidden for non-editors", async () => {
     findSubmission: async () => baseSubmission,
     publishVenue: async () => undefined,
     setVenueDraft: async () => undefined,
+    publishEvent: async () => undefined,
+    setEventDraft: async () => undefined,
     markApproved: async () => undefined,
     markNeedsChanges: async () => undefined,
     notifyApproved: async () => undefined,
@@ -48,12 +53,14 @@ test("handleApproveSubmission returns forbidden for non-editors", async () => {
   assert.equal(body.error.code, "forbidden");
 });
 
-test("handleApproveSubmission returns invalid_request for wrong submission type", async () => {
+test("handleApproveSubmission returns invalid_request when event target is missing", async () => {
   const res = await handleApproveSubmission(Promise.resolve({ id: submissionId }), {
     requireEditor: async () => ({ id: "editor-1" }),
-    findSubmission: async () => ({ ...baseSubmission, type: "EVENT" }),
+    findSubmission: async () => ({ ...baseSubmission, type: "EVENT", targetEventId: null, targetVenueId: null }),
     publishVenue: async () => undefined,
     setVenueDraft: async () => undefined,
+    publishEvent: async () => undefined,
+    setEventDraft: async () => undefined,
     markApproved: async () => undefined,
     markNeedsChanges: async () => undefined,
     notifyApproved: async () => undefined,
@@ -73,6 +80,8 @@ test("handleApproveSubmission publishes venue and marks submission approved", as
     findSubmission: async () => baseSubmission,
     publishVenue: async () => { published = true; },
     setVenueDraft: async () => undefined,
+    publishEvent: async () => undefined,
+    setEventDraft: async () => undefined,
     markApproved: async () => { updated = true; },
     markNeedsChanges: async () => undefined,
     notifyApproved: async () => undefined,
@@ -100,6 +109,8 @@ test("handleRequestChangesSubmission updates submission status and keeps venue d
     findSubmission: async () => baseSubmission,
     publishVenue: async () => undefined,
     setVenueDraft: async () => { drafted = true; },
+    publishEvent: async () => undefined,
+    setEventDraft: async () => undefined,
     markApproved: async () => undefined,
     markNeedsChanges: async () => { changed = true; },
     notifyApproved: async () => undefined,
@@ -109,4 +120,23 @@ test("handleRequestChangesSubmission updates submission status and keeps venue d
   assert.equal(res.status, 200);
   assert.equal(drafted, true);
   assert.equal(changed, true);
+});
+
+test("handleApproveSubmission publishes event for EVENT submissions", async () => {
+  let eventPublished = false;
+  const res = await handleApproveSubmission(Promise.resolve({ id: submissionId }), {
+    requireEditor: async () => ({ id: "editor-1" }),
+    findSubmission: async () => ({ ...baseSubmission, type: "EVENT", targetEventId: "33333333-3333-4333-8333-333333333333", targetVenueId: null }),
+    publishVenue: async () => undefined,
+    setVenueDraft: async () => undefined,
+    publishEvent: async () => { eventPublished = true; },
+    setEventDraft: async () => undefined,
+    markApproved: async () => undefined,
+    markNeedsChanges: async () => undefined,
+    notifyApproved: async () => undefined,
+    notifyNeedsChanges: async () => undefined,
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(eventPublished, true);
 });

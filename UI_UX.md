@@ -40,3 +40,16 @@
   - Invalid website URL (if provided)
 - While pending review, the form remains editable and users are informed that a review is in progress.
 - Once published, the panel links directly to the live `/venues/[slug]` page.
+
+## Event self-serve publishing flow
+
+- `/my/venues/[id]/submit-event` shows per-event publishing status:
+  - Draft
+  - Pending review
+  - Needs changes
+  - Published
+- Venue members can submit each draft event for review from the same page.
+- Event validation issues from the API are shown inline on the relevant event row.
+- Reviewer feedback is shown for events in `Needs changes`.
+- Authentication failures redirect users to `/login?next=...` and successful actions show toasts.
+- Public event pages and venue event sections continue to display published events only.

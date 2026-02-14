@@ -15,8 +15,19 @@ export default async function SubmitEventPage({ params }: { params: Promise<{ id
   if (!membership) notFound();
 
   const submissions = await db.submission.findMany({
-    where: { submitterUserId: user.id, venueId: id, type: "EVENT" },
-    include: { targetEvent: true },
+    where: { venueId: id, type: "EVENT" },
+    include: {
+      targetEvent: {
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          startAt: true,
+          timezone: true,
+          isPublished: true,
+        },
+      },
+    },
     orderBy: { createdAt: "desc" },
   });
 
@@ -37,6 +48,7 @@ export default async function SubmitEventPage({ params }: { params: Promise<{ id
             slug: item.targetEvent!.slug,
             startAt: item.targetEvent!.startAt.toISOString(),
             timezone: item.targetEvent!.timezone,
+            isPublished: item.targetEvent!.isPublished,
           }))}
       />
     </main>
