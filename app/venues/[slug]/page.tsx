@@ -9,6 +9,7 @@ import { FollowButton } from "@/components/follows/follow-button";
 import { ShareButton } from "@/components/share-button";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { buildDetailMetadata, buildVenueJsonLd, getDetailUrl } from "@/lib/seo.public-profiles";
+import { resolveVenueGalleryAltText } from "@/lib/venue-gallery";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +43,23 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
 
   const { slug } = await params;
   const user = await getSessionUser();
-  const venue = await db.venue.findFirst({ where: { slug, isPublished: true }, include: { featuredAsset: { select: { url: true } }, events: { where: { isPublished: true } } } });
+  const venue = await db.venue.findFirst({
+    where: { slug, isPublished: true },
+    include: {
+      featuredAsset: { select: { url: true, width: true, height: true, alt: true } },
+      images: {
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+        select: {
+          id: true,
+          url: true,
+          alt: true,
+          sortOrder: true,
+          asset: { select: { url: true, width: true, height: true, alt: true } },
+        },
+      },
+      events: { where: { isPublished: true } },
+    },
+  });
 
   if (!venue) notFound();
 
@@ -52,6 +69,19 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
   ]);
 
   const featuredImageUrl = resolveImageUrl(venue.featuredAsset?.url, venue.featuredImageUrl);
+
+  const galleryImages = venue.images.flatMap((image) => {
+    const src = resolveImageUrl(image.asset?.url, image.url);
+    if (!src) {
+      return [];
+    }
+
+    return [{
+      id: image.id,
+      src,
+      alt: resolveVenueGalleryAltText({ imageAlt: image.alt, assetAlt: image.asset?.alt, venueName: venue.name }),
+    }];
+  });
   const detailUrl = getDetailUrl("venue", slug);
   const jsonLd = buildVenueJsonLd({
     name: venue.name,
@@ -80,6 +110,18 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
         </div>
       ) : null}
       <p>{venue.description}</p>
+      {galleryImages.length > 0 ? (
+        <section className="space-y-3">
+          <h2 className="text-2xl font-semibold">Gallery</h2>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {galleryImages.map((image) => (
+              <div key={image.id} className="relative aspect-[4/3] overflow-hidden rounded border">
+                <Image src={image.src} alt={image.alt} fill sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw" className="object-cover" />
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
     </main>
   );
