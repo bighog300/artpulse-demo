@@ -34,7 +34,7 @@ export default async function FollowingPage({ searchParams }: { searchParams: Se
   if (!hasDatabaseUrl()) {
     return (
       <main className="space-y-4 p-6">
-        <PageHeader title="Following" subtitle="Upcoming events from artists and venues you follow." />
+        <PageHeader title="Following" subtitle="Upcoming events from artists and venues you follow." actions={<Link href="/following/manage" className="rounded border px-3 py-1 text-sm">Manage</Link>} />
         <p>Set DATABASE_URL to view events locally.</p>
       </main>
     );
@@ -83,7 +83,7 @@ export default async function FollowingPage({ searchParams }: { searchParams: Se
 
   return (
     <main className="space-y-4 p-6">
-      <PageHeader title="Following" subtitle="Upcoming events from artists and venues you follow." />
+      <PageHeader title="Following" subtitle="Upcoming events from artists and venues you follow." actions={<Link href="/following/manage" className="rounded border px-3 py-1 text-sm">Manage</Link>} />
       <OnboardingPanel />
       <GetStartedBanner />
       <form className="flex flex-wrap items-center gap-3" method="get">
