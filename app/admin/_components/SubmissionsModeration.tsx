@@ -21,12 +21,26 @@ export default function SubmissionsModeration({ items }: { items: SubmissionItem
   const [reasonById, setReasonById] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState<string | null>(null);
 
-  async function decide(id: string, action: "approve" | "reject") {
+  async function decide(item: SubmissionItem, action: "approve" | "reject") {
     setMsg(null);
-    const res = await fetch(`/api/admin/submissions/${id}/decision`, {
+
+    const venueFlow = item.type === "VENUE";
+    const endpoint = venueFlow
+      ? action === "approve"
+        ? `/api/admin/submissions/${item.id}/approve`
+        : `/api/admin/submissions/${item.id}/request-changes`
+      : `/api/admin/submissions/${item.id}/decision`;
+
+    const payload = venueFlow
+      ? action === "approve"
+        ? undefined
+        : { message: reasonById[item.id] || "Please address the requested profile changes and resubmit." }
+      : { action, decisionReason: reasonById[item.id] || null };
+
+    const res = await fetch(endpoint, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action, decisionReason: reasonById[id] || null }),
+      body: payload ? JSON.stringify(payload) : undefined,
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
@@ -62,13 +76,13 @@ export default function SubmissionsModeration({ items }: { items: SubmissionItem
               <>
                 <input
                   className="border rounded p-1 w-full"
-                  placeholder="Rejection reason"
+                  placeholder={item.type === "VENUE" ? "Requested changes" : "Rejection reason"}
                   value={reasonById[item.id] || ""}
                   onChange={(e) => setReasonById((prev) => ({ ...prev, [item.id]: e.target.value }))}
                 />
                 <div className="space-x-2">
-                  <button className="rounded border px-2 py-1" onClick={() => decide(item.id, "approve")}>Approve</button>
-                  <button className="rounded border px-2 py-1" onClick={() => decide(item.id, "reject")}>Reject</button>
+                  <button className="rounded border px-2 py-1" onClick={() => decide(item, "approve")}>Approve</button>
+                  <button className="rounded border px-2 py-1" onClick={() => decide(item, "reject")}>{item.type === "VENUE" ? "Request changes" : "Reject"}</button>
                 </div>
               </>
             ) : null}

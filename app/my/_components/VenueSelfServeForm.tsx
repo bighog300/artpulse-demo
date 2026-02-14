@@ -21,8 +21,9 @@ type VenueRecord = {
 };
 
 export default function VenueSelfServeForm({ venue, submissionStatus }: { venue: VenueRecord; submissionStatus: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | null }) {
+  void submissionStatus;
   const router = useRouter();
-  const [form, setForm] = useState<Record<string, unknown>>({ ...venue, submitForApproval: false, note: "" });
+  const [form, setForm] = useState<Record<string, unknown>>({ ...venue });
   const [error, setError] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
@@ -57,8 +58,6 @@ export default function VenueSelfServeForm({ venue, submissionStatus }: { venue:
         initialUrl={venue.featuredAsset?.url ?? venue.featuredImageUrl}
         onUploaded={({ assetId, url }) => setForm((p) => ({ ...p, featuredAssetId: assetId, featuredImageUrl: url }))}
       />
-      {!venue.isPublished ? <label className="block text-sm"><input type="checkbox" className="mr-2" checked={Boolean(form.submitForApproval)} onChange={(e) => setForm((p) => ({ ...p, submitForApproval: e.target.checked }))} />{submissionStatus === "REJECTED" ? "Resubmit venue for approval" : "Submit venue for approval"}</label> : null}
-      <label className="block"><span className="text-sm">Submission note</span><textarea className="border rounded p-2 w-full" value={String(form.note ?? "")} onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))} /></label>
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       <button className="rounded border px-3 py-1">Save venue</button>
     </form>

@@ -350,6 +350,15 @@ export const myEventPatchSchema = z.object({
   }
 });
 
+
+export const venueSubmitBodySchema = z.object({
+  message: z.string().trim().max(2000).optional(),
+});
+
+export const adminSubmissionRequestChangesSchema = z.object({
+  message: z.string().trim().min(10).max(2000),
+});
+
 export const submissionDecisionSchema = z.object({
   action: z.enum(["approve", "reject"]),
   decisionReason: z.string().trim().max(2000).optional().nullable(),

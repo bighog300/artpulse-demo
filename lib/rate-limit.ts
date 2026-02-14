@@ -137,5 +137,9 @@ export const RATE_LIMITS = {
     limit: Number(process.env.RATE_LIMIT_VENUE_IMAGES_WRITE_PER_MINUTE ?? 60),
     windowMs: Number(process.env.RATE_LIMIT_VENUE_IMAGES_WRITE_WINDOW_MS ?? 60_000),
   },
+  venueSubmitWrite: {
+    limit: Number(process.env.RATE_LIMIT_VENUE_SUBMIT_WRITE_PER_HOUR ?? 20),
+    windowMs: Number(process.env.RATE_LIMIT_VENUE_SUBMIT_WRITE_WINDOW_MS ?? 3_600_000),
+  },
 
 } as const;

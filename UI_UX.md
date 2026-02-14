@@ -23,3 +23,20 @@
 - The selected cover is visibly marked in the gallery manager.
 - Venue index cards (`/venues`) use this cover image as the card hero image.
 - Venue detail metadata (Open Graph image) prefers this cover image for sharing previews.
+
+## Venue self-serve publishing flow
+
+- `/my/venues/[id]` now includes a dedicated **Publishing** panel with status mapping:
+  - `DRAFT` (or no submission): Draft
+  - `SUBMITTED`: Pending review
+  - `REJECTED`: Needs changes
+  - `APPROVED`/`isPublished=true`: Published
+- Owners can submit using **Submit for review** when required fields pass server validation.
+- Validation issues are surfaced inline before submission and from API responses:
+  - Missing name
+  - Description below minimum length
+  - Missing cover image
+  - Missing address basics (address line or city + country)
+  - Invalid website URL (if provided)
+- While pending review, the form remains editable and users are informed that a review is in progress.
+- Once published, the panel links directly to the live `/venues/[slug]` page.
