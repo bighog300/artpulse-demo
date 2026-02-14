@@ -102,6 +102,7 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
         orderBy: [{ createdAt: "desc" }, { artistId: "asc" }],
         select: {
           artistId: true,
+          role: true,
           artist: {
             select: {
               id: true,

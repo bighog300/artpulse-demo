@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { normalizeAssociationRole, roleLabel } from "@/lib/association-roles";
 import { enqueueToast } from "@/lib/toast";
 
 type RequestItem = {
@@ -31,7 +32,7 @@ export default function VenueArtistRequestsPanel({ venueId, initialRequests }: {
           {requests.map((request) => (
             <li key={request.id} className="rounded border p-3">
               <p className="font-medium">{request.artist.name}</p>
-              <p className="text-sm text-zinc-600">Role: {request.role ?? "n/a"}</p>
+              <p className="mt-1 inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">{roleLabel(normalizeAssociationRole(request.role))}</p>
               {request.message ? <p className="text-sm text-zinc-700">{request.message}</p> : null}
               <div className="mt-2 flex gap-2">
                 <button className="rounded border px-2 py-1 text-sm" onClick={() => moderateRequest(request.id, "approve")}>Approve</button>

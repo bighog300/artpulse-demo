@@ -284,7 +284,7 @@ Explicit association between an artist profile and a venue, independent from Eve
 - `id` (uuid)
 - `artistId` (uuid)
 - `venueId` (uuid)
-- `role` (optional enum-like string: `represented_by | exhibited_at | resident | collaborator`)
+- `role` (optional enum-like string: `represented_by | exhibited_at | resident_artist | collaborator | other`)
 - `status` (`PENDING | APPROVED | REJECTED`)
 - `message` (optional requester note)
 - `requestedByUserId` (optional uuid)
@@ -300,5 +300,6 @@ Explicit association between an artist profile and a venue, independent from Eve
 **Semantics**
 - Artists can request associations to published venues.
 - Venue members approve/reject incoming requests.
+- Legacy/unknown incoming role strings are normalized to `other`; empty roles default to `exhibited_at`.
 - Public artist pages display approved associations (verified) plus derived venues from published events.
 - Public venue pages display approved associations (verified artists) from `ArtistVenueAssociation` plus derived artists from `EventArtist` rows on published events.

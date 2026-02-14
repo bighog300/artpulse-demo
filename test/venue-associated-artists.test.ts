@@ -2,9 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { dedupeAssociatedArtists, type AssociatedArtistInput } from "@/lib/venue-associated-artists";
 
-function makeArtist(artistId: string, name = artistId): AssociatedArtistInput {
+function makeArtist(artistId: string, name = artistId, role: string | null = null): AssociatedArtistInput {
   return {
     artistId,
+    role,
     artist: {
       id: artistId,
       name,
@@ -34,8 +35,10 @@ test("dedupeAssociatedArtists gives verified precedence over derived", () => {
   assert.deepEqual(result.derivedArtists.map((artist) => artist.id), ["a3"]);
 });
 
-test("dedupeAssociatedArtists resolves coverUrl on returned summaries", () => {
-  const result = dedupeAssociatedArtists([makeArtist("a1")], []);
+test("dedupeAssociatedArtists resolves coverUrl and role defaults", () => {
+  const result = dedupeAssociatedArtists([makeArtist("a1", "a1", "resident")], [makeArtist("a2")]);
 
   assert.equal(result.verifiedArtists[0]?.coverUrl, "https://example.com/a1.jpg");
+  assert.equal(result.verifiedArtists[0]?.roleKey, "resident_artist");
+  assert.equal(result.derivedArtists[0]?.roleKey, "exhibited_at");
 });

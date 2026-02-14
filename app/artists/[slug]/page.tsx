@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { ArtistAssociatedVenuesSection } from "@/components/artists/artist-associated-venues-section";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { resolveImageUrl } from "@/lib/assets";
@@ -86,7 +87,7 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
       },
       venueAssociations: {
         where: { status: "APPROVED", venue: { isPublished: true } },
-        select: { venue: { select: { id: true, name: true, slug: true } } },
+        select: { role: true, venue: { select: { id: true, name: true, slug: true } } },
       },
       eventArtists: {
         orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
@@ -139,7 +140,7 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
   }));
   const { upcoming, past } = splitArtistEvents(events, now);
 
-  const verifiedVenues = artist.venueAssociations.map((row) => row.venue);
+  const verifiedVenues = artist.venueAssociations.map((row) => ({ ...row.venue, role: row.role }));
   const derivedVenues = artist.eventArtists
     .map((row) => row.event.venue)
     .filter((venue): venue is { name: string; slug: string; id: string } => Boolean(venue && venue.slug))
@@ -181,27 +182,7 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
       {galleryImages.length > 0 ? <ArtistGalleryLightbox images={galleryImages} /> : null}
 
 
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">Associated venues</h2>
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <h3 className="text-lg font-medium">Verified</h3>
-            {associatedVenues.verified.length === 0 ? <p className="text-sm text-zinc-600">No verified venues yet.</p> : (
-              <ul className="space-y-2">
-                {associatedVenues.verified.map((venue) => <li key={`v-${venue.id}`}><Link className="underline" href={`/venues/${venue.slug}`}>{venue.name}</Link></li>)}
-              </ul>
-            )}
-          </div>
-          <div>
-            <h3 className="text-lg font-medium">From exhibitions</h3>
-            {associatedVenues.derived.length === 0 ? <p className="text-sm text-zinc-600">No exhibition venues yet.</p> : (
-              <ul className="space-y-2">
-                {associatedVenues.derived.map((venue) => <li key={`d-${venue.id}`}><Link className="underline" href={`/venues/${venue.slug}`}>{venue.name}</Link></li>)}
-              </ul>
-            )}
-          </div>
-        </div>
-      </section>
+      <ArtistAssociatedVenuesSection verified={associatedVenues.verified} derived={associatedVenues.derived} />
 
       <section className="space-y-3">
         <h2 className="text-2xl font-semibold">Upcoming exhibitions</h2>

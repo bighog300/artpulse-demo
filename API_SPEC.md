@@ -607,6 +607,9 @@ Request body:
 }
 ```
 
+Role keys are normalized to: `represented_by | exhibited_at | resident_artist | collaborator | other`.
+Synonyms like `represented` and `exhibition` are accepted. Unknown values normalize to `other`, and empty/missing values normalize to `exhibited_at`.
+
 Response 200:
 
 ```json

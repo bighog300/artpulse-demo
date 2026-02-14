@@ -115,3 +115,48 @@ test("artist venue request again pending/approved invalid and rejected reopens",
   assert.equal(rejectedRes.status, 200);
   assert.equal(reopened, true);
 });
+
+
+test("artist venue request normalizes unknown and synonym roles", async () => {
+  const req = new NextRequest("http://localhost/api/my/artist/venues/request", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ venueId, role: "represented" }),
+  });
+
+  let capturedRole: string | null = null;
+  const res = await handleRequestArtistVenueAssociation(req, {
+    requireAuth: async () => ({ id: "user-1" }),
+    findOwnedArtistByUserId: async () => ({ id: "artist-1" }),
+    findPublishedVenueById: async () => ({ id: venueId }),
+    findAssociationByArtistAndVenue: async () => null,
+    createAssociation: async (input) => {
+      capturedRole = input.role;
+      return { id: "assoc-1", status: "PENDING", role: input.role, venueId };
+    },
+    rerequestAssociation: async () => ({ id: "assoc-1", status: "PENDING", role: null, venueId }),
+  });
+  assert.equal(res.status, 200);
+  assert.equal(capturedRole, "represented_by");
+
+  const unknownReq = new NextRequest("http://localhost/api/my/artist/venues/request", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ venueId, role: "legacy-role" }),
+  });
+
+  let unknownRole: string | null = null;
+  await handleRequestArtistVenueAssociation(unknownReq, {
+    requireAuth: async () => ({ id: "user-1" }),
+    findOwnedArtistByUserId: async () => ({ id: "artist-1" }),
+    findPublishedVenueById: async () => ({ id: venueId }),
+    findAssociationByArtistAndVenue: async () => null,
+    createAssociation: async (input) => {
+      unknownRole = input.role;
+      return { id: "assoc-2", status: "PENDING", role: input.role, venueId };
+    },
+    rerequestAssociation: async () => ({ id: "assoc-2", status: "PENDING", role: null, venueId }),
+  });
+
+  assert.equal(unknownRole, "other");
+});
