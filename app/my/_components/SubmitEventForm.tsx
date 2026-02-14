@@ -17,12 +17,20 @@ type ExistingSubmission = {
   slug: string;
   startAt: string;
   timezone: string;
+  latestRevision: {
+    id: string;
+    status: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED";
+    decisionReason: string | null;
+    createdAt: string;
+    decidedAt: string | null;
+  } | null;
 };
 
 export default function SubmitEventForm({ venueId, existing }: { venueId: string; existing: ExistingSubmission[] }) {
   const router = useRouter();
   const [form, setForm] = useState<Record<string, unknown>>({ title: "", slug: "", timezone: "UTC", startAt: "", description: "", note: "", images: [] });
   const [issuesByEventId, setIssuesByEventId] = useState<Record<string, Array<{ field: string; message: string }>>>({});
+  const [revisionDrafts, setRevisionDrafts] = useState<Record<string, { title: string; description: string; startAt: string; endAt: string; ticketUrl: string; message: string }>>({});
 
   async function createDraft(e: React.FormEvent) {
     e.preventDefault();
@@ -60,7 +68,38 @@ export default function SubmitEventForm({ venueId, existing }: { venueId: string
     router.refresh();
   }
 
+  async function submitRevision(eventId: string) {
+    const draft = revisionDrafts[eventId] ?? { title: "", description: "", startAt: "", endAt: "", ticketUrl: "", message: "" };
+    const patch: Record<string, unknown> = {};
+    if (draft.title.trim()) patch.title = draft.title;
+    if (draft.description.trim()) patch.description = draft.description;
+    if (draft.startAt) patch.startAt = new Date(draft.startAt).toISOString();
+    if (draft.endAt) patch.endAt = new Date(draft.endAt).toISOString();
+    if (draft.ticketUrl.trim()) patch.ticketUrl = draft.ticketUrl;
+
+    const res = await fetch(`/api/my/venues/${venueId}/events/${eventId}/revisions`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ patch, message: draft.message || undefined }),
+    });
+    if (res.status === 401) {
+      window.location.href = buildLoginRedirectUrl(`/my/venues/${venueId}/submit-event`);
+      return;
+    }
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      enqueueToast({ title: body?.error?.message || "Failed to submit revision", variant: "error" });
+      return;
+    }
+    enqueueToast({ title: "Revision submitted for review", variant: "success" });
+    router.refresh();
+  }
+
   const getStatusLabel = (item: ExistingSubmission) => {
+    if (item.isPublished && !item.latestRevision) return "Live";
+    if (item.latestRevision?.status === "SUBMITTED") return "Revision pending";
+    if (item.latestRevision?.status === "REJECTED") return "Needs changes";
+    if (item.latestRevision?.status === "APPROVED") return "Applied";
     if (item.isPublished || item.status === "APPROVED") return "Published";
     if (item.status === "SUBMITTED") return "Pending review";
     if (item.status === "REJECTED") return "Needs changes";
@@ -102,12 +141,25 @@ export default function SubmitEventForm({ venueId, existing }: { venueId: string
               {item.submittedAt ? <div className="text-sm">Submitted: {new Date(item.submittedAt).toLocaleString()}</div> : null}
               {item.decidedAt ? <div className="text-sm">Decided: {new Date(item.decidedAt).toLocaleString()}</div> : null}
               {item.status === "REJECTED" && item.decisionReason ? <div className="text-sm text-red-700">Reviewer feedback: {item.decisionReason}</div> : null}
+              {item.latestRevision?.status === "REJECTED" && item.latestRevision.decisionReason ? <div className="text-sm text-red-700">Revision feedback: {item.latestRevision.decisionReason}</div> : null}
               {(issuesByEventId[item.eventId]?.length ?? 0) > 0 ? (
                 <ul className="text-sm text-amber-800 list-disc pl-5 mt-2">
                   {issuesByEventId[item.eventId].map((issue, idx) => <li key={`${issue.field}-${idx}`}>{issue.message}</li>)}
                 </ul>
               ) : null}
               {(item.status === "DRAFT" || item.status === "REJECTED") ? <button className="mt-2 rounded border px-2 py-1 text-sm" onClick={() => submit(item.eventId)}>{item.status === "REJECTED" ? "Resubmit" : "Submit for approval"}</button> : null}
+              {item.isPublished ? (
+                <div className="mt-3 space-y-2 border-t pt-3">
+                  <div className="text-sm font-medium">Propose edits (revision)</div>
+                  <input className="border rounded p-2 w-full" placeholder="New title (optional)" value={revisionDrafts[item.eventId]?.title ?? ""} onChange={(e) => setRevisionDrafts((c) => ({ ...c, [item.eventId]: { title: e.target.value, description: c[item.eventId]?.description ?? "", startAt: c[item.eventId]?.startAt ?? "", endAt: c[item.eventId]?.endAt ?? "", ticketUrl: c[item.eventId]?.ticketUrl ?? "", message: c[item.eventId]?.message ?? "" } }))} />
+                  <textarea className="border rounded p-2 w-full" placeholder="New description (optional)" value={revisionDrafts[item.eventId]?.description ?? ""} onChange={(e) => setRevisionDrafts((c) => ({ ...c, [item.eventId]: { title: c[item.eventId]?.title ?? "", description: e.target.value, startAt: c[item.eventId]?.startAt ?? "", endAt: c[item.eventId]?.endAt ?? "", ticketUrl: c[item.eventId]?.ticketUrl ?? "", message: c[item.eventId]?.message ?? "" } }))} />
+                  <input className="border rounded p-2 w-full" type="datetime-local" value={revisionDrafts[item.eventId]?.startAt ?? ""} onChange={(e) => setRevisionDrafts((c) => ({ ...c, [item.eventId]: { title: c[item.eventId]?.title ?? "", description: c[item.eventId]?.description ?? "", startAt: e.target.value, endAt: c[item.eventId]?.endAt ?? "", ticketUrl: c[item.eventId]?.ticketUrl ?? "", message: c[item.eventId]?.message ?? "" } }))} />
+                  <input className="border rounded p-2 w-full" type="datetime-local" value={revisionDrafts[item.eventId]?.endAt ?? ""} onChange={(e) => setRevisionDrafts((c) => ({ ...c, [item.eventId]: { title: c[item.eventId]?.title ?? "", description: c[item.eventId]?.description ?? "", startAt: c[item.eventId]?.startAt ?? "", endAt: e.target.value, ticketUrl: c[item.eventId]?.ticketUrl ?? "", message: c[item.eventId]?.message ?? "" } }))} />
+                  <input className="border rounded p-2 w-full" placeholder="Ticket URL (optional)" value={revisionDrafts[item.eventId]?.ticketUrl ?? ""} onChange={(e) => setRevisionDrafts((c) => ({ ...c, [item.eventId]: { title: c[item.eventId]?.title ?? "", description: c[item.eventId]?.description ?? "", startAt: c[item.eventId]?.startAt ?? "", endAt: c[item.eventId]?.endAt ?? "", ticketUrl: e.target.value, message: c[item.eventId]?.message ?? "" } }))} />
+                  <textarea className="border rounded p-2 w-full" placeholder="Message to reviewer (optional)" value={revisionDrafts[item.eventId]?.message ?? ""} onChange={(e) => setRevisionDrafts((c) => ({ ...c, [item.eventId]: { title: c[item.eventId]?.title ?? "", description: c[item.eventId]?.description ?? "", startAt: c[item.eventId]?.startAt ?? "", endAt: c[item.eventId]?.endAt ?? "", ticketUrl: c[item.eventId]?.ticketUrl ?? "", message: e.target.value } }))} />
+                  <button className="rounded border px-2 py-1 text-sm" onClick={() => submitRevision(item.eventId)}>Submit revision</button>
+                </div>
+              ) : null}
             </li>
           ))}
         </ul>

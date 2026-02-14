@@ -418,3 +418,56 @@ All endpoints return the standard error shape (`unauthorized`, `forbidden`, `inv
   }
 }
 ```
+
+### 7.5 Create event revision for published event
+
+`POST /api/my/venues/[venueId]/events/[eventId]/revisions` (auth + venue membership required)
+
+Used for published events. This creates a moderation submission with `kind="REVISION"` and stores the proposed event snapshot in `submission.details.proposed`.
+
+**Request body**
+
+```json
+{
+  "patch": {
+    "title": "Optional edited title",
+    "description": "Optional edited description",
+    "startAt": "2026-03-01T19:00:00.000Z",
+    "endAt": "2026-03-01T21:00:00.000Z",
+    "ticketUrl": "https://tickets.example.com/new"
+  },
+  "message": "Optional note to reviewer"
+}
+```
+
+**Response 200**
+
+```json
+{
+  "revisionSubmission": {
+    "id": "uuid",
+    "status": "SUBMITTED",
+    "createdAt": "2026-02-25T10:00:00.000Z"
+  }
+}
+```
+
+### 7.6 Read latest event revision status
+
+`GET /api/my/venues/[venueId]/events/[eventId]/revisions/latest` (auth + venue membership required)
+
+**Response 200**
+
+```json
+{
+  "revisionSubmission": {
+    "id": "uuid",
+    "status": "REJECTED",
+    "createdAt": "2026-02-25T10:00:00.000Z",
+    "reviewedAt": "2026-02-25T12:00:00.000Z",
+    "reviewerMessage": "Please tighten the description and fix the date range."
+  }
+}
+```
+
+Admin moderation endpoints (`/api/admin/submissions/[id]/approve` and `/api/admin/submissions/[id]/request-changes`) now also handle `EVENT` submissions with `kind="REVISION"`.

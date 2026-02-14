@@ -13,6 +13,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       select: {
         id: true,
         type: true,
+        kind: true,
+        details: true,
         targetEventId: true,
         targetVenueId: true,
         status: true,
@@ -29,6 +31,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       await db.event.update({ where: { id: eventId }, data: { isPublished: false, publishedAt: null } });
     },
     markApproved: async () => undefined,
+    findEventUpdatedAt: async () => null,
+    applyEventRevisionUpdate: async () => undefined,
     markNeedsChanges: async (submissionId, decidedByUserId, message) => {
       await db.submission.update({
         where: { id: submissionId },

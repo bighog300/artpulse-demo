@@ -15,12 +15,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ev
     const parsed = myEventPatchSchema.safeParse(await parseBody(req));
     if (!parsed.success) return apiError(400, "invalid_request", "Invalid payload", zodDetails(parsed.error));
 
-    const submission = await db.submission.findUnique({
-      where: { targetEventId: parsedId.data.eventId },
-      include: { venue: { select: { memberships: { where: { userId: user.id }, select: { id: true } } } } },
+    const submission = await db.submission.findFirst({
+      where: { targetEventId: parsedId.data.eventId, OR: [{ kind: "PUBLISH" }, { kind: null }] },
+      include: { venue: { select: { memberships: { where: { userId: user.id }, select: { id: true } } } }, targetEvent: { select: { isPublished: true } } },
     });
 
     if (!submission || submission.submitterUserId !== user.id) return apiError(403, "forbidden", "Submission owner required");
+    if (submission.targetEvent?.isPublished) return apiError(400, "invalid_request", "Published events must use revision workflow");
     if (!submission.venue?.memberships.length) return apiError(403, "forbidden", "Venue membership required");
     if (!canEditSubmission(submission.status)) return apiError(409, "invalid_state", "Only draft or rejected submissions are editable");
 
