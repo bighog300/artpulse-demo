@@ -26,6 +26,7 @@ export const slugParamSchema = z.object({ slug: slugSchema });
 export const idParamSchema = z.object({ id: z.string().uuid() });
 export const venueIdParamSchema = z.object({ id: z.string().uuid() });
 export const eventIdParamSchema = z.object({ eventId: z.string().uuid() });
+export const venueEventSubmitParamSchema = z.object({ venueId: z.string().uuid(), eventId: z.string().uuid() });
 export const memberIdParamSchema = z.object({ memberId: z.string().uuid() });
 export const inviteIdParamSchema = z.object({ inviteId: z.string().uuid() });
 export const tokenParamSchema = z.object({ token: z.string().trim().min(16).max(255) });
@@ -352,6 +353,10 @@ export const myEventPatchSchema = z.object({
 
 
 export const venueSubmitBodySchema = z.object({
+  message: z.string().trim().max(2000).optional(),
+});
+
+export const eventSubmitBodySchema = z.object({
   message: z.string().trim().max(2000).optional(),
 });
 

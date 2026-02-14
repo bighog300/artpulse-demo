@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import ImageUploader from "@/app/my/_components/ImageUploader";
+import { useRouter } from "next/navigation";
+import { buildLoginRedirectUrl } from "@/lib/auth-redirect";
+import { enqueueToast } from "@/lib/toast";
 
 type ExistingSubmission = {
   eventId: string;
@@ -9,6 +12,7 @@ type ExistingSubmission = {
   decisionReason: string | null;
   submittedAt: string | null;
   decidedAt: string | null;
+  isPublished: boolean;
   title: string;
   slug: string;
   startAt: string;
@@ -16,30 +20,52 @@ type ExistingSubmission = {
 };
 
 export default function SubmitEventForm({ venueId, existing }: { venueId: string; existing: ExistingSubmission[] }) {
+  const router = useRouter();
   const [form, setForm] = useState<Record<string, unknown>>({ title: "", slug: "", timezone: "UTC", startAt: "", description: "", note: "", images: [] });
-  const [message, setMessage] = useState<string | null>(null);
+  const [issuesByEventId, setIssuesByEventId] = useState<Record<string, Array<{ field: string; message: string }>>>({});
 
   async function createDraft(e: React.FormEvent) {
     e.preventDefault();
-    setMessage(null);
     const res = await fetch(`/api/my/venues/${venueId}/events`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(form) });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      setMessage(body?.error?.message || "Failed to create event draft");
+    if (res.status === 401) {
+      window.location.href = buildLoginRedirectUrl(`/my/venues/${venueId}/submit-event`);
       return;
     }
-    setMessage("Draft event created. Refresh to see it in list.");
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      enqueueToast({ title: body?.error?.message || "Failed to create event draft", variant: "error" });
+      return;
+    }
+    enqueueToast({ title: "Draft event created", variant: "success" });
+    router.refresh();
   }
 
   async function submit(eventId: string) {
-    const res = await fetch(`/api/my/events/${eventId}/submit`, { method: "POST" });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      setMessage(body?.error?.message || "Failed to submit event");
+    const res = await fetch(`/api/my/venues/${venueId}/events/${eventId}/submit`, { method: "POST" });
+    if (res.status === 401) {
+      window.location.href = buildLoginRedirectUrl(`/my/venues/${venueId}/submit-event`);
       return;
     }
-    setMessage("Event submitted for moderation.");
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const nextIssues = body?.error?.details?.issues;
+      if (Array.isArray(nextIssues)) {
+        setIssuesByEventId((current) => ({ ...current, [eventId]: nextIssues }));
+      }
+      enqueueToast({ title: body?.error?.message || "Failed to submit event", variant: "error" });
+      return;
+    }
+    enqueueToast({ title: "Event submitted for review", variant: "success" });
+    setIssuesByEventId((current) => ({ ...current, [eventId]: [] }));
+    router.refresh();
   }
+
+  const getStatusLabel = (item: ExistingSubmission) => {
+    if (item.isPublished || item.status === "APPROVED") return "Published";
+    if (item.status === "SUBMITTED") return "Pending review";
+    if (item.status === "REJECTED") return "Needs changes";
+    return "Draft";
+  };
 
   return (
     <div className="space-y-6">
@@ -72,15 +98,20 @@ export default function SubmitEventForm({ venueId, existing }: { venueId: string
           {existing.map((item) => (
             <li key={item.eventId} className="border rounded p-2">
               <div className="font-medium">{item.title} ({item.status})</div>
+              <div className="text-sm">Status: <span className="font-medium">{getStatusLabel(item)}</span></div>
               {item.submittedAt ? <div className="text-sm">Submitted: {new Date(item.submittedAt).toLocaleString()}</div> : null}
               {item.decidedAt ? <div className="text-sm">Decided: {new Date(item.decidedAt).toLocaleString()}</div> : null}
-              {item.status === "REJECTED" && item.decisionReason ? <div className="text-sm text-red-700">Reason: {item.decisionReason}</div> : null}
+              {item.status === "REJECTED" && item.decisionReason ? <div className="text-sm text-red-700">Reviewer feedback: {item.decisionReason}</div> : null}
+              {(issuesByEventId[item.eventId]?.length ?? 0) > 0 ? (
+                <ul className="text-sm text-amber-800 list-disc pl-5 mt-2">
+                  {issuesByEventId[item.eventId].map((issue, idx) => <li key={`${issue.field}-${idx}`}>{issue.message}</li>)}
+                </ul>
+              ) : null}
               {(item.status === "DRAFT" || item.status === "REJECTED") ? <button className="mt-2 rounded border px-2 py-1 text-sm" onClick={() => submit(item.eventId)}>{item.status === "REJECTED" ? "Resubmit" : "Submit for approval"}</button> : null}
             </li>
           ))}
         </ul>
       </section>
-      {message ? <p className="text-sm">{message}</p> : null}
     </div>
   );
 }

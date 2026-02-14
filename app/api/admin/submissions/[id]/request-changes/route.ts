@@ -13,6 +13,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       select: {
         id: true,
         type: true,
+        targetEventId: true,
         targetVenueId: true,
         status: true,
         submitter: { select: { id: true, email: true } },
@@ -22,6 +23,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     publishVenue: async () => undefined,
     setVenueDraft: async (venueId) => {
       await db.venue.update({ where: { id: venueId }, data: { isPublished: false } });
+    },
+    publishEvent: async () => undefined,
+    setEventDraft: async (eventId) => {
+      await db.event.update({ where: { id: eventId }, data: { isPublished: false, publishedAt: null } });
     },
     markApproved: async () => undefined,
     markNeedsChanges: async (submissionId, decidedByUserId, message) => {
