@@ -302,3 +302,74 @@ If it has no `assetId`, the API sets `featuredImageUrl` and clears `featuredAsse
 ### 3.7 Errors
 
 Error shape follows global conventions (`error.code` values include `invalid_request`, `unauthorized`, `forbidden`, `rate_limited`).
+
+## 7. Venue Publish Workflow APIs
+
+### 7.1 Submit venue for review
+
+`POST /api/my/venues/[id]/submit` (auth + venue membership required)
+
+**Request body**
+
+```json
+{
+  "message": "Optional note to moderators"
+}
+```
+
+**Response 200**
+
+```json
+{
+  "submission": {
+    "id": "uuid",
+    "status": "SUBMITTED",
+    "createdAt": "2026-02-14T10:00:00.000Z"
+  }
+}
+```
+
+**Validation failure (400 invalid_request)**
+
+```json
+{
+  "error": {
+    "code": "invalid_request",
+    "message": "Venue is not ready for review",
+    "details": {
+      "issues": [
+        { "field": "description", "message": "Description must be at least 50 characters" },
+        { "field": "coverImage", "message": "Add a cover image before submitting" }
+      ]
+    }
+  }
+}
+```
+
+### 7.2 Approve venue submission
+
+`POST /api/admin/submissions/[id]/approve` (editor/admin required)
+
+**Response 200**
+
+```json
+{ "ok": true }
+```
+
+### 7.3 Request changes on venue submission
+
+`POST /api/admin/submissions/[id]/request-changes` (editor/admin required)
+
+**Request body**
+
+```json
+{ "message": "Please add opening hours and expand the venue description." }
+```
+
+**Response 200**
+
+```json
+{ "ok": true }
+```
+
+All endpoints return the standard error shape (`unauthorized`, `forbidden`, `invalid_request`, `rate_limited`) in `error.code`.

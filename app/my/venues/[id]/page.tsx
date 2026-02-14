@@ -8,6 +8,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { VenueGalleryManager } from "@/components/venues/venue-gallery-manager";
 import { resolveImageUrl } from "@/lib/assets";
+import { getVenuePublishIssues } from "@/lib/venue-publish";
+import VenuePublishPanel from "@/app/my/_components/VenuePublishPanel";
 
 export default async function MyVenueEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -33,6 +35,7 @@ export default async function MyVenueEditPage({ params }: { params: Promise<{ id
           featuredImageUrl: true,
           featuredAssetId: true,
           isPublished: true,
+          slug: true,
           featuredAsset: { select: { url: true } },
           images: { select: { id: true, url: true, alt: true, sortOrder: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
           targetSubmissions: {
@@ -73,15 +76,26 @@ export default async function MyVenueEditPage({ params }: { params: Promise<{ id
     <main className="space-y-6 p-6">
       <PageHeader title="Edit Venue" subtitle="Update venue details and team access settings." />
 
-      {submission ? (
-        <section className="border rounded p-3 space-y-1">
-          <h2 className="font-semibold">Submission status</h2>
-          <p className="text-sm">Status: {submission.status}</p>
-          {submission.submittedAt ? <p className="text-sm">Submitted: {submission.submittedAt.toLocaleString()}</p> : null}
-          {submission.decidedAt ? <p className="text-sm">Decided: {submission.decidedAt.toLocaleString()}</p> : null}
-          {submission.status === "REJECTED" && submission.decisionReason ? <p className="text-sm text-red-700">Reason: {submission.decisionReason}</p> : null}
-        </section>
-      ) : null}
+      <VenuePublishPanel
+        venueId={membership.venue.id}
+        venueSlug={membership.venue.slug}
+        isOwner={membership.role === "OWNER" || user.role === "ADMIN"}
+        isPublished={membership.venue.isPublished}
+        submissionStatus={submission?.status ?? null}
+        submittedAt={submission?.submittedAt?.toISOString() ?? null}
+        decisionReason={submission?.decisionReason ?? null}
+        initialIssues={getVenuePublishIssues({
+          name: membership.venue.name,
+          description: membership.venue.description,
+          featuredAssetId: membership.venue.featuredAssetId,
+          featuredImageUrl: membership.venue.featuredImageUrl,
+          addressLine1: membership.venue.addressLine1,
+          city: membership.venue.city,
+          country: membership.venue.country,
+          websiteUrl: membership.venue.websiteUrl,
+          images: membership.venue.images.map((image) => ({ id: image.id })),
+        })}
+      />
 
       <VenueSelfServeForm venue={membership.venue} submissionStatus={submission?.status ?? null} />
 
