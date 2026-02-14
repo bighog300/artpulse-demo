@@ -96,3 +96,10 @@
   - **Verified**: approved explicit associations to published venues
   - **From exhibitions**: venues derived from published exhibitions
 - Venue links are deduplicated by venue id across groups.
+
+### Public `/venues/[slug]`
+- New **Artists** section with two readable groups:
+  - **Verified**: approved explicit associations from `ArtistVenueAssociation` where the artist is published
+  - **From exhibitions**: artists derived from `EventArtist` on published venue exhibitions
+- Artist links are deduplicated by artist id, with verified associations taking precedence.
+
