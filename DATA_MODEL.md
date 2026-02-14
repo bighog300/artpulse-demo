@@ -51,6 +51,7 @@ Represents a gallery, museum, or other location.
 
 **Relationships**
 - Venue `hasMany` Events
+- Venue `hasMany` VenueImage
 
 ---
 
@@ -140,7 +141,26 @@ Stores one or more images for an event.
 
 ---
 
-### 1.7 Favorite
+### 1.7 VenueImage
+
+Stores one or more gallery images for a venue.
+
+**Fields**
+- `id` (uuid)
+- `venueId`
+- `assetId` (optional)
+- `url`
+- `alt` (optional)
+- `sortOrder` (int, default 0)
+- `createdAt`
+
+**Relationships**
+- VenueImage `belongsTo` Venue
+- VenueImage `belongsTo` Asset (optional)
+
+---
+
+### 1.8 Favorite
 
 Allows a user to save an event, venue, or artist.
 
