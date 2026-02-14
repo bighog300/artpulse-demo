@@ -471,3 +471,82 @@ Used for published events. This creates a moderation submission with `kind="REVI
 ```
 
 Admin moderation endpoints (`/api/admin/submissions/[id]/approve` and `/api/admin/submissions/[id]/request-changes`) now also handle `EVENT` submissions with `kind="REVISION"`.
+
+## 3. Authenticated Artist Self-Serve APIs
+
+All endpoints below require an authenticated session and ownership of `Artist.userId`.
+
+### 3.1 Generate artist image upload token
+
+`POST /api/my/artist/images/upload`
+
+Uses Vercel Blob client-upload handshake and returns the Blob token payload required by `@vercel/blob/client`.
+
+### 3.2 Create artist image record
+
+`POST /api/my/artist/images`
+
+Request body:
+
+```json
+{
+  "url": "https://...public.blob.vercel-storage.com/...",
+  "alt": "Optional alt text",
+  "assetId": "optional-uuid"
+}
+```
+
+### 3.3 Reorder artist images
+
+`PATCH /api/my/artist/images/reorder`
+
+Request body:
+
+```json
+{
+  "orderedIds": ["uuid", "uuid"]
+}
+```
+
+### 3.4 Update artist image metadata
+
+`PATCH /api/my/artist/images/[imageId]`
+
+Request body:
+
+```json
+{
+  "alt": "New alt text"
+}
+```
+
+### 3.5 Delete artist image
+
+`DELETE /api/my/artist/images/[imageId]`
+
+### 3.6 Set artist cover image
+
+`PATCH /api/my/artist/cover`
+
+Request body:
+
+```json
+{
+  "imageId": "uuid"
+}
+```
+
+Cover precedence mirrors venue behavior:
+- image has `assetId` -> `featuredAssetId=assetId`, `featuredImageUrl=null`
+- image has no `assetId` -> `featuredAssetId=null`, `featuredImageUrl=image.url`
+
+### 3.7 Update my artist profile
+
+`PATCH /api/my/artist`
+
+Request body supports partial profile fields:
+- `name`
+- `bio`
+- `websiteUrl`
+- `instagramUrl`
+- `avatarImageUrl`
