@@ -38,11 +38,16 @@ export function MobileBottomNavInner({ isAuthenticated, pathname }: MobileBottom
     const onVisible = () => {
       if (document.visibilityState === "visible") void load();
     };
+    const onUnreadRefresh = () => {
+      void load();
+    };
     void load();
     document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("notifications:unread-refresh", onUnreadRefresh);
     return () => {
       mounted = false;
       document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("notifications:unread-refresh", onUnreadRefresh);
     };
   }, [isAuthenticated]);
 

@@ -55,12 +55,18 @@ export function SiteNavClient({ isAuthenticated }: SiteNavClientProps) {
       if (document.visibilityState === "visible") loadUnread();
     };
 
+    const onUnreadRefresh = () => {
+      void loadUnread();
+    };
+
     loadUnread();
     document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("notifications:unread-refresh", onUnreadRefresh);
 
     return () => {
       mounted = false;
       document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("notifications:unread-refresh", onUnreadRefresh);
     };
   }, [isAuthenticated]);
 

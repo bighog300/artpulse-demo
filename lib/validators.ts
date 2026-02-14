@@ -40,6 +40,26 @@ export const followBodySchema = z.object({
   targetId: z.string().uuid(),
 });
 
+export const followManageBulkDeleteSchema = z.object({
+  targets: z.array(followBodySchema).min(1).max(100),
+});
+
+export const savedSearchToggleSchema = z.object({
+  isEnabled: z.boolean(),
+});
+
+export const savedSearchFrequencySchema = z.object({
+  frequency: z.enum(["WEEKLY", "OFF"]),
+});
+
+export const savedSearchRenameSchema = z.object({
+  name: z.string().trim().min(2).max(60),
+});
+
+export const notificationsReadBatchSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1).max(100),
+});
+
 export const followingFeedQuerySchema = z.object({
   days: z.enum(["7", "30"]).default("7").transform((value) => Number(value) as 7 | 30),
   cursor: z.string().optional(),
