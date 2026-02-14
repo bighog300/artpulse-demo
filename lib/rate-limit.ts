@@ -113,6 +113,10 @@ export const RATE_LIMITS = {
     limit: Number(process.env.RATE_LIMIT_FOLLOWS_WRITE_PER_MINUTE ?? 60),
     windowMs: Number(process.env.RATE_LIMIT_FOLLOWS_WRITE_WINDOW_MS ?? 60_000),
   },
+  favoritesWrite: {
+    limit: Number(process.env.RATE_LIMIT_FAVORITES_WRITE_PER_MINUTE ?? 60),
+    windowMs: Number(process.env.RATE_LIMIT_FAVORITES_WRITE_WINDOW_MS ?? 60_000),
+  },
   invitesCreate: {
     limit: Number(process.env.RATE_LIMIT_INVITES_CREATE_PER_HOUR ?? 10),
     windowMs: Number(process.env.RATE_LIMIT_INVITES_CREATE_WINDOW_MS ?? 3_600_000),
