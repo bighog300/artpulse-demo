@@ -301,3 +301,4 @@ Explicit association between an artist profile and a venue, independent from Eve
 - Artists can request associations to published venues.
 - Venue members approve/reject incoming requests.
 - Public artist pages display approved associations (verified) plus derived venues from published events.
+- Public venue pages display approved associations (verified artists) from `ArtistVenueAssociation` plus derived artists from `EventArtist` rows on published events.

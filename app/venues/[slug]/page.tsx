@@ -15,6 +15,8 @@ import { splitVenueEvents } from "@/lib/venue-events";
 import { VenueEventShowcaseCard } from "@/components/venues/venue-event-showcase-card";
 import { VenueGalleryLightbox } from "@/components/venues/venue-gallery-lightbox";
 import { VenuePastEventsList } from "@/components/venues/venue-past-events-list";
+import { dedupeAssociatedArtists } from "@/lib/venue-associated-artists";
+import { VenueArtistsSection } from "@/components/venues/venue-artists-section";
 
 const INITIAL_PAST_EVENTS = 6;
 const MAX_PAST_EVENTS = 12;
@@ -95,6 +97,28 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
           asset: { select: { url: true, width: true, height: true, alt: true } },
         },
       },
+      artistAssociations: {
+        where: { status: "APPROVED", artist: { isPublished: true } },
+        orderBy: [{ createdAt: "desc" }, { artistId: "asc" }],
+        select: {
+          artistId: true,
+          artist: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              featuredImageUrl: true,
+              avatarImageUrl: true,
+              featuredAsset: { select: { url: true } },
+              images: {
+                take: 1,
+                orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+                select: { url: true, asset: { select: { url: true } } },
+              },
+            },
+          },
+        },
+      },
     },
   });
 
@@ -139,6 +163,28 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
           orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
           select: { url: true, asset: { select: { url: true } } },
         },
+        eventArtists: {
+          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+          select: {
+            artistId: true,
+            artist: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                featuredImageUrl: true,
+                avatarImageUrl: true,
+                featuredAsset: { select: { url: true } },
+                images: {
+                  take: 1,
+                  orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+                  select: { url: true, asset: { select: { url: true } } },
+                },
+              },
+            },
+          },
+          where: { artist: { isPublished: true } },
+        },
       },
     }),
     db.event.findMany({
@@ -157,6 +203,28 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
           orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
           select: { url: true, asset: { select: { url: true } } },
         },
+        eventArtists: {
+          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+          select: {
+            artistId: true,
+            artist: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                featuredImageUrl: true,
+                avatarImageUrl: true,
+                featuredAsset: { select: { url: true } },
+                images: {
+                  take: 1,
+                  orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+                  select: { url: true, asset: { select: { url: true } } },
+                },
+              },
+            },
+          },
+          where: { artist: { isPublished: true } },
+        },
       },
     }),
   ]);
@@ -166,6 +234,11 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
     venueName: venue.name,
     imageUrl: resolveImageUrl(event.images[0]?.asset?.url, event.images[0]?.url),
   }));
+
+  const associatedArtists = dedupeAssociatedArtists(
+    venue.artistAssociations,
+    events.flatMap((event) => event.eventArtists),
+  );
 
   const { upcoming, past } = splitVenueEvents(events, now);
   const initialPastEvents = past.slice(0, INITIAL_PAST_EVENTS);
@@ -204,6 +277,11 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
       </section>
 
       {galleryImages.length > 0 ? <VenueGalleryLightbox images={galleryImages} /> : null}
+
+      <VenueArtistsSection
+        verifiedArtists={associatedArtists.verifiedArtists}
+        derivedArtists={associatedArtists.derivedArtists}
+      />
 
       <section className="space-y-3">
         <h2 className="text-2xl font-semibold">Upcoming events</h2>
