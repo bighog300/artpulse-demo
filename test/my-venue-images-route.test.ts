@@ -1,0 +1,77 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { NextRequest } from "next/server";
+import { handleCreateVenueImage, handleDeleteVenueImage, handlePatchVenueImage, handleReorderVenueImages } from "../lib/my-venue-images-route.ts";
+
+const venueId = "11111111-1111-4111-8111-111111111111";
+const imageId = "22222222-2222-4222-8222-222222222222";
+
+test("create venue image returns unauthorized for anonymous user", async () => {
+  const req = new NextRequest(`http://localhost/api/my/venues/${venueId}/images`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ url: "https://example.com/a.jpg" }),
+  });
+
+  const res = await handleCreateVenueImage(req, Promise.resolve({ id: venueId }), {
+    requireAuth: async () => { throw new Error("unauthorized"); },
+    requireVenueMembership: async () => undefined,
+    findMaxSortOrder: async () => 0,
+    createVenueImage: async () => ({ id: imageId, venueId, url: "https://example.com/a.jpg", alt: null, sortOrder: 1 }),
+  });
+
+  assert.equal(res.status, 401);
+  const body = await res.json();
+  assert.equal(body.error.code, "unauthorized");
+});
+
+test("patch venue image returns forbidden when user is not venue member", async () => {
+  const req = new NextRequest(`http://localhost/api/my/venues/images/${imageId}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ alt: "new" }),
+  });
+
+  const res = await handlePatchVenueImage(req, Promise.resolve({ imageId }), {
+    requireAuth: async () => ({ id: "user-1" }),
+    findVenueImageForUser: async () => null,
+    updateVenueImageAlt: async () => ({ id: imageId, venueId, url: "https://example.com/a.jpg", alt: "new", sortOrder: 1 }),
+  });
+
+  assert.equal(res.status, 403);
+  const body = await res.json();
+  assert.equal(body.error.code, "forbidden");
+});
+
+test("delete venue image validates image id", async () => {
+  const req = new NextRequest("http://localhost/api/my/venues/images/not-a-uuid", { method: "DELETE" });
+  const res = await handleDeleteVenueImage(req, Promise.resolve({ imageId: "not-a-uuid" }), {
+    requireAuth: async () => ({ id: "user-1" }),
+    findVenueImageForUser: async () => null,
+    deleteVenueImage: async () => ({ id: imageId, venueId, url: "https://example.com/a.jpg", alt: null, sortOrder: 1 }),
+    deleteBlobByUrl: async () => undefined,
+  });
+
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.equal(body.error.code, "invalid_request");
+});
+
+test("reorder venue images rejects ids outside venue", async () => {
+  const req = new NextRequest(`http://localhost/api/my/venues/${venueId}/images/reorder`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ orderedIds: [imageId, "33333333-3333-4333-8333-333333333333"] }),
+  });
+
+  const res = await handleReorderVenueImages(req, Promise.resolve({ id: venueId }), {
+    requireAuth: async () => ({ id: "user-1" }),
+    requireVenueMembership: async () => undefined,
+    findVenueImageIds: async () => [imageId],
+    reorderVenueImages: async () => undefined,
+  });
+
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.equal(body.error.code, "invalid_request");
+});

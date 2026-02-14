@@ -166,3 +166,111 @@ All admin endpoints require role `EDITOR` or `ADMIN`.
 - Require auth for favourites and all admin endpoints
 - Add basic rate limiting later if needed
 - Prevent enumeration: keep IDs opaque and use slugs for public reads
+
+---
+
+## 3. Authenticated Venue Gallery APIs
+
+All endpoints below require an authenticated session and venue membership.
+
+### 3.1 Generate venue image upload token
+
+`POST /api/my/venues/[id]/images/upload-url`
+
+Uses Vercel Blob client-upload handshake and returns the Blob token payload required by `@vercel/blob/client`.
+
+**Request body**
+
+```json
+{
+  "type": "blob.generate-client-token",
+  "payload": {
+    "pathname": "venues/<venueId>/file.jpg",
+    "clientPayload": "{\"fileName\":\"file.jpg\",\"contentType\":\"image/jpeg\",\"size\":12345}",
+    "multipart": false,
+    "callbackUrl": "..."
+  }
+}
+```
+
+**Response 200**
+
+```json
+{
+  "type": "blob.generate-client-token",
+  "clientToken": "..."
+}
+```
+
+### 3.2 Create venue image record
+
+`POST /api/my/venues/[id]/images`
+
+**Request body**
+
+```json
+{
+  "url": "https://...public.blob.vercel-storage.com/...",
+  "key": "optional/blob/path",
+  "alt": "Optional alt text"
+}
+```
+
+**Response 201**
+
+```json
+{
+  "image": {
+    "id": "uuid",
+    "url": "https://...",
+    "alt": "Optional alt text",
+    "sortOrder": 0
+  }
+}
+```
+
+### 3.3 Update venue image alt text
+
+`PATCH /api/my/venues/images/[imageId]`
+
+**Request body**
+
+```json
+{ "alt": "Updated alt text" }
+```
+
+**Response 200**
+
+```json
+{ "image": { "id": "uuid", "url": "...", "alt": "Updated alt text", "sortOrder": 0 } }
+```
+
+### 3.4 Reorder venue images
+
+`PATCH /api/my/venues/[id]/images/reorder`
+
+**Request body**
+
+```json
+{ "orderedIds": ["uuid-1", "uuid-2"] }
+```
+
+**Response 200**
+
+```json
+{ "ok": true }
+```
+
+### 3.5 Delete venue image
+
+`DELETE /api/my/venues/images/[imageId]`
+
+**Response 200**
+
+```json
+{ "ok": true }
+```
+
+### 3.6 Errors
+
+Error shape follows global conventions (`error.code` values include `invalid_request`, `unauthorized`, `forbidden`, `rate_limited`).

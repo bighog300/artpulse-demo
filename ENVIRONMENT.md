@@ -24,6 +24,9 @@ AUTH_GOOGLE_SECRET=
 # Maps (optional, enables Nearby map view)
 NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=
 
+# Blob storage (required for venue gallery + uploads)
+BLOB_READ_WRITE_TOKEN=
+
 # Optional / Observability
 SENTRY_DSN=
 ```
@@ -43,6 +46,9 @@ Minimum required:
 
 Optional:
 - `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` (enables `/nearby` map view)
+- `BLOB_READ_WRITE_TOKEN` (required for Blob image uploads)
+- `RATE_LIMIT_VENUE_IMAGES_WRITE_PER_MINUTE` (defaults to `60`)
+- `RATE_LIMIT_VENUE_IMAGES_WRITE_WINDOW_MS` (defaults to `60000`)
 
 ---
 
@@ -75,3 +81,10 @@ Recommended scripts:
 
 - Never commit `.env.local`
 - Never expose secrets via `NEXT_PUBLIC_*`
+
+
+## 6. Blob Notes
+
+- Venue gallery uploads use Vercel Blob server-validated client uploads.
+- Keep `BLOB_READ_WRITE_TOKEN` server-side only; never expose it in `NEXT_PUBLIC_*` variables.
+- Local development supports uploads when `BLOB_READ_WRITE_TOKEN` is set.

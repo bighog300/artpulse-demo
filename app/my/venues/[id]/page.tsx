@@ -5,11 +5,22 @@ import { redirectToLogin } from "@/lib/auth-redirect";
 import VenueSelfServeForm from "@/app/my/_components/VenueSelfServeForm";
 import VenueMembersManager from "@/app/my/_components/VenueMembersManager";
 import { PageHeader } from "@/components/ui/page-header";
+import { hasDatabaseUrl } from "@/lib/runtime-db";
+import { VenueGalleryManager } from "@/components/venues/venue-gallery-manager";
 
 export default async function MyVenueEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await getSessionUser();
   if (!user) redirectToLogin("/my/venues");
+
+  if (!hasDatabaseUrl()) {
+    return (
+      <main className="space-y-4 p-6">
+        <PageHeader title="Edit Venue" subtitle="Update venue details and team access settings." />
+        <p>Set DATABASE_URL to manage venues locally.</p>
+      </main>
+    );
+  }
 
   const membership = await db.venueMembership.findUnique({
     where: { userId_venueId: { userId: user.id, venueId: id } },
@@ -17,6 +28,7 @@ export default async function MyVenueEditPage({ params }: { params: Promise<{ id
       venue: {
         include: {
           featuredAsset: { select: { url: true } },
+          images: { select: { id: true, url: true, alt: true, sortOrder: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
           targetSubmissions: {
             where: { type: "VENUE" },
             orderBy: { createdAt: "desc" },
@@ -54,6 +66,8 @@ export default async function MyVenueEditPage({ params }: { params: Promise<{ id
       ) : null}
 
       <VenueSelfServeForm venue={membership.venue} submissionStatus={submission?.status ?? null} />
+
+      <VenueGalleryManager venueId={membership.venue.id} initialImages={membership.venue.images} />
 
       {(membership.role === "OWNER" || user.role === "ADMIN") ? (
         <VenueMembersManager

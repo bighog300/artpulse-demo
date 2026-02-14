@@ -30,6 +30,28 @@ export const memberIdParamSchema = z.object({ memberId: z.string().uuid() });
 export const inviteIdParamSchema = z.object({ inviteId: z.string().uuid() });
 export const tokenParamSchema = z.object({ token: z.string().trim().min(16).max(255) });
 
+export const imageIdParamSchema = z.object({ imageId: z.string().uuid() });
+
+export const venueUploadUrlRequestSchema = z.object({
+  fileName: z.string().trim().min(1).max(200),
+  contentType: z.enum(["image/jpeg", "image/png", "image/webp"]),
+  size: z.number().int().positive().max(5 * 1024 * 1024),
+});
+
+export const venueImageCreateSchema = z.object({
+  url: httpUrlSchema,
+  key: z.string().trim().min(1).max(400).optional(),
+  alt: z.string().trim().max(300).optional().nullable(),
+});
+
+export const venueImageUpdateSchema = z.object({
+  alt: z.string().trim().max(300).optional().nullable(),
+});
+
+export const venueImageReorderSchema = z.object({
+  orderedIds: z.array(z.string().uuid()).min(1).refine((value) => new Set(value).size === value.length, "orderedIds must be unique"),
+});
+
 export const favoriteBodySchema = z.object({
   targetType: z.enum(["EVENT", "VENUE", "ARTIST"]),
   targetId: z.string().uuid(),
