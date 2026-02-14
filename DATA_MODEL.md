@@ -259,3 +259,19 @@ If included in MVP, keep it minimal.
   - `Event.venueId`
 - Use unique constraints for slugs.
 - Favourites should enforce uniqueness to avoid duplicates.
+
+---
+
+## 4. Moderation Submission Workflow
+
+`Submission` records are reused for venue, event, and artist moderation.
+
+- `Submission.type`: `VENUE | EVENT | ARTIST`
+- `Submission.kind`: `PUBLISH | REVISION` (`REVISION` currently used for published event edits)
+- `Submission.status`: `DRAFT | SUBMITTED | APPROVED | REJECTED`
+- `targetArtistId` links artist publish submissions to `Artist`
+
+Publishing rule for artists:
+- Public artist pages query `Artist.isPublished = true` only.
+- Admin approval of an artist `PUBLISH` submission sets `Artist.isPublished=true`.
+- Admin request-changes keeps `Artist.isPublished=false` and stores reviewer feedback on the submission.

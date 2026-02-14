@@ -412,6 +412,10 @@ export const eventSubmitBodySchema = z.object({
   message: z.string().trim().max(2000).optional(),
 });
 
+export const artistSubmitBodySchema = z.object({
+  message: z.string().trim().max(2000).optional(),
+});
+
 export const adminSubmissionRequestChangesSchema = z.object({
   message: z.string().trim().min(10).max(2000),
 });

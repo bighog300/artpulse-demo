@@ -6,7 +6,7 @@ import { useState } from "react";
 type SubmissionItem = {
   id: string;
   status: "SUBMITTED" | "APPROVED" | "REJECTED" | "DRAFT";
-  type: "EVENT" | "VENUE";
+  type: "EVENT" | "VENUE" | "ARTIST";
   note: string | null;
   decisionReason: string | null;
   submittedAt: string | null;
@@ -15,6 +15,7 @@ type SubmissionItem = {
   venue: { id: string; name: string } | null;
   targetEvent: { id: string; title: string; slug: string } | null;
   targetVenue: { id: string; name: string; slug: string } | null;
+  targetArtist: { id: string; name: string; slug: string } | null;
 };
 
 export default function SubmissionsModeration({ items }: { items: SubmissionItem[] }) {
@@ -24,7 +25,7 @@ export default function SubmissionsModeration({ items }: { items: SubmissionItem
   async function decide(item: SubmissionItem, action: "approve" | "reject") {
     setMsg(null);
 
-    const venueFlow = item.type === "VENUE";
+    const venueFlow = item.type === "VENUE" || item.type === "ARTIST";
     const endpoint = venueFlow
       ? action === "approve"
         ? `/api/admin/submissions/${item.id}/approve`
@@ -56,7 +57,7 @@ export default function SubmissionsModeration({ items }: { items: SubmissionItem
       <ul className="space-y-3">
         {items.map((item) => (
           <li key={item.id} className="border rounded p-3 space-y-2">
-            <div className="font-medium">{item.type} — {item.targetEvent?.title ?? item.targetVenue?.name ?? "Unknown target"}</div>
+            <div className="font-medium">{item.type} — {item.targetEvent?.title ?? item.targetVenue?.name ?? item.targetArtist?.name ?? "Unknown target"}</div>
             <div className="text-sm">Status: {item.status}</div>
             <div className="text-sm">Submitter: {item.submitter.email}</div>
             {item.venue ? <div className="text-sm">Venue: {item.venue.name}</div> : null}
@@ -68,21 +69,23 @@ export default function SubmissionsModeration({ items }: { items: SubmissionItem
             <div className="text-sm space-x-3">
               {item.targetEvent ? <Link className="underline" href={`/events/${item.targetEvent.slug}`}>View target</Link> : null}
               {item.targetVenue ? <Link className="underline" href={`/venues/${item.targetVenue.slug}`}>View target</Link> : null}
+              {item.targetArtist ? <Link className="underline" href={`/artists/${item.targetArtist.slug}`}>View target</Link> : null}
               {item.targetEvent ? <Link className="underline" href={`/admin/events/${item.targetEvent.id}`}>Edit target</Link> : null}
               {item.targetVenue ? <Link className="underline" href={`/admin/venues/${item.targetVenue.id}`}>Edit target</Link> : null}
+              {item.targetArtist ? <Link className="underline" href={`/admin/artists/${item.targetArtist.id}`}>Edit target</Link> : null}
             </div>
 
             {item.status === "SUBMITTED" ? (
               <>
                 <input
                   className="border rounded p-1 w-full"
-                  placeholder={item.type === "VENUE" ? "Requested changes" : "Rejection reason"}
+                  placeholder={item.type === "EVENT" ? "Rejection reason" : "Requested changes"}
                   value={reasonById[item.id] || ""}
                   onChange={(e) => setReasonById((prev) => ({ ...prev, [item.id]: e.target.value }))}
                 />
                 <div className="space-x-2">
                   <button className="rounded border px-2 py-1" onClick={() => decide(item, "approve")}>Approve</button>
-                  <button className="rounded border px-2 py-1" onClick={() => decide(item, "reject")}>{item.type === "VENUE" ? "Request changes" : "Reject"}</button>
+                  <button className="rounded border px-2 py-1" onClick={() => decide(item, "reject")}>{item.type === "EVENT" ? "Reject" : "Request changes"}</button>
                 </div>
               </>
             ) : null}

@@ -12,21 +12,24 @@ export type NotificationTemplatePayload =
   | {
       type: "SUBMISSION_SUBMITTED";
       submissionId: string;
-      submissionType?: "EVENT" | "VENUE";
+      submissionType?: "EVENT" | "VENUE" | "ARTIST";
       targetVenueId?: string | null;
+      targetArtistId?: string | null;
     }
   | {
       type: "SUBMISSION_APPROVED";
       submissionId: string;
-      submissionType?: "EVENT" | "VENUE";
+      submissionType?: "EVENT" | "VENUE" | "ARTIST";
       targetEventSlug?: string | null;
       targetVenueSlug?: string | null;
+      targetArtistSlug?: string | null;
     }
   | {
       type: "SUBMISSION_REJECTED";
       submissionId: string;
-      submissionType?: "EVENT" | "VENUE";
+      submissionType?: "EVENT" | "VENUE" | "ARTIST";
       targetVenueId?: string | null;
+      targetArtistId?: string | null;
       decisionReason?: string | null;
     };
 
@@ -42,7 +45,11 @@ export function buildNotification({ type, payload }: { type: NotificationType; p
   }
 
   if (type === "SUBMISSION_SUBMITTED" && payload.type === "SUBMISSION_SUBMITTED") {
-    const href = payload.submissionType === "VENUE" && payload.targetVenueId ? `/my/venues/${payload.targetVenueId}` : "/my/venues";
+    const href = payload.submissionType === "VENUE" && payload.targetVenueId
+      ? `/my/venues/${payload.targetVenueId}`
+      : payload.submissionType === "ARTIST"
+        ? "/my/artist"
+        : "/my/venues";
     return {
       title: "Submission sent for review",
       body: payload.submissionType === "VENUE" ? "Your venue submission is now pending moderation." : "Your event submission is now pending moderation.",
@@ -56,7 +63,9 @@ export function buildNotification({ type, payload }: { type: NotificationType; p
       ? `/events/${payload.targetEventSlug}`
       : payload.submissionType === "VENUE" && payload.targetVenueSlug
         ? `/venues/${payload.targetVenueSlug}`
-        : undefined;
+        : payload.submissionType === "ARTIST" && payload.targetArtistSlug
+          ? `/artists/${payload.targetArtistSlug}`
+          : undefined;
 
     return {
       title: "Submission approved",
@@ -71,7 +80,9 @@ export function buildNotification({ type, payload }: { type: NotificationType; p
       ? `/my/venues/${payload.targetVenueId}/submit-event`
       : payload.submissionType === "VENUE" && payload.targetVenueId
         ? `/my/venues/${payload.targetVenueId}`
-        : undefined;
+        : payload.submissionType === "ARTIST" && payload.targetArtistId
+          ? "/my/artist"
+          : undefined;
 
     return {
       title: "Submission needs changes",

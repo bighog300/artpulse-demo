@@ -16,15 +16,21 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
         details: true,
         targetEventId: true,
         targetVenueId: true,
+        targetArtistId: true,
         status: true,
         submitter: { select: { id: true, email: true } },
         targetVenue: { select: { slug: true } },
+        targetArtist: { select: { slug: true } },
       },
     }),
     publishVenue: async (venueId) => {
       await db.venue.update({ where: { id: venueId }, data: { isPublished: true } });
     },
     setVenueDraft: async () => undefined,
+    publishArtist: async (artistId) => {
+      await db.artist.update({ where: { id: artistId }, data: { isPublished: true } });
+    },
+    setArtistDraft: async () => undefined,
     publishEvent: async (eventId) => {
       await db.event.update({ where: { id: eventId }, data: { isPublished: true, publishedAt: new Date() } });
     },
