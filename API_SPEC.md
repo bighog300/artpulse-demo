@@ -114,6 +114,10 @@ Examples:
 - `/venues?assoc=exhibitions`
 - `/artists?assoc=none`
 
+Notes:
+- Discovery count chips (mode counts + verified role facet counts) are computed server-side for page rendering only and do not introduce new API params.
+- Query params remain unchanged: only `assoc` and optional `role` are used to express filters in shareable URLs.
+
 ### 2.4 Venue detail
 
 `GET /api/venues/[slug]`
