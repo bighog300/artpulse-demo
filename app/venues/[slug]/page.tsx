@@ -10,6 +10,14 @@ import { ShareButton } from "@/components/share-button";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { buildDetailMetadata, buildVenueJsonLd, getDetailUrl } from "@/lib/seo.public-profiles";
 import { resolveVenueGalleryAltText } from "@/lib/venue-gallery";
+import { splitVenueEvents } from "@/lib/venue-events";
+import { VenueEventShowcaseCard } from "@/components/venues/venue-event-showcase-card";
+import { VenueGalleryLightbox } from "@/components/venues/venue-gallery-lightbox";
+import { VenuePastEventsList } from "@/components/venues/venue-past-events-list";
+
+const INITIAL_PAST_EVENTS = 6;
+const MAX_PAST_EVENTS = 12;
+const MAX_UPCOMING_EVENTS = 24;
 
 export const dynamic = "force-dynamic";
 
@@ -42,10 +50,17 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
   }
 
   const { slug } = await params;
+  const now = new Date();
   const user = await getSessionUser();
   const venue = await db.venue.findFirst({
     where: { slug, isPublished: true },
-    include: {
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      websiteUrl: true,
+      addressLine1: true,
+      featuredImageUrl: true,
       featuredAsset: { select: { url: true, width: true, height: true, alt: true } },
       images: {
         orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
@@ -57,7 +72,6 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
           asset: { select: { url: true, width: true, height: true, alt: true } },
         },
       },
-      events: { where: { isPublished: true } },
     },
   });
 
@@ -79,9 +93,61 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
     return [{
       id: image.id,
       src,
+      width: image.asset?.width,
+      height: image.asset?.height,
       alt: resolveVenueGalleryAltText({ imageAlt: image.alt, assetAlt: image.asset?.alt, venueName: venue.name }),
     }];
   });
+
+  const [upcomingEventsQuery, pastEventsQuery] = await Promise.all([
+    db.event.findMany({
+      where: { venueId: venue.id, isPublished: true, startAt: { gte: now } },
+      orderBy: [{ startAt: "asc" }, { id: "asc" }],
+      take: MAX_UPCOMING_EVENTS,
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        description: true,
+        startAt: true,
+        endAt: true,
+        images: {
+          take: 1,
+          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+          select: { url: true, asset: { select: { url: true } } },
+        },
+      },
+    }),
+    db.event.findMany({
+      where: { venueId: venue.id, isPublished: true, startAt: { lt: now } },
+      orderBy: [{ startAt: "desc" }, { id: "desc" }],
+      take: MAX_PAST_EVENTS,
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        description: true,
+        startAt: true,
+        endAt: true,
+        images: {
+          take: 1,
+          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+          select: { url: true, asset: { select: { url: true } } },
+        },
+      },
+    }),
+  ]);
+
+  const events = [...upcomingEventsQuery, ...pastEventsQuery].map((event) => ({
+    ...event,
+    venueName: venue.name,
+    imageUrl: resolveImageUrl(event.images[0]?.asset?.url, event.images[0]?.url),
+  }));
+
+  const { upcoming, past } = splitVenueEvents(events, now);
+  const initialPastEvents = past.slice(0, INITIAL_PAST_EVENTS);
+  const hiddenPastEventsCount = Math.max(0, past.length - INITIAL_PAST_EVENTS);
+
   const detailUrl = getDetailUrl("venue", slug);
   const jsonLd = buildVenueJsonLd({
     name: venue.name,
@@ -93,7 +159,7 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
   });
 
   return (
-    <main className="space-y-3 p-6">
+    <main className="space-y-6 p-6">
       <Breadcrumbs items={[{ label: "Venues", href: "/venues" }, { label: venue.name, href: `/venues/${slug}` }]} />
       <h1 className="text-3xl font-semibold">{venue.name}</h1>
       <ShareButton />
@@ -109,19 +175,42 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
           <Image src={featuredImageUrl} alt={venue.name} fill sizes="(max-width: 768px) 100vw, 768px" className="object-cover" />
         </div>
       ) : null}
-      <p>{venue.description}</p>
-      {galleryImages.length > 0 ? (
-        <section className="space-y-3">
-          <h2 className="text-2xl font-semibold">Gallery</h2>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {galleryImages.map((image) => (
-              <div key={image.id} className="relative aspect-[4/3] overflow-hidden rounded border">
-                <Image src={image.src} alt={image.alt} fill sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw" className="object-cover" />
-              </div>
+      <section className="space-y-2">
+        <h2 className="text-2xl font-semibold">About</h2>
+        <p>{venue.description}</p>
+      </section>
+
+      {galleryImages.length > 0 ? <VenueGalleryLightbox images={galleryImages} /> : null}
+
+      <section className="space-y-3">
+        <h2 className="text-2xl font-semibold">Upcoming events</h2>
+        {upcoming.length === 0 ? (
+          <p className="rounded border border-dashed p-4 text-sm text-zinc-600">No upcoming events yet.</p>
+        ) : (
+          <ul className="space-y-3">
+            {upcoming.map((event) => (
+              <li key={event.id}>
+                <VenueEventShowcaseCard event={event} />
+              </li>
             ))}
-          </div>
-        </section>
-      ) : null}
+          </ul>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <details className="rounded border p-4" open={initialPastEvents.length > 0}>
+          <summary className="cursor-pointer text-xl font-semibold">Past events ({past.length})</summary>
+          {initialPastEvents.length === 0 ? (
+            <p className="pt-3 text-sm text-zinc-600">No past events yet.</p>
+          ) : (
+            <div className="space-y-3 pt-3">
+              <VenuePastEventsList events={past} initialCount={INITIAL_PAST_EVENTS} />
+              {hiddenPastEventsCount > 0 ? <p className="text-sm text-zinc-600">Showing up to {MAX_PAST_EVENTS} most recent past events.</p> : null}
+            </div>
+          )}
+        </details>
+      </section>
+
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
     </main>
   );
