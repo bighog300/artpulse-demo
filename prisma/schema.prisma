@@ -230,6 +230,7 @@ model Artist {
   isPublished     Boolean       @default(false)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
+  images          ArtistImage[]
   eventArtists    EventArtist[]
   featuredAsset   Asset?        @relation("ArtistFeaturedAsset", fields: [featuredAssetId], references: [id], onDelete: SetNull)
 
@@ -309,8 +310,8 @@ model Submission {
   targetVenue     Venue?           @relation("SubmissionTargetVenue", fields: [targetVenueId], references: [id], onDelete: Cascade)
   decidedBy       User?            @relation("SubmissionDecider", fields: [decidedByUserId], references: [id], onDelete: SetNull)
 
-  @@index([targetEventId])
   @@unique([targetVenueId])
+  @@index([targetEventId])
   @@index([status, submittedAt])
   @@index([type, status])
   @@index([decidedAt])
@@ -421,16 +422,32 @@ model EventTag {
 }
 
 model EventArtist {
-  eventId  String  @db.Uuid
-  artistId String  @db.Uuid
-  role     String?
-  event    Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  artist   Artist  @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  eventId   String   @db.Uuid
+  artistId  String   @db.Uuid
+  role      String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  artist    Artist   @relation(fields: [artistId], references: [id], onDelete: Cascade)
 
   @@id([eventId, artistId])
-  @@index([artistId])
-  @@index([eventId])
-  @@index([artistId, eventId])
+  @@index([artistId, sortOrder])
+  @@index([eventId, sortOrder])
+}
+
+model ArtistImage {
+  id        String   @id @default(uuid()) @db.Uuid
+  artistId  String   @db.Uuid
+  assetId   String?  @db.Uuid
+  url       String
+  alt       String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  artist    Artist   @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  asset     Asset?   @relation(fields: [assetId], references: [id], onDelete: SetNull)
+
+  @@index([artistId, sortOrder])
+  @@index([assetId])
 }
 
 model EventImage {
@@ -463,8 +480,8 @@ model VenueImage {
 }
 
 model Asset {
-  id                String       @id @default(uuid()) @db.Uuid
-  ownerUserId       String?      @db.Uuid
+  id                String        @id @default(uuid()) @db.Uuid
+  ownerUserId       String?       @db.Uuid
   kind              AssetKind
   url               String
   filename          String?
@@ -473,12 +490,13 @@ model Asset {
   width             Int?
   height            Int?
   alt               String?
-  createdAt         DateTime     @default(now())
-  owner             User?        @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
+  createdAt         DateTime      @default(now())
+  owner             User?         @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
   eventImages       EventImage[]
   venueImages       VenueImage[]
-  venueFeaturedFor  Venue[]      @relation("VenueFeaturedAsset")
-  artistFeaturedFor Artist[]     @relation("ArtistFeaturedAsset")
+  artistImages      ArtistImage[]
+  venueFeaturedFor  Venue[]       @relation("VenueFeaturedAsset")
+  artistFeaturedFor Artist[]      @relation("ArtistFeaturedAsset")
 
   @@index([ownerUserId])
   @@index([createdAt])
