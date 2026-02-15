@@ -23,9 +23,20 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm prisma generate
 
-      - name: Migrate deploy
+      # Safe debug: prints host:port only (no secrets)
+      - name: Debug DB URLs (safe)
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: |
+          node -e "console.log('DATABASE_URL host:', new URL(process.env.DATABASE_URL).host)"
+          node -e "console.log('DIRECT_URL host:', new URL(process.env.DIRECT_URL).host)"
+          node -e "console.log('DIRECT_URL present:', !!process.env.DIRECT_URL, 'len:', (process.env.DIRECT_URL||'').length)"
+
+      # Force migrations to use the DIRECT connection (5432)
+      - name: Migrate deploy (force direct)
+        env:
+          DATABASE_URL: ${{ secrets.DIRECT_URL }}
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
         run: pnpm prisma migrate deploy
 
@@ -36,8 +47,8 @@ jobs:
           echo "Connected to:"
           node -e "console.log(new URL(process.env.DIRECT_URL).host)"
           pnpm prisma db execute --url "$DIRECT_URL" --stdin <<'SQL'
-          select to_regclass('public._prisma_migrations');
-          select table_name
+          select to_regclass('public._prisma_migrations') as prisma_migrations_table;
+          select table_schema, table_name
           from information_schema.tables
           where table_schema='public'
           order by table_name;
