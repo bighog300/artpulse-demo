@@ -5,7 +5,7 @@ on:
 
 jobs:
   migrate:
-    environment: preview
+    environment: production
     runs-on: ubuntu-latest
 
     steps:
