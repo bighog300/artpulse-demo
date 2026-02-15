@@ -1,4 +1,4 @@
-name: Prisma Migrate Deploy
+name: Prisma Migrate (Supabase)
 
 on:
   workflow_dispatch:
@@ -6,19 +6,38 @@ on:
 jobs:
   migrate:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: pnpm/action-setup@v4
         with:
           version: 9.15.9
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm
+
       - run: pnpm install --frozen-lockfile
       - run: pnpm prisma generate
-      - name: Migrate
+
+      - name: Migrate deploy
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
         run: pnpm prisma migrate deploy
+
+      - name: Verify tables exist
+        env:
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: |
+          echo "Connected to:"
+          node -e "console.log(new URL(process.env.DIRECT_URL).host)"
+          pnpm prisma db execute --url "$DIRECT_URL" --stdin <<'SQL'
+          select to_regclass('public._prisma_migrations');
+          select table_name
+          from information_schema.tables
+          where table_schema='public'
+          order by table_name;
+          SQL
