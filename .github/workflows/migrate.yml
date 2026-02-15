@@ -23,17 +23,30 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm prisma generate
 
-      # Safe debug: prints host:port only (no secrets)
-      - name: Debug DB URLs (safe)
+      # SAFE debug: never crashes if env vars are empty; prints host:port only when present
+      - name: Debug DB env (safe)
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
         run: |
-          node -e "console.log('DATABASE_URL host:', new URL(process.env.DATABASE_URL).host)"
-          node -e "console.log('DIRECT_URL host:', new URL(process.env.DIRECT_URL).host)"
-          node -e "console.log('DIRECT_URL present:', !!process.env.DIRECT_URL, 'len:', (process.env.DIRECT_URL||'').length)"
+          node - <<'NODE'
+          function show(name) {
+            const v = process.env[name] || "";
+            console.log(name, "present:", !!v, "len:", v.length);
+            if (v) {
+              try { console.log(name, "host:", new URL(v).host); }
+              catch { console.log(name, "not a valid URL"); }
+            }
+          }
+          show("DATABASE_URL");
+          show("DIRECT_URL");
+          if (!process.env.DIRECT_URL) {
+            console.error("DIRECT_URL is missing/empty. Add it to the 'production' Environment secrets.");
+            process.exit(1);
+          }
+          NODE
 
-      # Force migrations to use the DIRECT connection (5432)
+      # Force migrations to use the DIRECT connection (5432) for both url + directUrl
       - name: Migrate deploy (force direct)
         env:
           DATABASE_URL: ${{ secrets.DIRECT_URL }}
