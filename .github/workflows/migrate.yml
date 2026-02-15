@@ -1,4 +1,4 @@
-name: Prisma Migrate (Supabase)
+name: Prisma Migrate (Supabase IPv6)
 
 on:
   workflow_dispatch:
@@ -24,28 +24,17 @@ jobs:
 
       - name: Debug DB env (safe)
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
         run: |
           node - <<'NODE'
-          function show(name) {
-            const v = process.env[name] || "";
-            console.log(name, "present:", !!v, "len:", v.length);
-            if (v) {
-              try { console.log(name, "host:", new URL(v).host); }
-              catch { console.log(name, "not a valid URL"); }
-            }
-          }
-          show("DATABASE_URL");
-          show("DIRECT_URL");
-          if (!process.env.DIRECT_URL) {
-            console.error("DIRECT_URL missing/empty (repo secret).");
-            process.exit(1);
-          }
+          const v = process.env.DIRECT_URL || "";
+          console.log("DIRECT_URL present:", !!v, "len:", v.length);
+          if (!v) process.exit(1);
+          try { console.log("DIRECT_URL host:", new URL(v).host); }
+          catch { console.log("DIRECT_URL not a valid URL"); process.exit(1); }
           NODE
 
-      # Connectivity probe: shows DNS resolution + whether TCP 5432 is reachable from this runner
-      - name: Connectivity probe (safe)
+      - name: Connectivity probe (IPv6)
         env:
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
         run: |
@@ -53,17 +42,22 @@ jobs:
           echo "HOST: $HOST"
           echo "DNS (getent ahosts):"
           getent ahosts "$HOST" || true
-          echo "TCP test 5432:"
-          nc -vz -w 5 "$HOST" 5432 || true
 
-      - name: Migrate deploy (force direct 5432)
+          echo "TCP test 5432 (IPv6):"
+          # -6 forces IPv6; if runner has no IPv6 route, this will fail with "Network is unreachable"
+          nc -6 -vz -w 5 "$HOST" 5432 || true
+
+          echo "If TCP test fails with 'Network is unreachable', this GitHub-hosted runner cannot use IPv6."
+          echo "Use a self-hosted runner with IPv6, or run migrations locally."
+          # Fail fast so we don't waste time
+          nc -6 -vz -w 5 "$HOST" 5432
+
+      - name: Migrate deploy (force direct)
         env:
+          # Force Prisma to use DIRECT_URL for both url + directUrl
           DATABASE_URL: ${{ secrets.DIRECT_URL }}
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
-        run: |
-          node -e "console.log('STEP DATABASE_URL host:', new URL(process.env.DATABASE_URL).host)"
-          node -e "console.log('STEP DIRECT_URL host:', new URL(process.env.DIRECT_URL).host)"
-          pnpm prisma migrate deploy
+        run: pnpm prisma migrate deploy
 
       - name: Verify tables exist
         env:
