@@ -39,47 +39,24 @@ jobs:
           show("DATABASE_URL");
           show("DIRECT_URL");
           if (!process.env.DIRECT_URL) {
-            console.error("DIRECT_URL is missing/empty. Add it to Repository secrets.");
+            console.error("DIRECT_URL missing/empty (repo secret).");
             process.exit(1);
           }
           NODE
-
-      - name: Network diagnostics (safe)
-        env:
-          DIRECT_URL: ${{ secrets.DIRECT_URL }}
-        run: |
-          node - <<'NODE'
-          const u = new URL(process.env.DIRECT_URL);
-          console.log("HOST:", u.hostname);
-          console.log("PORT:", u.port || "(default)");
-          NODE
-
-          HOST=$(node -e "console.log(new URL(process.env.DIRECT_URL).hostname)")
-          echo "DNS (getent ahosts):"
-          getent ahosts "$HOST" || true
-
-          echo "TCP test 5432:"
-          nc -vz -w 5 "$HOST" 5432 || true
-
-      # Important: force BOTH env vars to the DIRECT 5432 URL for migrations
-      - name: Show migration target (safe)
-        env:
-          DATABASE_URL: ${{ secrets.DIRECT_URL }}
-        run: |
-          node -e "console.log('MIGRATION host:', new URL(process.env.DATABASE_URL).host)"
 
       - name: Migrate deploy (force direct 5432)
         env:
           DATABASE_URL: ${{ secrets.DIRECT_URL }}
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
-        run: pnpm prisma migrate deploy
+        run: |
+          node -e "console.log('STEP DATABASE_URL host:', new URL(process.env.DATABASE_URL).host)"
+          node -e "console.log('STEP DIRECT_URL host:', new URL(process.env.DIRECT_URL).host)"
+          pnpm prisma migrate deploy
 
       - name: Verify tables exist
         env:
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
         run: |
-          echo "Connected to:"
-          node -e "console.log(new URL(process.env.DIRECT_URL).host)"
           pnpm prisma db execute --url "$DIRECT_URL" --stdin <<'SQL'
           select to_regclass('public._prisma_migrations') as prisma_migrations_table;
           select table_schema, table_name
