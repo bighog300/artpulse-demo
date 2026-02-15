@@ -5,7 +5,6 @@ on:
 
 jobs:
   migrate:
-    
     runs-on: ubuntu-latest
 
     steps:
@@ -23,7 +22,6 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm prisma generate
 
-      # SAFE debug: never crashes if env vars are empty; prints host:port only when present
       - name: Debug DB env (safe)
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -41,12 +39,11 @@ jobs:
           show("DATABASE_URL");
           show("DIRECT_URL");
           if (!process.env.DIRECT_URL) {
-            console.error("DIRECT_URL is missing/empty. Add it to the 'production' Environment secrets.");
+            console.error("DIRECT_URL is missing/empty. Add it to Repository secrets.");
             process.exit(1);
           }
           NODE
 
-      # Network diagnostics: DNS + TCP reachability to the DIRECT host (no secrets printed)
       - name: Network diagnostics (safe)
         env:
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
@@ -58,16 +55,12 @@ jobs:
           NODE
 
           HOST=$(node -e "console.log(new URL(process.env.DIRECT_URL).hostname)")
-          echo "DNS (getent hosts):"
-          getent hosts "$HOST" || true
-
           echo "DNS (getent ahosts):"
           getent ahosts "$HOST" || true
 
           echo "TCP test 5432:"
           nc -vz -w 5 "$HOST" 5432 || true
 
-      # Force migrations to use the DIRECT connection (5432) for both url + directUrl
       - name: Migrate deploy (force direct)
         env:
           DATABASE_URL: ${{ secrets.DIRECT_URL }}
