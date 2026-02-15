@@ -44,6 +44,18 @@ jobs:
           }
           NODE
 
+      # Connectivity probe: shows DNS resolution + whether TCP 5432 is reachable from this runner
+      - name: Connectivity probe (safe)
+        env:
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: |
+          HOST=$(node -e "console.log(new URL(process.env.DIRECT_URL).hostname)")
+          echo "HOST: $HOST"
+          echo "DNS (getent ahosts):"
+          getent ahosts "$HOST" || true
+          echo "TCP test 5432:"
+          nc -vz -w 5 "$HOST" 5432 || true
+
       - name: Migrate deploy (force direct 5432)
         env:
           DATABASE_URL: ${{ secrets.DIRECT_URL }}
