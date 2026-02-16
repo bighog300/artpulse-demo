@@ -9,6 +9,7 @@ import { EventCardSkeleton } from "@/components/events/event-card-skeleton";
 import { FeedToggle } from "@/components/events/feed-toggle";
 import { TrendingEvents } from "@/components/events/trending-events";
 import { RecommendedEvents } from "@/components/events/recommended-events";
+import { EventFilterChips } from "@/components/events/filter-chips";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorCard } from "@/components/ui/error-card";
@@ -229,23 +230,6 @@ export function EventsClient({ isAuthenticated }: { isAuthenticated: boolean }) 
     [tagsParam],
   );
 
-  const activeFilters = useMemo(() => {
-    const chips: Array<{ key: string; label: string; onRemove: () => void }> = [];
-    if (queryParam) {
-      chips.push({ key: `query:${queryParam}`, label: `Search: ${queryParam}`, onRemove: () => replaceSearch({ query: null }) });
-    }
-    for (const tag of activeTags) {
-      chips.push({
-        key: `tag:${tag}`,
-        label: `Tag: ${tag}`,
-        onRemove: () => replaceSearch({ tags: activeTags.filter((item) => item !== tag).join(",") || null }),
-      });
-    }
-    if (fromParam) chips.push({ key: `from:${fromParam}`, label: `From: ${fromParam}`, onRemove: () => replaceSearch({ from: null }) });
-    if (toParam) chips.push({ key: `to:${toParam}`, label: `To: ${toParam}`, onRemove: () => replaceSearch({ to: null }) });
-    return chips;
-  }, [activeTags, fromParam, queryParam, replaceSearch, toParam]);
-
   const filteredItems = useMemo(() => {
     if (feedParam !== "mine") return items;
     return items.filter((event) => {
@@ -327,30 +311,11 @@ export function EventsClient({ isAuthenticated }: { isAuthenticated: boolean }) 
           </label>
         </div>
 
-        {activeFilters.length ? (
-          <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-1">
-            {activeFilters.map((chip) => (
-              <span key={chip.key} className="inline-flex shrink-0 items-center gap-2 rounded-full border bg-zinc-50 px-3 py-1 text-xs text-zinc-700">
-                {chip.label}
-                <button
-                  type="button"
-                  onClick={chip.onRemove}
-                  className="rounded px-1 leading-none hover:bg-zinc-200"
-                  aria-label={`Remove ${chip.label}`}
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-            <button
-              type="button"
-              onClick={() => replaceSearch({ query: null, tags: null, from: null, to: null })}
-              className="shrink-0 text-xs underline"
-            >
-              Clear all
-            </button>
-          </div>
-        ) : null}
+        <EventFilterChips
+          filters={{ query: queryParam, tags: activeTags, from: fromParam, to: toParam }}
+          onRemove={replaceSearch}
+          onClearAll={() => replaceSearch({ query: null, tags: null, from: null, to: null })}
+        />
       </div>
 
       {feedParam === "all" ? <TrendingEvents /> : null}

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
@@ -10,6 +10,7 @@ import listPlugin from "@fullcalendar/list";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorCard } from "@/components/ui/error-card";
 import { CalendarScopeToggle, parseCalendarScope } from "@/components/calendar/calendar-scope-toggle";
+import { EventFilterChips } from "@/components/events/filter-chips";
 import { buildEventQueryString, parseEventFilters } from "@/lib/events-filters";
 
 type CalendarItem = {
@@ -38,6 +39,7 @@ type FavoriteItem = {
 
 export function CalendarClient({ isAuthenticated }: { isAuthenticated: boolean }) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const filters = parseEventFilters(searchParams);
   const scope = parseCalendarScope(searchParams?.get("scope"));
@@ -106,6 +108,15 @@ export function CalendarClient({ isAuthenticated }: { isAuthenticated: boolean }
     };
   }, [isAuthenticated, scope]);
 
+
+  const replaceSearch = useCallback(
+    (updates: Record<string, string | null>) => {
+      const next = buildEventQueryString(searchParams, updates);
+      router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
+
   const fetchEvents = useCallback(async () => {
     if (!range) return;
     setIsLoading(true);
@@ -158,6 +169,10 @@ export function CalendarClient({ isAuthenticated }: { isAuthenticated: boolean }
     return events;
   }, [events, followSet.artistIds, followSet.venueIds, savedSet, scope]);
 
+  const activeTags = useMemo(() => filters.tags.map((tag) => tag.trim()).filter(Boolean), [filters.tags]);
+
+  const hasActiveFilters = Boolean(filters.query || activeTags.length || filters.from || filters.to);
+
   const filtersQueryString = useMemo(
     () => buildEventQueryString(searchParams, { scope: null }),
     [searchParams],
@@ -202,6 +217,14 @@ export function CalendarClient({ isAuthenticated }: { isAuthenticated: boolean }
           Need list results? <Link className="underline" href={eventsHref}>Go to Events</Link>
         </p>
       </div>
+
+      <EventFilterChips
+        filters={{ query: filters.query, tags: activeTags, from: filters.from, to: filters.to }}
+        onRemove={replaceSearch}
+        onClearAll={() => replaceSearch({ query: null, tags: null, from: null, to: null })}
+      />
+
+      {hasActiveFilters ? <p className="text-xs text-zinc-600">Filtered calendar view</p> : null}
 
       {error ? <ErrorCard message={error} onRetry={() => void fetchEvents()} /> : null}
 
