@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api";
-import { requireAuth } from "@/lib/auth";
+import { guardUser } from "@/lib/auth-guard";
 import { deleteFollowWithDeps, splitFollowIds, upsertFollowWithDeps } from "@/lib/follows";
 import { followBodySchema, parseBody, zodDetails } from "@/lib/validators";
 import { RATE_LIMITS, enforceRateLimit, isRateLimitError, principalRateLimitKey, rateLimitErrorResponse } from "@/lib/rate-limit";
@@ -10,8 +10,9 @@ import { setOnboardingFlag } from "@/lib/onboarding";
 export const runtime = "nodejs";
 
 export async function GET() {
+  const user = await guardUser();
+  if (user instanceof NextResponse) return user;
   try {
-    const user = await requireAuth();
     const follows = await db.follow.findMany({
       where: { userId: user.id },
       select: { targetType: true, targetId: true },
@@ -19,13 +20,14 @@ export async function GET() {
     });
     return NextResponse.json(splitFollowIds(follows));
   } catch {
-    return apiError(401, "unauthorized", "Login required");
+    return apiError(500, "internal_error", "Failed to fetch follows");
   }
 }
 
 export async function POST(req: NextRequest) {
+  const user = await guardUser();
+  if (user instanceof NextResponse) return user;
   try {
-    const user = await requireAuth();
     const parsed = followBodySchema.safeParse(await parseBody(req));
     if (!parsed.success) return apiError(400, "invalid_request", "Invalid follow payload", zodDetails(parsed.error));
 
@@ -61,13 +63,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   } catch (error) {
     if (isRateLimitError(error)) return rateLimitErrorResponse(error);
-    return apiError(401, "unauthorized", "Login required");
+    return apiError(500, "internal_error", "Failed to create follow");
   }
 }
 
 export async function DELETE(req: NextRequest) {
+  const user = await guardUser();
+  if (user instanceof NextResponse) return user;
   try {
-    const user = await requireAuth();
     const parsed = followBodySchema.safeParse(await parseBody(req));
     if (!parsed.success) return apiError(400, "invalid_request", "Invalid follow payload", zodDetails(parsed.error));
 
@@ -89,6 +92,6 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ ok: true });
   } catch (error) {
     if (isRateLimitError(error)) return rateLimitErrorResponse(error);
-    return apiError(401, "unauthorized", "Login required");
+    return apiError(500, "internal_error", "Failed to delete follow");
   }
 }

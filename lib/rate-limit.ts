@@ -169,5 +169,17 @@ export const RATE_LIMITS = {
     limit: Number(process.env.RATE_LIMIT_EVENT_REVISION_WRITE_PER_HOUR ?? 30),
     windowMs: Number(process.env.RATE_LIMIT_EVENT_REVISION_WRITE_WINDOW_MS ?? 3_600_000),
   },
+  recommendationsEvents: {
+    limit: Number(process.env.RATE_LIMIT_RECOMMENDATIONS_EVENTS_PER_MINUTE ?? 45),
+    windowMs: Number(process.env.RATE_LIMIT_RECOMMENDATIONS_EVENTS_WINDOW_MS ?? 60_000),
+  },
+  expensiveReads: {
+    limit: Number(process.env.RATE_LIMIT_EXPENSIVE_READS_PER_MINUTE ?? 120),
+    windowMs: Number(process.env.RATE_LIMIT_EXPENSIVE_READS_WINDOW_MS ?? 60_000),
+  },
+  adminPerfExplain: {
+    limit: Number(process.env.RATE_LIMIT_ADMIN_PERF_EXPLAIN_PER_MINUTE ?? 10),
+    windowMs: Number(process.env.RATE_LIMIT_ADMIN_PERF_EXPLAIN_WINDOW_MS ?? 60_000),
+  },
 
 } as const;

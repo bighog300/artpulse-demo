@@ -1,16 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { unstable_cache } from "next/cache";
 import { apiError } from "@/lib/api";
-import { requireAuth } from "@/lib/auth";
+import { guardUser } from "@/lib/auth-guard";
 import { db } from "@/lib/db";
 import { resolveImageUrl } from "@/lib/assets";
 import { getRequestId } from "@/lib/request-id";
 import { logInfo, logWarn } from "@/lib/logging";
 import { captureException } from "@/lib/telemetry";
+import { RATE_LIMITS, enforceRateLimit, isRateLimitError, principalRateLimitKey, rateLimitErrorResponse } from "@/lib/rate-limit";
+import { z } from "zod";
 
 export const runtime = "nodejs";
 
 const SLOW_ROUTE_THRESHOLD_MS = 800;
+const recommendationsEventsQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(20).default(10),
+  exclude: z.string().trim().max(1024).optional().default(""),
+});
 
 const getRecommendationInputs = unstable_cache(
   async (userId: string, dayBucket: string) => {
@@ -59,12 +65,26 @@ export async function GET(req: NextRequest) {
   const startedAt = performance.now();
 
   try {
-    const user = await requireAuth();
-    const limit = Math.min(Math.max(Number(req.nextUrl.searchParams.get("limit") ?? "10") || 10, 1), 20);
-    const exclude = (req.nextUrl.searchParams.get("exclude") ?? "")
+    const user = await guardUser(requestId);
+    if (user instanceof NextResponse) return user;
+
+    await enforceRateLimit({
+      key: principalRateLimitKey(req, "recommendations:events", user.id),
+      limit: RATE_LIMITS.recommendationsEvents.limit,
+      windowMs: RATE_LIMITS.recommendationsEvents.windowMs,
+    });
+
+    const parsed = recommendationsEventsQuerySchema.safeParse({
+      limit: req.nextUrl.searchParams.get("limit") ?? "10",
+      exclude: req.nextUrl.searchParams.get("exclude") ?? "",
+    });
+    if (!parsed.success) return apiError(400, "invalid_request", "Invalid query parameters", undefined, requestId);
+
+    const limit = parsed.data.limit;
+    const exclude = parsed.data.exclude
       .split(",")
       .map((item) => item.trim())
-      .filter(Boolean)
+      .filter((item) => item.length > 0)
       .slice(0, 20);
 
     const dayBucket = new Date().toISOString().slice(0, 10);
@@ -144,9 +164,7 @@ export async function GET(req: NextRequest) {
     const reason = followedArtists[0]?.name ?? followedVenues[0]?.name ?? null;
     return NextResponse.json({ items, reason }, { headers: { "cache-control": "private, no-store" } });
   } catch (error) {
-    if (error instanceof Error && error.message === "unauthorized") {
-      return apiError(401, "unauthorized", "Authentication required", undefined, requestId);
-    }
+    if (isRateLimitError(error)) return rateLimitErrorResponse(error);
     captureException(error, { route: "/api/recommendations/events", requestId });
     return apiError(500, "internal_error", "Unexpected server error", undefined, requestId);
   }

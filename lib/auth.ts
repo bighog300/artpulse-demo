@@ -108,6 +108,10 @@ export async function requireAuth() {
   return user;
 }
 
+export async function requireUser() {
+  return requireAuth();
+}
+
 export async function isVenueMember(userId: string, venueId: string) {
   const membership = await db.venueMembership.findUnique({
     where: { userId_venueId: { userId, venueId } },
@@ -118,13 +122,17 @@ export async function isVenueMember(userId: string, venueId: string) {
 
 export async function requireVenueRole(venueId: string, minRole: VenueMembershipRole = "EDITOR") {
   const user = await requireAuth();
-  if (user.role === "EDITOR" || user.role === "ADMIN") return user;
+  if (hasGlobalVenueAccess(user.role)) return user;
 
   const membership = await isVenueMember(user.id, venueId);
   if (!membership) throw new Error("forbidden");
   if (!hasMinimumVenueRole(membership.role, minRole)) throw new Error("forbidden");
 
   return user;
+}
+
+export function hasGlobalVenueAccess(role: SessionUser["role"]) {
+  return role === "EDITOR" || role === "ADMIN";
 }
 
 export async function requireEditor() {

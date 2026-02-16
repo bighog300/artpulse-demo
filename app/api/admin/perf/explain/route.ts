@@ -4,6 +4,8 @@ import { parseBody, zodDetails } from "@/lib/validators";
 import { createPerfSnapshot, explainRequestSchema } from "@/lib/perf/service";
 import { getRequestId } from "@/lib/request-id";
 import { captureException } from "@/lib/telemetry";
+import { guardAdmin } from "@/lib/auth-guard";
+import { RATE_LIMITS, enforceRateLimit, isRateLimitError, principalRateLimitKey, rateLimitErrorResponse } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -11,7 +13,16 @@ export async function POST(req: NextRequest) {
   const requestId = getRequestId(req.headers);
 
   try {
-    if (process.env.PERF_EXPLAIN_ENABLED !== "true") {
+    const user = await guardAdmin(requestId);
+    if (user instanceof NextResponse) return user;
+
+    await enforceRateLimit({
+      key: principalRateLimitKey(req, "admin:perf:explain", user.id),
+      limit: RATE_LIMITS.adminPerfExplain.limit,
+      windowMs: RATE_LIMITS.adminPerfExplain.windowMs,
+    });
+
+    if (process.env.PERF_EXPLAIN_ENABLED !== "true" || (process.env.NODE_ENV === "production" && process.env.PERF_EXPLAIN_ALLOW_PROD !== "true")) {
       return apiError(403, "feature_disabled", "Perf explain is disabled", undefined, requestId);
     }
 
@@ -21,13 +32,8 @@ export async function POST(req: NextRequest) {
     const result = await createPerfSnapshot(parsedBody.data);
     return NextResponse.json(result, { headers: { "cache-control": "private, no-store" } });
   } catch (error) {
+    if (isRateLimitError(error)) return rateLimitErrorResponse(error);
     captureException(error, { route: "/api/admin/perf/explain", requestId });
-    if (error instanceof Error && error.message === "unauthorized") {
-      return apiError(401, "unauthorized", "Authentication required", undefined, requestId);
-    }
-    if (error instanceof Error && error.message === "forbidden") {
-      return apiError(403, "forbidden", "Admin role required", undefined, requestId);
-    }
     return apiError(500, "internal_error", "Unexpected server error", undefined, requestId);
   }
 }

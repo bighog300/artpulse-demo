@@ -10,6 +10,7 @@ import { logInfo, logWarn } from "@/lib/logging";
 import { getRequestId } from "@/lib/request-id";
 import { captureException } from "@/lib/telemetry";
 import { collectGeoFilteredPage } from "@/lib/events-geo-pagination";
+import { RATE_LIMITS, enforceRateLimit, isRateLimitError, principalRateLimitKey, rateLimitErrorResponse } from "@/lib/rate-limit";
 
 type EventWithJoin = {
   id: string;
@@ -51,6 +52,13 @@ export async function GET(req: NextRequest) {
     if (!parsed.success) return apiError(400, "invalid_request", "Invalid query parameters", zodDetails(parsed.error), requestId);
 
     const { cursor, limit, query, venue, artist, from, to, tags, lat, lng, radiusKm } = parsed.data;
+    if (query || tags || venue || artist || cursor) {
+      await enforceRateLimit({
+        key: principalRateLimitKey(req, "events:expensive-read"),
+        limit: RATE_LIMITS.expensiveReads.limit,
+        windowMs: RATE_LIMITS.expensiveReads.windowMs,
+      });
+    }
     const tagList = (tags || "").split(",").map((t) => t.trim()).filter(Boolean);
     const box = lat != null && lng != null && radiusKm != null ? getBoundingBox(lat, lng, radiusKm) : null;
     const decodedCursor = cursor ? decodeCursor(cursor) : null;
@@ -145,6 +153,7 @@ export async function GET(req: NextRequest) {
       nextCursor: hasMore && page.length > 0 ? encodeCursor(page[page.length - 1]) : null,
     });
   } catch (error) {
+    if (isRateLimitError(error)) return rateLimitErrorResponse(error);
     captureException(error, { route: "/api/events", requestId });
     return apiError(500, "internal_error", "Unexpected server error", undefined, requestId);
   }

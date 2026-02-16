@@ -1,4 +1,5 @@
 import { engagementRetentionQuerySchema } from "@/lib/validators";
+import { validateCronRequest } from "@/lib/cron-auth";
 
 export type EngagementRetentionDb = {
   engagementEvent: {
@@ -11,15 +12,10 @@ export async function runEngagementRetentionCron(
   headerSecret: string | null,
   rawQuery: Record<string, string>,
   retentionDb: EngagementRetentionDb,
+  meta: { requestId?: string; method?: string } = {},
 ) {
-  const configuredSecret = process.env.CRON_SECRET;
-  if (!configuredSecret) {
-    return Response.json({ error: { code: "misconfigured", message: "CRON_SECRET is not configured", details: undefined } }, { status: 500 });
-  }
-
-  if (headerSecret !== configuredSecret) {
-    return Response.json({ error: { code: "unauthorized", message: "Invalid cron secret", details: undefined } }, { status: 401 });
-  }
+  const authFailureResponse = validateCronRequest(headerSecret, { route: "/api/cron/retention/engagement", ...meta });
+  if (authFailureResponse) return authFailureResponse;
 
   const parsedQuery = engagementRetentionQuerySchema.safeParse(rawQuery);
   if (!parsedQuery.success) {

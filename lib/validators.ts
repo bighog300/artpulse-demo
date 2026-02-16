@@ -18,7 +18,7 @@ export const eventsQuerySchema = z.object({
   venue: slugSchema.optional(),
   artist: slugSchema.optional(),
   tags: z.string().optional().refine((value) => !value || value.split(",").map((tag) => tag.trim()).filter(Boolean).length <= 20, "tags must include at most 20 values"),
-  cursor: z.string().optional(),
+  cursor: z.string().max(512).optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
 
@@ -139,7 +139,7 @@ export const notificationsReadBatchSchema = z.object({
 
 export const followingFeedQuerySchema = z.object({
   days: z.enum(["7", "30"]).default("7").transform((value) => Number(value) as 7 | 30),
-  cursor: z.string().optional(),
+  cursor: z.string().max(512).optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),
   type: z.enum(["both", "artist", "venue"]).default("both"),
 });
@@ -219,7 +219,7 @@ export const nearbyEventsQuerySchema = z.object({
   lng: z.coerce.number().min(-180).max(180),
   radiusKm: z.coerce.number().int().min(1).max(200),
   days: z.enum(["7", "30"]).default("7").transform((value) => Number(value) as 7 | 30),
-  cursor: z.string().optional(),
+  cursor: z.string().max(512).optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
 
