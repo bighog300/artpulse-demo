@@ -63,6 +63,19 @@ jobs:
       - name: Verify migrate deploy on clean Postgres
         run: pnpm prisma migrate deploy
 
+      - name: Drift detection gate
+        run: |
+          set +e
+          pnpm prisma migrate diff --from-schema-datamodel prisma/schema.prisma --to-url "$DIRECT_URL" --exit-code
+          status=$?
+          set -e
+          if [ "$status" -eq 0 ]; then
+            echo "No schema drift detected."
+            exit 0
+          fi
+          echo "Schema drift detected. Run prisma migrate dev and commit migration."
+          exit "$status"
+
       - name: Lint
         run: pnpm lint
 

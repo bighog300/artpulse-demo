@@ -1,0 +1,112 @@
+name: Preview DB (Neon)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+jobs:
+  provision-preview-db:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+      NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+      PREVIEW_BRANCH_NAME: pr-${{ github.event.pull_request.number }}
+      PARENT_NEON_BRANCH: main
+      AUTH_SECRET: ci-preview-auth-secret
+    outputs:
+      database_url: ${{ steps.neon-urls.outputs.database_url }}
+      direct_url: ${{ steps.neon-urls.outputs.direct_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Ensure preview Neon branch exists
+        run: node scripts/neon/create-branch.mjs --branch-name "$PREVIEW_BRANCH_NAME" --parent-branch "$PARENT_NEON_BRANCH"
+
+      - name: Fetch preview DB connection URLs
+        id: neon-urls
+        run: node scripts/neon/get-connection-urls.mjs --branch-name "$PREVIEW_BRANCH_NAME"
+
+      - name: Deploy migrations to preview DB
+        env:
+          DATABASE_URL: ${{ steps.neon-urls.outputs.direct_url }}
+          DIRECT_URL: ${{ steps.neon-urls.outputs.direct_url }}
+        run: pnpm prisma migrate deploy
+
+      - name: Drift detection gate
+        env:
+          DIRECT_URL: ${{ steps.neon-urls.outputs.direct_url }}
+        run: |
+          set +e
+          pnpm prisma migrate diff --from-schema-datamodel prisma/schema.prisma --to-url "$DIRECT_URL" --exit-code
+          status=$?
+          set -e
+          if [ "$status" -eq 0 ]; then
+            echo "No schema drift detected."
+            exit 0
+          fi
+          echo "Schema drift detected. Run prisma migrate dev and commit migration."
+          exit "$status"
+
+      - name: Seed preview DB
+        env:
+          DATABASE_URL: ${{ steps.neon-urls.outputs.database_url }}
+          DIRECT_URL: ${{ steps.neon-urls.outputs.direct_url }}
+          SEED_ENABLED: "true"
+          APP_ENV: preview
+        run: pnpm db:seed
+
+      - name: Update Vercel Preview env vars for this git branch
+        if: ${{ secrets.VERCEL_TOKEN != '' && secrets.VERCEL_ORG_ID != '' && secrets.VERCEL_PROJECT_ID != '' }}
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          PR_GIT_BRANCH: ${{ github.head_ref }}
+          DATABASE_URL: ${{ steps.neon-urls.outputs.database_url }}
+          DIRECT_URL: ${{ steps.neon-urls.outputs.direct_url }}
+        run: |
+          pnpm dlx vercel env rm DATABASE_URL preview --yes --git-branch "$PR_GIT_BRANCH" --token "$VERCEL_TOKEN" >/dev/null 2>&1 || true
+          pnpm dlx vercel env rm DIRECT_URL preview --yes --git-branch "$PR_GIT_BRANCH" --token "$VERCEL_TOKEN" >/dev/null 2>&1 || true
+          printf "%s" "$DATABASE_URL" | pnpm dlx vercel env add DATABASE_URL preview --git-branch "$PR_GIT_BRANCH" --token "$VERCEL_TOKEN"
+          printf "%s" "$DIRECT_URL" | pnpm dlx vercel env add DIRECT_URL preview --git-branch "$PR_GIT_BRANCH" --token "$VERCEL_TOKEN"
+          echo "set-env OK: Vercel preview env vars updated for branch $PR_GIT_BRANCH"
+
+      - name: Vercel env sync fallback note
+        if: ${{ !(secrets.VERCEL_TOKEN != '' && secrets.VERCEL_ORG_ID != '' && secrets.VERCEL_PROJECT_ID != '') }}
+        run: echo "VERCEL_TOKEN / VERCEL_ORG_ID / VERCEL_PROJECT_ID not configured; use workflow outputs to set Preview env vars manually."
+
+  cleanup-preview-db:
+    if: github.event.action == 'closed' && !contains(join(github.event.pull_request.labels.*.name, ','), 'keep-preview-db')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+      NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+      PREVIEW_BRANCH_NAME: pr-${{ github.event.pull_request.number }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Delete preview Neon branch
+        run: node scripts/neon/delete-branch.mjs --branch-name "$PREVIEW_BRANCH_NAME" --if-exists

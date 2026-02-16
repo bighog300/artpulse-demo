@@ -52,6 +52,21 @@ jobs:
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
         run: pnpm prisma migrate deploy
 
+      - name: Drift detection gate
+        env:
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: |
+          set +e
+          pnpm prisma migrate diff --from-schema-datamodel prisma/schema.prisma --to-url "$DIRECT_URL" --exit-code
+          status=$?
+          set -e
+          if [ "$status" -eq 0 ]; then
+            echo "No schema drift detected."
+            exit 0
+          fi
+          echo "Schema drift detected. Run prisma migrate dev and commit migration."
+          exit "$status"
+
       - name: Verify tables exist
         env:
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
