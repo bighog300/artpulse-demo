@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 type EventCardProps = {
   title: string;
@@ -11,6 +12,7 @@ type EventCardProps = {
   href: string;
   badges?: string[];
   secondaryText?: string;
+  action?: ReactNode;
 };
 
 function formatRange(startAt: string | Date, endAt?: string | Date | null) {
@@ -19,8 +21,8 @@ function formatRange(startAt: string | Date, endAt?: string | Date | null) {
   return end ? `${start.toLocaleString()} – ${end.toLocaleString()}` : start.toLocaleString();
 }
 
-export function EventCard({ title, startAt, endAt, venueName, imageUrl, href, badges, secondaryText }: EventCardProps) {
-  return (
+export function EventCard({ title, startAt, endAt, venueName, imageUrl, href, badges, secondaryText, action }: EventCardProps) {
+  const card = (
     <Link href={href} className="group block overflow-hidden rounded-lg border bg-white transition hover:border-zinc-400 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900">
       <div className="flex gap-3 p-3">
         <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded bg-zinc-100">
@@ -35,5 +37,14 @@ export function EventCard({ title, startAt, endAt, venueName, imageUrl, href, ba
         </div>
       </div>
     </Link>
+  );
+
+  if (!action) return card;
+
+  return (
+    <div className="flex items-start gap-2 sm:items-center">
+      <div className="min-w-0 flex-1">{card}</div>
+      <div className="shrink-0">{action}</div>
+    </div>
   );
 }
