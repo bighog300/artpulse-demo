@@ -6,6 +6,9 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { EventCard } from "@/components/events/event-card";
 import { SaveEventButton } from "@/components/events/save-event-button";
 import { EventCardSkeleton } from "@/components/events/event-card-skeleton";
+import { FeedToggle } from "@/components/events/feed-toggle";
+import { TrendingEvents } from "@/components/events/trending-events";
+import { RecommendedEvents } from "@/components/events/recommended-events";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorCard } from "@/components/ui/error-card";
@@ -17,8 +20,9 @@ type EventListItem = {
   title: string;
   startAt: string;
   endAt?: string | null;
-  venue?: { name?: string | null } | null;
+  venue?: { id?: string; name?: string | null } | null;
   tags?: Array<{ slug: string }>;
+  artistIds?: string[];
   primaryImageUrl?: string | null;
 };
 
@@ -32,6 +36,11 @@ type FavoriteItem = {
   targetId: string;
 };
 
+type FollowManageData = {
+  artists: Array<{ id: string }>;
+  venues: Array<{ id: string }>;
+};
+
 const EVENT_LIMIT = 24;
 
 export function EventsClient({ isAuthenticated }: { isAuthenticated: boolean }) {
@@ -40,6 +49,7 @@ export function EventsClient({ isAuthenticated }: { isAuthenticated: boolean }) 
   const searchParams = useSearchParams();
 
   const filters = parseEventFilters(searchParams);
+  const feedParam = filters.feed;
   const queryParam = filters.query;
   const tagsParam = filters.tags.join(",");
   const fromParam = filters.from;
@@ -56,6 +66,8 @@ export function EventsClient({ isAuthenticated }: { isAuthenticated: boolean }) 
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
+  const [followedArtistIds, setFollowedArtistIds] = useState<Set<string>>(new Set());
+  const [followedVenueIds, setFollowedVenueIds] = useState<Set<string>>(new Set());
 
   const latestFetchIdRef = useRef(0);
 
@@ -65,6 +77,34 @@ export function EventsClient({ isAuthenticated }: { isAuthenticated: boolean }) 
     setFromInput(fromParam);
     setToInput(toParam);
   }, [fromParam, queryParam, tagsParam, toParam]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setFollowedArtistIds(new Set());
+      setFollowedVenueIds(new Set());
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch("/api/follows/manage", { cache: "no-store" });
+        if (!response.ok) return;
+        const data = (await response.json()) as FollowManageData;
+        if (cancelled) return;
+        setFollowedArtistIds(new Set((data.artists ?? []).map((artist) => artist.id)));
+        setFollowedVenueIds(new Set((data.venues ?? []).map((venue) => venue.id)));
+      } catch {
+        if (cancelled) return;
+        setFollowedArtistIds(new Set());
+        setFollowedVenueIds(new Set());
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -151,6 +191,7 @@ export function EventsClient({ isAuthenticated }: { isAuthenticated: boolean }) 
 
       const params = new URLSearchParams(searchParams?.toString() ?? "");
       params.delete("cursor");
+      params.delete("feed");
       params.set("limit", String(EVENT_LIMIT));
       if (cursor) params.set("cursor", cursor);
 
@@ -205,8 +246,21 @@ export function EventsClient({ isAuthenticated }: { isAuthenticated: boolean }) 
     return chips;
   }, [activeTags, fromParam, queryParam, replaceSearch, toParam]);
 
+  const filteredItems = useMemo(() => {
+    if (feedParam !== "mine") return items;
+    return items.filter((event) => {
+      const venueMatch = Boolean(event.venue?.id && followedVenueIds.has(event.venue.id));
+      const artistMatch = (event.artistIds ?? []).some((artistId) => followedArtistIds.has(artistId));
+      return venueMatch || artistMatch;
+    });
+  }, [feedParam, followedArtistIds, followedVenueIds, items]);
+
+  const hasFollows = followedArtistIds.size > 0 || followedVenueIds.size > 0;
+  const loadedCountLabel = nextCursor ? `${filteredItems.length}+ events` : `${filteredItems.length} events`;
+
   const contextParts = useMemo(() => {
     const parts: string[] = [];
+    parts.push(feedParam === "mine" ? "My feed" : "All events");
     if (queryParam) parts.push(`Results for “${queryParam}”`);
     if (activeTags.length) parts.push(`Tagged: ${activeTags.join(", ")}`);
     if (fromParam || toParam) {
@@ -215,9 +269,7 @@ export function EventsClient({ isAuthenticated }: { isAuthenticated: boolean }) 
       parts.push(`Between ${start} and ${end}`);
     }
     return parts;
-  }, [activeTags, fromParam, queryParam, toParam]);
-
-  const loadedCountLabel = nextCursor ? `${items.length}+ events` : `${items.length} events`;
+  }, [activeTags, feedParam, fromParam, queryParam, toParam]);
 
   return (
     <section className="space-y-4">
@@ -225,6 +277,15 @@ export function EventsClient({ isAuthenticated }: { isAuthenticated: boolean }) 
       <p className="text-sm text-gray-700">Prefer a date grid? <Link className="underline" href={`/calendar${searchParams?.toString() ? `?${searchParams.toString()}` : ""}`}>Go to Calendar</Link>.</p>
 
       <div className="rounded-lg border bg-white p-3">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <FeedToggle
+            value={feedParam}
+            disabledMine={!isAuthenticated}
+            onChange={(nextFeed) => replaceSearch({ feed: nextFeed === "all" ? null : nextFeed })}
+          />
+          {!isAuthenticated ? <p className="text-xs text-zinc-600">Sign in to unlock My Feed.</p> : null}
+        </div>
+
         <div className="grid gap-3 md:grid-cols-2">
           <label className="space-y-1 text-sm">
             <span className="font-medium text-zinc-800">Search</span>
@@ -292,6 +353,9 @@ export function EventsClient({ isAuthenticated }: { isAuthenticated: boolean }) 
         ) : null}
       </div>
 
+      {feedParam === "all" ? <TrendingEvents /> : null}
+      {isAuthenticated && feedParam === "mine" && hasFollows ? <RecommendedEvents enabled excludeEventIds={filteredItems.map((event) => event.id)} /> : null}
+
       <div className="rounded-lg border bg-zinc-50 px-3 py-2 text-sm text-zinc-700">
         <p>{contextParts.length ? `${contextParts.join(" · ")} · ` : "Viewing upcoming events · "}<span className="font-medium text-zinc-900">Showing {loadedCountLabel}</span></p>
       </div>
@@ -308,13 +372,14 @@ export function EventsClient({ isAuthenticated }: { isAuthenticated: boolean }) 
         </ul>
       ) : null}
 
-      {!isLoading && !error && items.length === 0 ? (
+      {!isLoading && !error && filteredItems.length === 0 ? (
         <EmptyState
-          title="No events match these filters"
-          description="Try broadening your criteria or explore nearby events."
+          title={feedParam === "mine" ? "Your feed is empty" : "No events match these filters"}
+          description={feedParam === "mine" ? "Follow artists or venues to populate your feed." : "Try broadening your criteria or explore nearby events."}
           actions={[
             { label: "Browse Nearby", href: "/nearby", variant: "secondary" },
-            ...(isAuthenticated ? [{ label: "Manage saved searches", href: "/saved-searches", variant: "secondary" as const }] : []),
+            ...(isAuthenticated ? [{ label: "Manage follows", href: "/following", variant: "secondary" as const }] : []),
+            ...(!isAuthenticated ? [{ label: "Sign in", href: "/login", variant: "secondary" as const }] : []),
           ]}
         >
           <div className="flex flex-wrap gap-2">
@@ -332,9 +397,9 @@ export function EventsClient({ isAuthenticated }: { isAuthenticated: boolean }) 
         </EmptyState>
       ) : null}
 
-      {!isLoading && items.length > 0 ? (
+      {!isLoading && filteredItems.length > 0 ? (
         <ul className="space-y-2">
-          {items.map((event) => (
+          {filteredItems.map((event) => (
             <li key={event.id}>
               <EventCard
                 href={`/events/${event.slug}`}
