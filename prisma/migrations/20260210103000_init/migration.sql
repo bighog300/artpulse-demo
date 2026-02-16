@@ -1,1 +1,0 @@
--- Initial migration placeholder for Artpulse MVP schema.
