@@ -1,6 +1,7 @@
 import type { ReadonlyURLSearchParams } from "next/navigation";
 
 export type EventFilters = {
+  feed: "all" | "mine";
   query: string;
   tags: string[];
   from: string;
@@ -11,6 +12,10 @@ export type EventFilters = {
   lng: string;
   radiusKm: string;
 };
+
+export function normalizeFeed(input: string) {
+  return input === "mine" ? "mine" : "all";
+}
 
 function getParam(searchParams: URLSearchParams | ReadonlyURLSearchParams | null | undefined, key: string) {
   return searchParams?.get(key) ?? "";
@@ -34,6 +39,7 @@ export function isValidDateInput(value: string) {
 
 export function parseEventFilters(searchParams: URLSearchParams | ReadonlyURLSearchParams | null | undefined): EventFilters {
   return {
+    feed: normalizeFeed(getParam(searchParams, "feed")),
     query: normalizeQuery(getParam(searchParams, "query")),
     tags: normalizeTags(getParam(searchParams, "tags")).split(",").filter(Boolean),
     from: getParam(searchParams, "from"),
