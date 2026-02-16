@@ -33,7 +33,7 @@ export function ArtistEventsViewTabs({ view }: { view: ArtistEventsView }) {
             role="tab"
             aria-selected={isActive}
             onClick={() => setView(tab.value)}
-            className={`rounded-full border px-3 py-1 text-sm transition ${isActive ? "border-black bg-black text-white" : "bg-white text-zinc-800"}`}
+            className={`rounded-full border px-3 py-1 text-sm motion-safe:transition-colors motion-safe:duration-150 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 ${isActive ? "border-black bg-black text-white" : "bg-white text-zinc-800 hover:bg-zinc-50 hover:shadow-sm"}`}
           >
             {tab.label}
           </button>

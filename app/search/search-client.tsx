@@ -40,14 +40,20 @@ export function SearchClient({ filters }: { filters: SearchFilters }) {
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-xs font-medium uppercase tracking-wide text-zinc-600">Active filters</p>
         {chips.map((chip) => (
-          <button key={chip.key} type="button" onClick={() => removeChip(chip.key)} className="rounded-full border px-2 py-1 text-xs">
+          <button
+            key={chip.key}
+            type="button"
+            onClick={() => removeChip(chip.key)}
+            className="rounded-full border px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900"
+            aria-label={`Remove ${chip.label} filter`}
+          >
             {chip.label} ×
           </button>
         ))}
         {chips.length > 0 ? (
           <button
             type="button"
-            className="rounded border px-2 py-1 text-xs"
+            className="rounded border px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900"
             onClick={() => router.replace(pathname)}
           >
             Reset filters
