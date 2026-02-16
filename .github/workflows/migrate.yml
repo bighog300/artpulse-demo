@@ -26,6 +26,7 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm prisma generate
+      - run: pnpm prisma:check-migration-order
 
       # Safe debug: prints only hostnames (no secrets)
       - name: Debug DB URLs (safe)

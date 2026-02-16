@@ -8,6 +8,20 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: artpulse_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d artpulse_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Checkout
@@ -34,6 +48,15 @@ jobs:
 
       - name: Generate Prisma Client
         run: pnpm prisma generate
+
+      - name: Check migration FK ordering
+        run: pnpm prisma:check-migration-order
+
+      - name: Verify migrate deploy on clean Postgres
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/artpulse_ci?schema=public
+          DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/artpulse_ci?schema=public
+        run: pnpm prisma migrate deploy
 
       - name: Lint
         run: pnpm lint
