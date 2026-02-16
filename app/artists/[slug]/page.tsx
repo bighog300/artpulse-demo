@@ -1,20 +1,19 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
-import { ArtistAssociatedVenuesSection } from "@/components/artists/artist-associated-venues-section";
 import { notFound } from "next/navigation";
-import { db } from "@/lib/db";
-import { resolveImageUrl } from "@/lib/assets";
-import { getSessionUser } from "@/lib/auth";
-import { hasDatabaseUrl } from "@/lib/runtime-db";
-import { FollowButton } from "@/components/follows/follow-button";
+import { ArtistAssociatedVenuesSection } from "@/components/artists/artist-associated-venues-section";
+import { ArtistEventsViewTabs } from "@/components/artists/artist-events-view-tabs";
+import { ArtistGalleryLightbox } from "@/components/artists/artist-gallery-lightbox";
+import { ArtistHeader } from "@/components/artists/artist-header";
 import { ShareButton } from "@/components/share-button";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
-import { buildArtistJsonLd, getDetailUrl } from "@/lib/seo.public-profiles";
-import { resolveArtistCoverUrl } from "@/lib/artists";
-import { splitArtistEvents } from "@/lib/artist-events";
-import { ArtistGalleryLightbox } from "@/components/artists/artist-gallery-lightbox";
+import { resolveImageUrl } from "@/lib/assets";
+import { getSessionUser } from "@/lib/auth";
 import { dedupeAssociatedVenues } from "@/lib/artist-associated-venues";
+import { resolveArtistCoverUrl } from "@/lib/artists";
+import { db } from "@/lib/db";
+import { hasDatabaseUrl } from "@/lib/runtime-db";
+import { buildArtistJsonLd, getDetailUrl } from "@/lib/seo.public-profiles";
 
 const FALLBACK_METADATA = {
   title: "Artist | Artpulse",
@@ -59,7 +58,12 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   }
 }
 
-export default async function ArtistDetail({ params }: { params: Promise<{ slug: string }> }) {
+type ArtistDetailProps = {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function ArtistDetail({ params, searchParams }: ArtistDetailProps) {
   if (!hasDatabaseUrl()) {
     return (
       <main className="p-6">
@@ -69,8 +73,12 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
   }
 
   const { slug } = await params;
+  const query = await searchParams;
+  const rawView = Array.isArray(query.view) ? query.view[0] : query.view;
+  const view = rawView === "past" ? "past" : "upcoming";
   const now = new Date();
   const user = await getSessionUser();
+
   const artist = await db.artist.findFirst({
     where: { slug, isPublished: true },
     select: {
@@ -90,8 +98,14 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
         select: { role: true, venue: { select: { id: true, name: true, slug: true } } },
       },
       eventArtists: {
-        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-        where: { event: { isPublished: true } },
+        where: {
+          event: {
+            isPublished: true,
+            ...(view === "past" ? { startAt: { lt: now } } : { startAt: { gte: now } }),
+          },
+        },
+        orderBy: { event: { startAt: view === "past" ? "desc" : "asc" } },
+        take: 20,
         select: {
           role: true,
           event: {
@@ -104,6 +118,7 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
               endAt: true,
               venue: { select: { id: true, name: true, slug: true } },
               images: { take: 1, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { url: true, asset: { select: { url: true } } } },
+              eventTags: { select: { tag: { select: { slug: true } } } },
             },
           },
         },
@@ -138,7 +153,7 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
     imageUrl: resolveImageUrl(row.event.images[0]?.asset?.url, row.event.images[0]?.url),
     role: row.role,
   }));
-  const { upcoming, past } = splitArtistEvents(events, now);
+  const artistTags = Array.from(new Set(artist.eventArtists.flatMap((row) => row.event.eventTags.map(({ tag }) => tag.slug)))).slice(0, 8);
 
   const verifiedVenues = artist.venueAssociations.map((row) => ({ ...row.venue, role: row.role }));
   const derivedVenues = artist.eventArtists
@@ -153,26 +168,23 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
   return (
     <main className="space-y-6 p-6">
       <Breadcrumbs items={[{ label: "Artists", href: "/artists" }, { label: artist.name, href: `/artists/${slug}` }]} />
-      <h1 className="text-3xl font-semibold">{artist.name}</h1>
       <div className="flex flex-wrap gap-2">
         <ShareButton />
-        <FollowButton
-          targetType="ARTIST"
-          targetId={artist.id}
-          initialIsFollowing={Boolean(existingFollow)}
-          initialFollowersCount={followersCount}
-          isAuthenticated={Boolean(user)}
-        />
       </div>
-      {imageUrl ? (
-        <div className="relative h-64 w-full max-w-xl overflow-hidden rounded border">
-          <Image src={imageUrl} alt={artist.name} fill sizes="(max-width: 768px) 100vw, 768px" className="object-cover" />
-        </div>
-      ) : null}
+
+      <ArtistHeader
+        name={artist.name}
+        imageUrl={imageUrl}
+        bio={artist.bio}
+        isFollowing={Boolean(existingFollow)}
+        followerCount={followersCount}
+        isAuthenticated={Boolean(user)}
+        artistId={artist.id}
+        tags={artistTags}
+      />
 
       <section className="space-y-2">
         <h2 className="text-2xl font-semibold">About</h2>
-        {artist.bio ? <p>{artist.bio}</p> : <p className="text-sm text-zinc-600">No artist statement yet.</p>}
         <div className="flex flex-wrap gap-4 text-sm">
           {artist.websiteUrl ? <a className="underline" href={artist.websiteUrl} target="_blank" rel="noreferrer">Website</a> : null}
           {artist.instagramUrl ? <a className="underline" href={artist.instagramUrl} target="_blank" rel="noreferrer">Instagram</a> : null}
@@ -181,14 +193,16 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
 
       {galleryImages.length > 0 ? <ArtistGalleryLightbox images={galleryImages} /> : null}
 
-
       <ArtistAssociatedVenuesSection verified={associatedVenues.verified} derived={associatedVenues.derived} />
 
       <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">Upcoming exhibitions</h2>
-        {upcoming.length === 0 ? <p className="rounded border border-dashed p-4 text-sm text-zinc-600">No upcoming exhibitions yet.</p> : (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-2xl font-semibold">Exhibitions</h2>
+          <ArtistEventsViewTabs view={view} />
+        </div>
+        {events.length === 0 ? <p className="rounded border border-dashed p-4 text-sm text-zinc-600">No {view} exhibitions yet.</p> : (
           <ul className="space-y-3">
-            {upcoming.map((event) => (
+            {events.map((event) => (
               <li key={event.id} className="rounded border p-3">
                 <p className="text-sm text-zinc-600">{event.startAt.toUTCString()}</p>
                 <Link href={`/events/${event.slug}`} className="text-lg font-medium underline">{event.title}</Link>
@@ -199,23 +213,6 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
             ))}
           </ul>
         )}
-      </section>
-
-      <section className="space-y-3">
-        <details className="rounded border p-4" open={past.length > 0}>
-          <summary className="cursor-pointer text-xl font-semibold">Past exhibitions ({past.length})</summary>
-          {past.length === 0 ? <p className="pt-3 text-sm text-zinc-600">No past exhibitions yet.</p> : (
-            <ul className="space-y-3 pt-3">
-              {past.map((event) => (
-                <li key={event.id} className="rounded border p-3">
-                  <p className="text-sm text-zinc-600">{event.startAt.toUTCString()}</p>
-                  <Link href={`/events/${event.slug}`} className="text-lg font-medium underline">{event.title}</Link>
-                  <p className="text-sm">Venue: {event.venueSlug ? <Link href={`/venues/${event.venueSlug}`} className="underline">{event.venueName}</Link> : event.venueName}</p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </details>
       </section>
 
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
