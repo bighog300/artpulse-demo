@@ -14,6 +14,7 @@ type EventWithJoin = {
   venue?: { lat: number | null; lng: number | null } | null;
   images?: Array<{ url: string; asset?: { url: string } | null }>;
   eventTags?: Array<{ tag: { name: string; slug: string } }>;
+  eventArtists?: Array<{ artistId: string }>;
   startAt: Date;
 };
 
@@ -72,7 +73,8 @@ export async function GET(req: NextRequest) {
     take: limit + 1,
     orderBy: START_AT_ID_ORDER_BY,
     include: {
-      venue: { select: { name: true, slug: true, city: true, lat: true, lng: true } },
+      eventArtists: { select: { artistId: true } },
+      venue: { select: { id: true, name: true, slug: true, city: true, lat: true, lng: true } },
       images: { take: 1, orderBy: { sortOrder: "asc" }, include: { asset: { select: { url: true } } } },
       eventTags: { include: { tag: { select: { name: true, slug: true } } } },
     },
@@ -90,7 +92,12 @@ export async function GET(req: NextRequest) {
   const hasMore = filtered.length > limit;
   const page = hasMore ? filtered.slice(0, limit) : filtered;
   return NextResponse.json({
-    items: page.map((e) => ({ ...e, primaryImageUrl: resolveImageUrl(e.images?.[0]?.asset?.url, e.images?.[0]?.url), tags: (e.eventTags ?? []).map((et) => ({ name: et.tag.name, slug: et.tag.slug })) })),
+    items: page.map((e) => ({
+      ...e,
+      primaryImageUrl: resolveImageUrl(e.images?.[0]?.asset?.url, e.images?.[0]?.url),
+      tags: (e.eventTags ?? []).map((et) => ({ name: et.tag.name, slug: et.tag.slug })),
+      artistIds: (e.eventArtists ?? []).map((eventArtist) => eventArtist.artistId),
+    })),
     nextCursor: hasMore ? encodeCursor(page[page.length - 1]) : null,
   });
 }
