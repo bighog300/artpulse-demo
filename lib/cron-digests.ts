@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { digestDedupeKey, digestSnapshotItemsSchema, isoWeekStamp } from "@/lib/digest";
 import { runSavedSearchEvents } from "@/lib/saved-searches";
 import { applyConservativeRanking, computeEngagementBoosts } from "@/lib/ranking";
+import { validateCronRequest } from "@/lib/cron-auth";
 
 export type DigestDb = {
   savedSearch: {
@@ -19,10 +20,9 @@ export type DigestDb = {
   event: { findMany: (args: Prisma.EventFindManyArgs) => Promise<Array<{ id: string; title: string; slug: string; startAt: Date; lat: number | null; lng: number | null; venueId: string | null; venue: { name: string; slug: string; city: string | null; lat: number | null; lng: number | null } | null; eventTags: Array<{ tag: { name: string; slug: string } }>; eventArtists: Array<{ artistId: string }> }>> };
 };
 
-export async function runWeeklyDigests(headerSecret: string | null, digestDb: DigestDb) {
-  const configuredSecret = process.env.CRON_SECRET;
-  if (!configuredSecret) return Response.json({ error: { code: "misconfigured", message: "CRON_SECRET is not configured", details: undefined } }, { status: 500 });
-  if (headerSecret !== configuredSecret) return Response.json({ error: { code: "unauthorized", message: "Invalid cron secret", details: undefined } }, { status: 401 });
+export async function runWeeklyDigests(headerSecret: string | null, digestDb: DigestDb, meta: { requestId?: string; method?: string } = {}) {
+  const authFailureResponse = validateCronRequest(headerSecret, { route: "/api/cron/digests/weekly", ...meta });
+  if (authFailureResponse) return authFailureResponse;
 
   try {
   const now = new Date();

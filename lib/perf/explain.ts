@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 
 const MAX_SQL_LENGTH = 4000;
 const writePattern = /\b(insert|update|delete|alter|drop|truncate|create)\b/i;
+const statementStartPattern = /^(select|with)\b/i;
+const commentPattern = /(--|\/\*)/;
 const QUERY_TIMEOUT_MS = 8_000;
 
 export function assertExplainSafe(sql: string) {
@@ -10,11 +12,14 @@ export function assertExplainSafe(sql: string) {
   if (!trimmed) throw new Error("invalid_sql");
   if (trimmed.length > MAX_SQL_LENGTH) throw new Error("sql_too_long");
   if (trimmed.includes(";")) throw new Error("semicolon_not_allowed");
+  if (!statementStartPattern.test(trimmed)) throw new Error("only_select_allowed");
+  if (commentPattern.test(trimmed)) throw new Error("comments_not_allowed");
   if (writePattern.test(trimmed)) throw new Error("write_not_allowed");
 }
 
 export async function runExplain(sql: string, params: unknown[]): Promise<string> {
   if (process.env.PERF_EXPLAIN_ENABLED !== "true") throw new Error("explain_disabled");
+  if (process.env.NODE_ENV === "production" && process.env.PERF_EXPLAIN_ALLOW_PROD !== "true") throw new Error("explain_disabled");
   assertExplainSafe(sql);
 
   const allowAnalyze = process.env.PERF_ALLOW_ANALYZE === "true";

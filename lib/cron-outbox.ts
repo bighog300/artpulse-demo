@@ -1,4 +1,5 @@
 import { captureException, trackMetric } from "@/lib/telemetry";
+import { validateCronRequest } from "@/lib/cron-auth";
 export type SendPendingNotifications = ({ limit }: { limit: number }) => Promise<{
   sent: number;
   failed: number;
@@ -8,15 +9,10 @@ export type SendPendingNotifications = ({ limit }: { limit: number }) => Promise
 export async function runCronOutboxSend(
   headerSecret: string | null,
   sendPendingNotifications: SendPendingNotifications,
+  meta: { requestId?: string; method?: string } = {},
 ): Promise<Response> {
-  const configuredSecret = process.env.CRON_SECRET;
-  if (!configuredSecret) {
-    return Response.json({ error: { code: "misconfigured", message: "CRON_SECRET is not configured", details: undefined } }, { status: 500 });
-  }
-
-  if (headerSecret !== configuredSecret) {
-    return Response.json({ error: { code: "unauthorized", message: "Invalid cron secret", details: undefined } }, { status: 401 });
-  }
+  const authFailureResponse = validateCronRequest(headerSecret, { route: "/api/cron/outbox/send", ...meta });
+  if (authFailureResponse) return authFailureResponse;
 
   try {
     const result = await sendPendingNotifications({ limit: 25 });

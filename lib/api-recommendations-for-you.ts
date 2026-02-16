@@ -1,16 +1,16 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api";
-import { requireAuth } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { forYouRecommendationsQuerySchema, paramsToObject, zodDetails } from "@/lib/validators";
 import { getForYouRecommendations } from "@/lib/recommendations-for-you";
 
 export async function handleForYouGet(req: { nextUrl: URL }, deps: {
-  requireAuthFn?: typeof requireAuth;
+  requireAuthFn?: typeof requireUser;
   getForYouRecommendationsFn?: typeof getForYouRecommendations;
 } = {}) {
   try {
-    const user = await (deps.requireAuthFn ?? requireAuth)();
+    const user = await (deps.requireAuthFn ?? requireUser)();
     const parsed = forYouRecommendationsQuerySchema.safeParse(paramsToObject(req.nextUrl.searchParams));
     if (!parsed.success) return apiError(400, "invalid_request", "Invalid query parameters", zodDetails(parsed.error));
 

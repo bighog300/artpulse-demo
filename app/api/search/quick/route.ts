@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { z } from "zod";
+import { RATE_LIMITS, enforceRateLimit, isRateLimitError, principalRateLimitKey, rateLimitErrorResponse } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -16,6 +17,12 @@ export async function GET(req: NextRequest) {
 
   try {
     const query = parsed.data.q;
+    await enforceRateLimit({
+      key: principalRateLimitKey(req, "search:quick"),
+      limit: RATE_LIMITS.expensiveReads.limit,
+      windowMs: RATE_LIMITS.expensiveReads.windowMs,
+    });
+
     const [events, venues, artists] = await Promise.all([
       db.event.findMany({
         where: { isPublished: true, title: { contains: query, mode: "insensitive" } },
@@ -38,7 +45,8 @@ export async function GET(req: NextRequest) {
     ]);
 
     return NextResponse.json({ events, venues, artists });
-  } catch {
+  } catch (error) {
+    if (isRateLimitError(error)) return rateLimitErrorResponse(error);
     return NextResponse.json(EMPTY_RESPONSE);
   }
 }
