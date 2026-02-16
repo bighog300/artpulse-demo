@@ -13,7 +13,10 @@ import { EventFilterChips } from "@/components/events/filter-chips";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorCard } from "@/components/ui/error-card";
+import { InlineBanner } from "@/components/ui/inline-banner";
+import { Section } from "@/components/ui/section";
 import { buildEventQueryString, isValidDateInput, normalizeQuery, normalizeTags, parseEventFilters } from "@/lib/events-filters";
+import type { UiFixtureEvent } from "@/lib/ui-fixtures";
 
 type EventListItem = {
   id: string;
@@ -44,7 +47,7 @@ type FollowManageData = {
 
 const EVENT_LIMIT = 24;
 
-export function EventsClient({ isAuthenticated }: { isAuthenticated: boolean }) {
+export function EventsClient({ isAuthenticated, fixtureItems }: { isAuthenticated: boolean; fixtureItems?: UiFixtureEvent[] }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -63,7 +66,7 @@ export function EventsClient({ isAuthenticated }: { isAuthenticated: boolean }) 
 
   const [items, setItems] = useState<EventListItem[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!fixtureItems);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
@@ -71,6 +74,14 @@ export function EventsClient({ isAuthenticated }: { isAuthenticated: boolean }) 
   const [followedVenueIds, setFollowedVenueIds] = useState<Set<string>>(new Set());
 
   const latestFetchIdRef = useRef(0);
+
+  useEffect(() => {
+    if (fixtureItems) {
+      setItems(fixtureItems);
+      setNextCursor(null);
+      setIsLoading(false);
+    }
+  }, [fixtureItems]);
 
   useEffect(() => {
     setQueryInput(queryParam);
@@ -152,19 +163,15 @@ export function EventsClient({ isAuthenticated }: { isAuthenticated: boolean }) 
       if (normalized === queryParam) return;
       replaceSearch({ query: normalized || null });
     }, 350);
-
     return () => window.clearTimeout(handle);
   }, [queryInput, queryParam, replaceSearch]);
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
-      const normalized = tagsInput
-        ? normalizeTags(tagsInput)
-        : "";
-      if (normalized === tagsParam) return;
-      replaceSearch({ tags: normalized || null });
-    }, 350);
-
+      const nextValue = normalizeTags(tagsInput);
+      if (nextValue === tagsParam) return;
+      replaceSearch({ tags: nextValue || null });
+    }, 450);
     return () => window.clearTimeout(handle);
   }, [replaceSearch, tagsInput, tagsParam]);
 
@@ -181,6 +188,7 @@ export function EventsClient({ isAuthenticated }: { isAuthenticated: boolean }) 
 
   const fetchEvents = useCallback(
     async (cursor?: string | null) => {
+      if (fixtureItems) return;
       const fetchId = latestFetchIdRef.current + 1;
       latestFetchIdRef.current = fetchId;
       if (cursor) setIsLoadingMore(true);
@@ -218,7 +226,7 @@ export function EventsClient({ isAuthenticated }: { isAuthenticated: boolean }) 
         else setIsLoading(false);
       }
     },
-    [searchParams],
+    [fixtureItems, searchParams],
   );
 
   useEffect(() => {
@@ -257,146 +265,103 @@ export function EventsClient({ isAuthenticated }: { isAuthenticated: boolean }) 
 
   return (
     <section className="space-y-4">
-      <p className="text-sm text-gray-700">Looking for something local? <Link className="underline" href="/nearby">Find events near you</Link>. Manage <Link className="underline" href="/saved-searches">saved searches</Link>.</p>
-      <p className="text-sm text-gray-700">Prefer a date grid? <Link className="underline" href={`/calendar${searchParams?.toString() ? `?${searchParams.toString()}` : ""}`}>Go to Calendar</Link>.</p>
+      <InlineBanner>
+        Looking for something local? <Link className="underline" href="/nearby">Find events near you</Link>. Manage <Link className="underline" href="/saved-searches">saved searches</Link>.
+      </InlineBanner>
 
-      <div className="rounded-lg border bg-white p-3">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <FeedToggle
-            value={feedParam}
-            disabledMine={!isAuthenticated}
-            onChange={(nextFeed) => replaceSearch({ feed: nextFeed === "all" ? null : nextFeed })}
-          />
-          {!isAuthenticated ? <p className="text-xs text-zinc-600">Sign in to unlock My Feed.</p> : null}
-        </div>
-
-        <div className="grid gap-3 md:grid-cols-2">
-          <label className="space-y-1 text-sm">
-            <span className="font-medium text-zinc-800">Search</span>
-            <input
-              value={queryInput}
-              onChange={(event) => setQueryInput(event.target.value)}
-              placeholder="Search events"
-              className="w-full rounded border px-3 py-2"
-            />
-          </label>
-          <label className="space-y-1 text-sm">
-            <span className="font-medium text-zinc-800">Tags (comma-separated)</span>
-            <input
-              value={tagsInput}
-              onChange={(event) => setTagsInput(event.target.value)}
-              placeholder="music,nightlife"
-              className="w-full rounded border px-3 py-2"
-            />
-          </label>
-          <label className="space-y-1 text-sm">
-            <span className="font-medium text-zinc-800">From</span>
-            <input
-              type="date"
-              value={fromInput}
-              onChange={(event) => setFromInput(event.target.value)}
-              onBlur={(event) => commitDate("from", event.target.value)}
-              className="w-full rounded border px-3 py-2"
-            />
-          </label>
-          <label className="space-y-1 text-sm">
-            <span className="font-medium text-zinc-800">To</span>
-            <input
-              type="date"
-              value={toInput}
-              onChange={(event) => setToInput(event.target.value)}
-              onBlur={(event) => commitDate("to", event.target.value)}
-              className="w-full rounded border px-3 py-2"
-            />
-          </label>
-        </div>
-
-        <EventFilterChips
-          filters={{ query: queryParam, tags: activeTags, from: fromParam, to: toParam }}
-          onRemove={replaceSearch}
-          onClearAll={() => replaceSearch({ query: null, tags: null, from: null, to: null })}
-        />
-      </div>
-
-      {feedParam === "all" ? <TrendingEvents /> : null}
-      {isAuthenticated && feedParam === "mine" && hasFollows ? <RecommendedEvents enabled excludeEventIds={filteredItems.map((event) => event.id)} /> : null}
-
-      <div className="rounded-lg border bg-zinc-50 px-3 py-2 text-sm text-zinc-700">
-        <p>{contextParts.length ? `${contextParts.join(" · ")} · ` : "Viewing upcoming events · "}<span className="font-medium text-zinc-900">Showing {loadedCountLabel}</span></p>
-      </div>
-
-      {error ? <ErrorCard message={error} onRetry={() => void fetchEvents(null)} /> : null}
-
-      {isLoading ? (
-        <ul className="space-y-2" aria-busy="true" aria-live="polite">
-          {Array.from({ length: 5 }).map((_, index) => (
-            <li key={`event-skeleton-${index}`}>
-              <EventCardSkeleton />
-            </li>
-          ))}
-        </ul>
+      {feedParam === "all" ? (
+        <Section title="Trending" subtitle="What audiences are bookmarking and viewing this week.">
+          <TrendingEvents />
+        </Section>
       ) : null}
 
-      {!isLoading && !error && filteredItems.length === 0 ? (
-        <EmptyState
-          title={feedParam === "mine" ? "Your feed is empty" : "No events match these filters"}
-          description={feedParam === "mine" ? "Follow artists or venues to populate your feed." : "Try broadening your criteria or explore nearby events."}
-          actions={[
-            { label: "Browse Nearby", href: "/nearby", variant: "secondary" },
-            ...(isAuthenticated ? [{ label: "Manage follows", href: "/following", variant: "secondary" as const }] : []),
-            ...(!isAuthenticated ? [{ label: "Sign in", href: "/login", variant: "secondary" as const }] : []),
-          ]}
-        >
-          <div className="flex flex-wrap gap-2">
-            {queryParam ? (
-              <Button type="button" variant="outline" size="sm" onClick={() => replaceSearch({ query: null })}>
-                Try clearing your search
-              </Button>
-            ) : null}
-            {activeTags.length ? (
-              <Button type="button" variant="outline" size="sm" onClick={() => replaceSearch({ tags: null })}>
-                Remove tag filters
-              </Button>
-            ) : null}
+      {isAuthenticated && feedParam === "mine" && hasFollows ? (
+        <Section title="For you" subtitle="Based on artists and venues you follow.">
+          <RecommendedEvents enabled excludeEventIds={filteredItems.map((event) => event.id)} />
+        </Section>
+      ) : null}
+
+      <Section
+        title="All events"
+        subtitle="Filter upcoming events by text, tags, and date range."
+        actions={<Link className="text-sm underline" href={`/calendar${searchParams?.toString() ? `?${searchParams.toString()}` : ""}`}>Go to Calendar</Link>}
+      >
+        <div className="rounded-lg border bg-zinc-50 p-3">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <FeedToggle
+              value={feedParam}
+              disabledMine={!isAuthenticated}
+              onChange={(nextFeed) => replaceSearch({ feed: nextFeed === "all" ? null : nextFeed })}
+            />
+            {!isAuthenticated ? <p className="text-xs text-zinc-600">Sign in to unlock My Feed.</p> : null}
           </div>
-        </EmptyState>
-      ) : null}
 
-      {!isLoading && filteredItems.length > 0 ? (
-        <ul className="space-y-2">
-          {filteredItems.map((event) => (
-            <li key={event.id}>
-              <EventCard
-                href={`/events/${event.slug}`}
-                title={event.title}
-                startAt={event.startAt}
-                endAt={event.endAt}
-                venueName={event.venue?.name}
-                imageUrl={event.primaryImageUrl}
-                badges={(event.tags ?? []).slice(0, 3).map((tag) => tag.slug)}
-                action={(
-                  <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
-                    <SaveEventButton
-                      eventId={event.id}
-                      initialSaved={favoriteIds.has(event.id)}
-                      nextUrl={`/events?${searchParams?.toString() ?? ""}`}
-                      isAuthenticated={isAuthenticated}
-                    />
-                  </div>
-                )}
-              />
-            </li>
-          ))}
-        </ul>
-      ) : null}
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="space-y-1 text-sm"><span className="font-medium text-zinc-800">Search</span><input value={queryInput} onChange={(event) => setQueryInput(event.target.value)} placeholder="Search events" className="w-full rounded border px-3 py-2" /></label>
+            <label className="space-y-1 text-sm"><span className="font-medium text-zinc-800">Tags (comma-separated)</span><input value={tagsInput} onChange={(event) => setTagsInput(event.target.value)} placeholder="music,nightlife" className="w-full rounded border px-3 py-2" /></label>
+            <label className="space-y-1 text-sm"><span className="font-medium text-zinc-800">From</span><input type="date" value={fromInput} onChange={(event) => setFromInput(event.target.value)} onBlur={(event) => commitDate("from", event.target.value)} className="w-full rounded border px-3 py-2" /></label>
+            <label className="space-y-1 text-sm"><span className="font-medium text-zinc-800">To</span><input type="date" value={toInput} onChange={(event) => setToInput(event.target.value)} onBlur={(event) => commitDate("to", event.target.value)} className="w-full rounded border px-3 py-2" /></label>
+          </div>
 
-      {!isLoading && !error && nextCursor ? (
-        <div>
-          <Button type="button" variant="outline" onClick={() => void fetchEvents(nextCursor)} disabled={isLoadingMore}>
-            {isLoadingMore ? "Loading..." : "Load more"}
-          </Button>
+          <EventFilterChips
+            filters={{ query: queryParam, tags: activeTags, from: fromParam, to: toParam }}
+            onRemove={replaceSearch}
+            onClearAll={() => replaceSearch({ query: null, tags: null, from: null, to: null })}
+          />
         </div>
-      ) : null}
+
+        <InlineBanner>
+          <p>{contextParts.length ? `${contextParts.join(" · ")} · ` : "Viewing upcoming events · "}<span className="font-medium text-zinc-900">Showing {loadedCountLabel}</span></p>
+        </InlineBanner>
+
+        {error ? <ErrorCard message={error} onRetry={() => void fetchEvents(null)} /> : null}
+
+        {isLoading ? (
+          <ul className="space-y-2" aria-busy="true" aria-live="polite">
+            {Array.from({ length: 5 }).map((_, index) => (<li key={`event-skeleton-${index}`}><EventCardSkeleton /></li>))}
+          </ul>
+        ) : null}
+
+        {!isLoading && !error && filteredItems.length === 0 ? (
+          <EmptyState
+            title={feedParam === "mine" ? "Your feed is empty" : "No events match these filters"}
+            description={feedParam === "mine" ? "Follow artists or venues to populate your feed." : "Try broadening your criteria or explore nearby events."}
+            actions={[
+              { label: "Browse Nearby", href: "/nearby", variant: "secondary" },
+              ...(isAuthenticated ? [{ label: "Manage follows", href: "/following", variant: "secondary" as const }] : []),
+              ...(!isAuthenticated ? [{ label: "Sign in", href: "/login", variant: "secondary" as const }] : []),
+            ]}
+          >
+            <div className="flex flex-wrap gap-2">
+              {queryParam ? <Button type="button" variant="outline" size="sm" onClick={() => replaceSearch({ query: null })}>Try clearing your search</Button> : null}
+              {activeTags.length ? <Button type="button" variant="outline" size="sm" onClick={() => replaceSearch({ tags: null })}>Remove tag filters</Button> : null}
+            </div>
+          </EmptyState>
+        ) : null}
+
+        {!isLoading && filteredItems.length > 0 ? (
+          <ul className="space-y-2">
+            {filteredItems.map((event) => (
+              <li key={event.id}>
+                <EventCard
+                  href={`/events/${event.slug}`}
+                  title={event.title}
+                  startAt={event.startAt}
+                  endAt={event.endAt}
+                  venueName={event.venue?.name}
+                  imageUrl={event.primaryImageUrl}
+                  badges={(event.tags ?? []).slice(0, 3).map((tag) => tag.slug)}
+                  action={(<div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}><SaveEventButton eventId={event.id} initialSaved={favoriteIds.has(event.id)} nextUrl={`/events?${searchParams?.toString() ?? ""}`} isAuthenticated={isAuthenticated} /></div>)}
+                />
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
+        {!isLoading && !error && nextCursor ? (
+          <div><Button type="button" variant="outline" onClick={() => void fetchEvents(nextCursor)} disabled={isLoadingMore}>{isLoadingMore ? "Loading..." : "Load more"}</Button></div>
+        ) : null}
+      </Section>
     </section>
   );
 }

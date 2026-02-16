@@ -1,28 +1,32 @@
 import { getSessionUser } from "@/lib/auth";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { PageHeader } from "@/components/ui/page-header";
+import { DataSourceEmptyState } from "@/components/ui/data-source-empty-state";
+import { useUiFixtures as getUiFixturesEnabled, uiFixtureEvents } from "@/lib/ui-fixtures";
 import { EventsClient } from "./events-client";
 
 export const revalidate = 30;
+const fixturesEnabled = getUiFixturesEnabled();
 
 export default async function EventsPage() {
+  const user = await getSessionUser();
+
   if (!hasDatabaseUrl()) {
     return (
-      <main className="p-6">
-        <PageHeader title="Events" subtitle="Browse upcoming events near you and across the city." />
-        <p className="pt-4">Set DATABASE_URL to view events locally.</p>
+      <main className="space-y-4 p-6">
+        <PageHeader title="Events" subtitle="Discover what’s on near you" />
+        {fixturesEnabled ? (
+          <EventsClient isAuthenticated={Boolean(user)} fixtureItems={uiFixtureEvents} />
+        ) : (
+          <DataSourceEmptyState isAdmin={user?.role === "ADMIN"} showDevHint={process.env.NODE_ENV === "development"} />
+        )}
       </main>
     );
   }
 
-  const user = await getSessionUser();
-
   return (
     <main className="space-y-4 p-6">
-      <PageHeader
-        title="Events"
-        subtitle="Browse upcoming events near you and across the city."
-      />
+      <PageHeader title="Events" subtitle="Discover what’s on near you" />
       <EventsClient isAuthenticated={Boolean(user)} />
     </main>
   );
