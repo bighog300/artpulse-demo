@@ -9,6 +9,7 @@ import { EventCardSkeleton } from "@/components/events/event-card-skeleton";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorCard } from "@/components/ui/error-card";
+import { buildEventQueryString, isValidDateInput, normalizeQuery, normalizeTags, parseEventFilters } from "@/lib/events-filters";
 
 type EventListItem = {
   id: string;
@@ -33,34 +34,16 @@ type FavoriteItem = {
 
 const EVENT_LIMIT = 24;
 
-function isValidDateInput(value: string) {
-  if (!value) return true;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const date = new Date(`${value}T00:00:00.000Z`);
-  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
-}
-
-function updateParamsString(
-  current: URLSearchParams,
-  updates: Record<string, string | null>,
-) {
-  const params = new URLSearchParams(current.toString());
-  for (const [key, value] of Object.entries(updates)) {
-    if (!value) params.delete(key);
-    else params.set(key, value);
-  }
-  return params.toString();
-}
-
 export function EventsClient({ isAuthenticated }: { isAuthenticated: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const queryParam = searchParams?.get("query") ?? "";
-  const tagsParam = searchParams?.get("tags") ?? "";
-  const fromParam = searchParams?.get("from") ?? "";
-  const toParam = searchParams?.get("to") ?? "";
+  const filters = parseEventFilters(searchParams);
+  const queryParam = filters.query;
+  const tagsParam = filters.tags.join(",");
+  const fromParam = filters.from;
+  const toParam = filters.to;
 
   const [queryInput, setQueryInput] = useState(queryParam);
   const [tagsInput, setTagsInput] = useState(tagsParam);
@@ -115,8 +98,7 @@ export function EventsClient({ isAuthenticated }: { isAuthenticated: boolean }) 
 
   const replaceSearch = useCallback(
     (updates: Record<string, string | null>) => {
-      const params = new URLSearchParams(searchParams?.toString() ?? "");
-      const next = updateParamsString(params, updates);
+      const next = buildEventQueryString(searchParams, updates);
       router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
     },
     [pathname, router, searchParams],
@@ -125,8 +107,9 @@ export function EventsClient({ isAuthenticated }: { isAuthenticated: boolean }) 
   useEffect(() => {
     const handle = window.setTimeout(() => {
       const value = queryInput.trim();
-      if (value === queryParam) return;
-      replaceSearch({ query: value || null });
+      const normalized = normalizeQuery(value);
+      if (normalized === queryParam) return;
+      replaceSearch({ query: normalized || null });
     }, 350);
 
     return () => window.clearTimeout(handle);
@@ -135,10 +118,8 @@ export function EventsClient({ isAuthenticated }: { isAuthenticated: boolean }) 
   useEffect(() => {
     const handle = window.setTimeout(() => {
       const normalized = tagsInput
-        .split(",")
-        .map((tag) => tag.trim())
-        .filter(Boolean)
-        .join(",");
+        ? normalizeTags(tagsInput)
+        : "";
       if (normalized === tagsParam) return;
       replaceSearch({ tags: normalized || null });
     }, 350);
@@ -241,6 +222,7 @@ export function EventsClient({ isAuthenticated }: { isAuthenticated: boolean }) 
   return (
     <section className="space-y-4">
       <p className="text-sm text-gray-700">Looking for something local? <Link className="underline" href="/nearby">Find events near you</Link>. Manage <Link className="underline" href="/saved-searches">saved searches</Link>.</p>
+      <p className="text-sm text-gray-700">Prefer a date grid? <Link className="underline" href={`/calendar${searchParams?.toString() ? `?${searchParams.toString()}` : ""}`}>Go to Calendar</Link>.</p>
 
       <div className="rounded-lg border bg-white p-3">
         <div className="grid gap-3 md:grid-cols-2">
