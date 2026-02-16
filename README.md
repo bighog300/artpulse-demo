@@ -47,13 +47,17 @@ pnpm dev
 
 See `ENVIRONMENT.md` for required environment variables.
 
+For deployment topology and DB automation, see:
+- `docs/ENVIRONMENTS.md`
+- `docs/DB_WORKFLOWS.md`
+
 ## Database & Prisma Commands
 
 ```bash
 pnpm prisma:generate
 pnpm prisma:migrate
 pnpm prisma:deploy
-pnpm db:seed
+SEED_ENABLED=true pnpm db:seed
 ```
 
 ## Auth secret required
@@ -86,7 +90,7 @@ If missing in production-like environments, auth boot will fail fast with a clea
    - Optional: `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` (enables `/nearby` map view)
 2. Ensure the production database is reachable from Vercel.
 3. Run migrations on deploy (`pnpm prisma:deploy`) before serving traffic.
-4. Optionally run `pnpm db:seed` for initial sample/admin data.
+4. Optionally run `SEED_ENABLED=true pnpm db:seed` for initial sample/admin data.
 5. Verify `/api/health` and `/api/ready` return `{ ok: true }` after deployment.
 6. Run `pnpm check-env` in CI/production build pipelines to enforce env contract.
 

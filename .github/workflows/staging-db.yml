@@ -1,0 +1,73 @@
+name: Staging DB (Neon)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  staging-db:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+      NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+      STAGING_BRANCH_NAME: staging
+      STAGING_PARENT_BRANCH: main
+      AUTH_SECRET: ci-staging-auth-secret
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Ensure staging Neon branch exists
+        run: node scripts/neon/create-branch.mjs --branch-name "$STAGING_BRANCH_NAME" --parent-branch "$STAGING_PARENT_BRANCH"
+
+      - name: Fetch staging DB connection URLs
+        id: neon-urls
+        run: node scripts/neon/get-connection-urls.mjs --branch-name "$STAGING_BRANCH_NAME"
+
+      - name: Deploy migrations to staging DB
+        env:
+          DATABASE_URL: ${{ steps.neon-urls.outputs.direct_url }}
+          DIRECT_URL: ${{ steps.neon-urls.outputs.direct_url }}
+        run: pnpm prisma migrate deploy
+
+      - name: Drift detection gate
+        env:
+          DIRECT_URL: ${{ steps.neon-urls.outputs.direct_url }}
+        run: |
+          set +e
+          pnpm prisma migrate diff --from-schema-datamodel prisma/schema.prisma --to-url "$DIRECT_URL" --exit-code
+          status=$?
+          set -e
+          if [ "$status" -eq 0 ]; then
+            echo "No schema drift detected."
+            exit 0
+          fi
+          echo "Schema drift detected. Run prisma migrate dev and commit migration."
+          exit "$status"
+
+      - name: Seed staging DB (optional)
+        if: ${{ vars.STAGING_SEED_ENABLED == 'true' }}
+        env:
+          DATABASE_URL: ${{ steps.neon-urls.outputs.database_url }}
+          DIRECT_URL: ${{ steps.neon-urls.outputs.direct_url }}
+          SEED_ENABLED: "true"
+          APP_ENV: staging
+        run: pnpm db:seed
