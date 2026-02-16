@@ -1,6 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { DiscoveryFilterBar } from "@/components/discovery/discovery-filter-bar";
+import { FollowButton } from "@/components/follows/follow-button";
+import { getSessionUser } from "@/lib/auth";
 import { getVenueAssocCounts, getVenueRoleFacetCounts } from "@/lib/discovery-counts";
 import { db } from "@/lib/db";
 import { parseDiscoveryFilters } from "@/lib/discovery-filters";
@@ -17,6 +19,7 @@ type VenuesPageProps = {
 export default async function VenuesPage({ searchParams }: VenuesPageProps) {
   const params = await searchParams;
   const filters = parseDiscoveryFilters(params);
+  const user = await getSessionUser();
 
   if (!hasDatabaseUrl()) {
     return (
@@ -77,6 +80,9 @@ export default async function VenuesPage({ searchParams }: VenuesPageProps) {
         id: true,
         slug: true,
         name: true,
+        city: true,
+        region: true,
+        country: true,
         description: true,
         featuredImageUrl: true,
         featuredAsset: { select: { url: true } },
@@ -95,6 +101,26 @@ export default async function VenuesPage({ searchParams }: VenuesPageProps) {
         })
       : [];
 
+  const venueIds = items.map((venue) => venue.id);
+  const [followerCounts, userFollows] = await Promise.all([
+    venueIds.length
+      ? db.follow.groupBy({
+          by: ["targetId"],
+          where: { targetType: "VENUE", targetId: { in: venueIds } },
+          _count: { _all: true },
+        })
+      : Promise.resolve([]),
+    user && venueIds.length
+      ? db.follow.findMany({
+          where: { userId: user.id, targetType: "VENUE", targetId: { in: venueIds } },
+          select: { targetId: true },
+        })
+      : Promise.resolve([]),
+  ]);
+
+  const followerCountByVenueId = new Map(followerCounts.map((entry) => [entry.targetId, entry._count._all]));
+  const followedVenueIds = new Set(userFollows.map((follow) => follow.targetId));
+
   const nextByVenueId = mapNextUpcomingEventByVenueId(upcomingEvents.map((event) => ({ ...event, venueId: event.venueId! })));
 
   return (
@@ -107,7 +133,7 @@ export default async function VenuesPage({ searchParams }: VenuesPageProps) {
           const nextEvent = nextByVenueId.get(venue.id);
 
           return (
-            <li key={venue.id} className="rounded border overflow-hidden">
+            <li key={venue.id} className="rounded border overflow-hidden bg-white">
               <Link href={`/venues/${venue.slug}`} className="block">
                 <div className="relative aspect-[16/9] w-full bg-zinc-100">
                   {coverUrl ? (
@@ -117,7 +143,10 @@ export default async function VenuesPage({ searchParams }: VenuesPageProps) {
                   )}
                 </div>
                 <div className="space-y-2 p-4">
-                  <h2 className="text-lg font-semibold">{venue.name}</h2>
+                  <div className="space-y-1">
+                    <h2 className="text-lg font-semibold">{venue.name}</h2>
+                    <p className="text-sm text-zinc-500">{[venue.city, venue.region, venue.country].filter(Boolean).join(", ") || "Location unavailable"}</p>
+                  </div>
                   <p className="text-sm text-zinc-600 line-clamp-2">{venue.description ?? "Discover upcoming art events at this venue."}</p>
                   {nextEvent ? (
                     <p className="text-sm text-zinc-700">
@@ -128,6 +157,15 @@ export default async function VenuesPage({ searchParams }: VenuesPageProps) {
                   )}
                 </div>
               </Link>
+              <div className="border-t px-4 py-3">
+                <FollowButton
+                  targetType="VENUE"
+                  targetId={venue.id}
+                  initialIsFollowing={followedVenueIds.has(venue.id)}
+                  initialFollowersCount={followerCountByVenueId.get(venue.id) ?? 0}
+                  isAuthenticated={Boolean(user)}
+                />
+              </div>
             </li>
           );
         })}

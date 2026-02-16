@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { resolveImageUrl } from "@/lib/assets";
@@ -7,6 +6,8 @@ import { getVenueDescriptionExcerpt, resolveVenueCoverUrl } from "@/lib/venues";
 import { getSessionUser } from "@/lib/auth";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { FollowButton } from "@/components/follows/follow-button";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { ShareButton } from "@/components/share-button";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { buildVenueJsonLd, getDetailUrl } from "@/lib/seo.public-profiles";
@@ -17,10 +18,14 @@ import { VenueGalleryLightbox } from "@/components/venues/venue-gallery-lightbox
 import { VenuePastEventsList } from "@/components/venues/venue-past-events-list";
 import { dedupeAssociatedArtists } from "@/lib/venue-associated-artists";
 import { VenueArtistsSection } from "@/components/venues/venue-artists-section";
+import { VenueHero } from "@/components/venues/venue-hero";
+import { RoleBadge } from "@/components/venues/role-badge";
+import { UpcomingEventsPreview } from "@/components/venues/upcoming-events-preview";
 
 const INITIAL_PAST_EVENTS = 6;
 const MAX_PAST_EVENTS = 12;
 const MAX_UPCOMING_EVENTS = 24;
+const UPCOMING_PREVIEW_LIMIT = 5;
 
 export const revalidate = 300;
 
@@ -82,9 +87,13 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
     select: {
       id: true,
       name: true,
+      slug: true,
       description: true,
       websiteUrl: true,
       addressLine1: true,
+      city: true,
+      region: true,
+      country: true,
       featuredImageUrl: true,
       featuredAsset: { select: { url: true, width: true, height: true, alt: true } },
       images: {
@@ -97,6 +106,11 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
           asset: { select: { url: true, width: true, height: true, alt: true } },
         },
       },
+      memberships: user ? {
+        where: { userId: user.id },
+        take: 1,
+        select: { role: true },
+      } : undefined,
       artistAssociations: {
         where: { status: "APPROVED", artist: { isPublished: true } },
         orderBy: [{ createdAt: "desc" }, { artistId: "asc" }],
@@ -255,27 +269,57 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
     address: venue.addressLine1,
   });
 
+  const membershipRole = venue.memberships?.[0]?.role ?? null;
+  const effectiveVenueRole = user?.role === "ADMIN" ? "ADMIN" : membershipRole;
+  const canSubmitEvent = Boolean(user && (user.role === "ADMIN" || user.role === "EDITOR" || membershipRole));
+  const submitHref = canSubmitEvent ? `/my/venues/${venue.id}/submit-event` : null;
+  const locationText = [venue.addressLine1, venue.city, venue.region, venue.country].filter(Boolean).join(", ");
+  const upcomingPreviewItems = upcoming.slice(0, UPCOMING_PREVIEW_LIMIT).map((event) => ({
+    id: event.id,
+    slug: event.slug,
+    title: event.title,
+    startAtIso: event.startAt.toISOString(),
+    imageUrl: event.imageUrl ?? null,
+  }));
+
   return (
     <main className="space-y-6 p-6">
       <Breadcrumbs items={[{ label: "Venues", href: "/venues" }, { label: venue.name, href: `/venues/${slug}` }]} />
-      <h1 className="text-3xl font-semibold">{venue.name}</h1>
-      <ShareButton />
-      <FollowButton
-        targetType="VENUE"
-        targetId={venue.id}
-        initialIsFollowing={Boolean(existingFollow)}
-        initialFollowersCount={followersCount}
-        isAuthenticated={Boolean(user)}
+      <VenueHero
+        name={venue.name}
+        imageUrl={featuredImageUrl}
+        locationText={locationText || undefined}
+        description={venue.description}
+        followSlot={(
+          <FollowButton
+            targetType="VENUE"
+            targetId={venue.id}
+            initialIsFollowing={Boolean(existingFollow)}
+            initialFollowersCount={followersCount}
+            isAuthenticated={Boolean(user)}
+          />
+        )}
+        metaSlot={
+          <>
+            {effectiveVenueRole ? <RoleBadge role={effectiveVenueRole} /> : null}
+            <ShareButton />
+          </>
+        }
       />
-      {featuredImageUrl ? (
-        <div className="relative h-64 w-full max-w-xl overflow-hidden rounded border">
-          <Image src={featuredImageUrl} alt={venue.name} fill sizes="(max-width: 768px) 100vw, 768px" className="object-cover" />
-        </div>
+
+      {canSubmitEvent ? (
+        <section className="rounded-xl border bg-zinc-50 p-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Contributing to this venue?</h2>
+              <p className="text-sm text-zinc-600">Submit a new event for editorial review.</p>
+            </div>
+            <Link href={submitHref!}>
+              <Button>Submit Event</Button>
+            </Link>
+          </div>
+        </section>
       ) : null}
-      <section className="space-y-2">
-        <h2 className="text-2xl font-semibold">About</h2>
-        <p>{venue.description}</p>
-      </section>
 
       {galleryImages.length > 0 ? <VenueGalleryLightbox images={galleryImages} /> : null}
 
@@ -284,18 +328,20 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
         derivedArtists={associatedArtists.derivedArtists}
       />
 
+      <UpcomingEventsPreview items={upcomingPreviewItems} viewAllHref={`/events?venue=${venue.slug}`} />
+
       <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">Upcoming events</h2>
-        {upcoming.length === 0 ? (
-          <p className="rounded border border-dashed p-4 text-sm text-zinc-600">No upcoming events yet.</p>
-        ) : (
-          <ul className="space-y-3">
-            {upcoming.map((event) => (
-              <li key={event.id}>
-                <VenueEventShowcaseCard event={event} />
-              </li>
-            ))}
-          </ul>
+        {upcoming.length === 0 ? null : (
+          <>
+            <h2 className="text-2xl font-semibold">All upcoming events</h2>
+            <ul className="space-y-3">
+              {upcoming.map((event) => (
+                <li key={event.id}>
+                  <VenueEventShowcaseCard event={event} />
+                </li>
+              ))}
+            </ul>
+          </>
         )}
       </section>
 
