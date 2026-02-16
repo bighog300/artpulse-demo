@@ -303,6 +303,7 @@ model Event {
   @@index([isPublished])
   @@index([venueId])
   @@index([isPublished, startAt])
+  @@index([isPublished, startAt, id])
   @@index([venueId, startAt])
   @@index([publishedAt])
 }
@@ -470,6 +471,7 @@ model EventArtist {
 
   @@id([eventId, artistId])
   @@index([artistId, sortOrder])
+  @@index([artistId, eventId])
   @@index([eventId, sortOrder])
 }
 
@@ -500,6 +502,7 @@ model EventImage {
   asset     Asset?   @relation(fields: [assetId], references: [id], onDelete: SetNull)
 
   @@index([assetId])
+  @@index([eventId, sortOrder])
 }
 
 model VenueImage {
@@ -549,6 +552,8 @@ model Favorite {
   user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, targetType, targetId])
+  @@index([targetType, targetId])
+  @@index([targetType, createdAt, targetId])
 }
 
 model Follow {

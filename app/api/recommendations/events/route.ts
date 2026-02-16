@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { unstable_cache } from "next/cache";
 import { apiError } from "@/lib/api";
 import { requireAuth } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -11,32 +12,16 @@ export const runtime = "nodejs";
 
 const SLOW_ROUTE_THRESHOLD_MS = 800;
 
-export async function GET(req: NextRequest) {
-  const requestId = getRequestId(req.headers);
-  const startedAt = performance.now();
-
-  try {
-    const user = await requireAuth();
-    const limit = Math.min(Math.max(Number(req.nextUrl.searchParams.get("limit") ?? "10") || 10, 1), 20);
-    const exclude = (req.nextUrl.searchParams.get("exclude") ?? "")
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean)
-      .slice(0, 20);
-
+const getRecommendationInputs = unstable_cache(
+  async (userId: string, dayBucket: string) => {
     const follows = await db.follow.findMany({
-      where: { userId: user.id },
+      where: { userId },
       select: { targetType: true, targetId: true },
     });
 
     const followedArtistIds = follows.filter((follow) => follow.targetType === "ARTIST").map((follow) => follow.targetId);
     const followedVenueIds = follows.filter((follow) => follow.targetType === "VENUE").map((follow) => follow.targetId);
-
-    if (!followedArtistIds.length && !followedVenueIds.length) {
-      return NextResponse.json({ items: [], reason: null }, { headers: { "cache-control": "private, no-store" } });
-    }
-
-    const now = new Date();
+    const now = new Date(`${dayBucket}T00:00:00.000Z`);
 
     const [followedArtists, followedVenues, seedEvents] = await Promise.all([
       followedArtistIds.length
@@ -62,6 +47,34 @@ export async function GET(req: NextRequest) {
         },
       }),
     ]);
+
+    return { followedArtistIds, followedVenueIds, followedArtists, followedVenues, seedEvents };
+  },
+  ["api-recommendations-events-inputs-v1"],
+  { revalidate: 120 },
+);
+
+export async function GET(req: NextRequest) {
+  const requestId = getRequestId(req.headers);
+  const startedAt = performance.now();
+
+  try {
+    const user = await requireAuth();
+    const limit = Math.min(Math.max(Number(req.nextUrl.searchParams.get("limit") ?? "10") || 10, 1), 20);
+    const exclude = (req.nextUrl.searchParams.get("exclude") ?? "")
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .slice(0, 20);
+
+    const dayBucket = new Date().toISOString().slice(0, 10);
+    const { followedArtistIds, followedVenueIds, followedArtists, followedVenues, seedEvents } = await getRecommendationInputs(user.id, dayBucket);
+
+    if (!followedArtistIds.length && !followedVenueIds.length) {
+      return NextResponse.json({ items: [], reason: null }, { headers: { "cache-control": "private, no-store" } });
+    }
+
+    const now = new Date();
 
     const tagScore = new Map<string, number>();
     for (const event of seedEvents) {
