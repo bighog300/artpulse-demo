@@ -1,6 +1,9 @@
 -- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";
 
+-- Baseline note
+-- No additional PostgreSQL extensions are required by the current Prisma schema.
+
 -- CreateEnum
 CREATE TYPE "Role" AS ENUM ('USER', 'EDITOR', 'ADMIN');
 
