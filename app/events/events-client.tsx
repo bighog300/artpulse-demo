@@ -47,7 +47,7 @@ type FollowManageData = {
 
 const EVENT_LIMIT = 24;
 
-export function EventsClient({ isAuthenticated, fixtureItems }: { isAuthenticated: boolean; fixtureItems?: UiFixtureEvent[] }) {
+export function EventsClient({ isAuthenticated, fixtureItems, fallbackFixtureItems }: { isAuthenticated: boolean; fixtureItems?: UiFixtureEvent[]; fallbackFixtureItems?: UiFixtureEvent[] }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -208,6 +208,12 @@ export function EventsClient({ isAuthenticated, fixtureItems }: { isAuthenticate
         const response = await fetch(`/api/events?${params.toString()}`, { cache: "no-store" });
         if (!response.ok) {
           if (latestFetchIdRef.current !== fetchId) return;
+          if (fallbackFixtureItems?.length && !cursor) {
+            setItems(fallbackFixtureItems);
+            setNextCursor(null);
+            setError(null);
+            return;
+          }
           setError("Unable to load events right now.");
           setNextCursor(null);
           return;
@@ -218,6 +224,12 @@ export function EventsClient({ isAuthenticated, fixtureItems }: { isAuthenticate
         setNextCursor(data.nextCursor);
       } catch {
         if (latestFetchIdRef.current !== fetchId) return;
+        if (fallbackFixtureItems?.length && !cursor) {
+          setItems(fallbackFixtureItems);
+          setNextCursor(null);
+          setError(null);
+          return;
+        }
         setError("Unable to load events right now.");
         setNextCursor(null);
       } finally {
@@ -226,7 +238,7 @@ export function EventsClient({ isAuthenticated, fixtureItems }: { isAuthenticate
         else setIsLoading(false);
       }
     },
-    [fixtureItems, searchParams],
+    [fallbackFixtureItems, fixtureItems, searchParams],
   );
 
   useEffect(() => {
