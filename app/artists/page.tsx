@@ -86,7 +86,7 @@ export default async function ArtistsPage({ searchParams }: ArtistsPageProps) {
       {featured.length > 0 ? (
         <Section title="Featured artists" subtitle="A short list of standout artist profiles.">
           <CardGrid columns={2}>
-            <ul className="space-y-2">{featured.map((artist) => <ArtistListItem key={`featured-${artist.id}`} artist={artist} isAuthenticated={Boolean(user)} />)}</ul>
+            {featured.map((artist) => <ArtistListItem key={`featured-${artist.id}`} artist={artist} isAuthenticated={Boolean(user)} />)}
           </CardGrid>
         </Section>
       ) : null}
@@ -94,7 +94,7 @@ export default async function ArtistsPage({ searchParams }: ArtistsPageProps) {
         {items.length === 0 ? (
           <EmptyState title="No artists match these filters" description="Try broadening your filters or explore events and search." actions={[{ label: "Browse events", href: "/events" }, { label: "Search", href: "/search", variant: "secondary" }]} />
         ) : (
-          <ul className="space-y-2">{items.map((artist) => <ArtistListItem key={artist.id} artist={artist} isAuthenticated={Boolean(user)} />)}</ul>
+          <div className="space-y-2">{items.map((artist) => <ArtistListItem key={artist.id} artist={artist} isAuthenticated={Boolean(user)} />)}</div>
         )}
       </Section>
     </main>
@@ -104,9 +104,5 @@ export default async function ArtistsPage({ searchParams }: ArtistsPageProps) {
 function ArtistListItem({ artist, isAuthenticated }: { artist: ArtistItem; isAuthenticated: boolean }) {
   const tags = artist.tags ?? Array.from(new Set(artist.eventArtists.flatMap((row) => row.event.eventTags.map(({ tag }) => tag.slug)))).slice(0, 3);
 
-  return (
-    <li>
-      <ArtistCard href={`/artists/${artist.slug}`} name={artist.name} imageUrl={artist.avatarImageUrl} bio={artist.bio} tags={tags} isAuthenticated={isAuthenticated} artistId={artist.id} />
-    </li>
-  );
+  return <ArtistCard href={`/artists/${artist.slug}`} name={artist.name} imageUrl={artist.avatarImageUrl} bio={artist.bio} tags={tags} isAuthenticated={isAuthenticated} artistId={artist.id} />;
 }

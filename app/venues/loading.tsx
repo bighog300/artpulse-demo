@@ -1,12 +1,13 @@
 import { LoadingCard } from "@/components/ui/loading-card";
+import { PageHeader } from "@/components/ui/page-header";
+import { Section } from "@/components/ui/section";
 
 export default function Loading() {
   return (
     <main className="space-y-4 p-6">
-      <LoadingCard lines={1} />
-      <div className="grid gap-4 md:grid-cols-2">
-        {Array.from({ length: 4 }).map((_, idx) => <LoadingCard key={idx} lines={3} />)}
-      </div>
+      <PageHeader title="Venues" subtitle="Find spaces hosting exhibitions, performances, and shows." />
+      <Section title="Featured venues"><LoadingCard lines={3} /></Section>
+      <Section title="All venues"><LoadingCard lines={6} /></Section>
     </main>
   );
 }

@@ -41,7 +41,7 @@ type FavoriteItem = {
   targetId: string;
 };
 
-export function CalendarClient({ isAuthenticated, fixtureItems }: { isAuthenticated: boolean; fixtureItems?: CalendarItem[] }) {
+export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureItems }: { isAuthenticated: boolean; fixtureItems?: CalendarItem[]; fallbackFixtureItems?: CalendarItem[] }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -141,6 +141,11 @@ export function CalendarClient({ isAuthenticated, fixtureItems }: { isAuthentica
     try {
       const response = await fetch(`/api/events?${params.toString()}`, { cache: "no-store" });
       if (!response.ok) {
+        if (fallbackFixtureItems?.length) {
+          setEvents(fallbackFixtureItems);
+          setError(null);
+          return;
+        }
         setError("Unable to load calendar events right now.");
         setEvents([]);
         return;
@@ -148,12 +153,17 @@ export function CalendarClient({ isAuthenticated, fixtureItems }: { isAuthentica
       const data = (await response.json()) as EventsResponse;
       setEvents(data.items ?? []);
     } catch {
-      setError("Unable to load calendar events right now.");
-      setEvents([]);
+      if (fallbackFixtureItems?.length) {
+        setEvents(fallbackFixtureItems);
+        setError(null);
+      } else {
+        setError("Unable to load calendar events right now.");
+        setEvents([]);
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [filters.artist, filters.from, filters.lat, filters.lng, filters.query, filters.radiusKm, filters.tags, filters.to, filters.venue, fixtureItems, range]);
+  }, [fallbackFixtureItems, filters.artist, filters.from, filters.lat, filters.lng, filters.query, filters.radiusKm, filters.tags, filters.to, filters.venue, fixtureItems, range]);
 
   useEffect(() => {
     void fetchEvents();
