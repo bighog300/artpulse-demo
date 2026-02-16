@@ -2,7 +2,20 @@
 
 import { useEffect, useState } from "react";
 
-type QueryName = "following_feed" | "events_list" | "admin_submissions" | "follow_counts";
+type QueryName =
+  | "events_list"
+  | "events_query"
+  | "events_tags"
+  | "events_date_range"
+  | "events_geo_bbox"
+  | "trending_groupby"
+  | "trending_event_lookup"
+  | "recommendations_seed"
+  | "venue_upcoming"
+  | "artist_upcoming"
+  | "artist_past"
+  | "admin_submissions"
+  | "follow_counts";
 
 type SnapshotListItem = {
   id: string;
@@ -11,10 +24,24 @@ type SnapshotListItem = {
   paramsJson: Record<string, unknown>;
 };
 
-const names: QueryName[] = ["following_feed", "events_list", "admin_submissions", "follow_counts"];
+const names: QueryName[] = [
+  "events_list",
+  "events_query",
+  "events_tags",
+  "events_date_range",
+  "events_geo_bbox",
+  "trending_groupby",
+  "trending_event_lookup",
+  "recommendations_seed",
+  "venue_upcoming",
+  "artist_upcoming",
+  "artist_past",
+  "admin_submissions",
+  "follow_counts",
+];
 
 export default function PerfAdminClient() {
-  const [name, setName] = useState<QueryName>("following_feed");
+  const [name, setName] = useState<QueryName>("events_list");
   const [days, setDays] = useState("30");
   const [limit, setLimit] = useState("20");
   const [status, setStatus] = useState("SUBMITTED");
@@ -36,14 +63,9 @@ export default function PerfAdminClient() {
   }, []);
 
   async function runExplain() {
-    const params: Record<string, unknown> = {};
-    if (name === "following_feed" || name === "events_list") {
-      params.days = Number(days);
-      params.limit = Number(limit);
-    }
+    const params: Record<string, unknown> = { limit: Number(limit), days: Number(days) };
     if (name === "admin_submissions") {
       params.status = status;
-      params.limit = Number(limit);
     }
     if (name === "follow_counts") {
       params.targetType = targetType;
@@ -83,14 +105,10 @@ export default function PerfAdminClient() {
           {names.map((n) => <option key={n} value={n}>{n}</option>)}
         </select>
 
-        {(name === "following_feed" || name === "events_list") ? (
-          <>
-            <label className="text-sm">Days</label>
-            <input className="border rounded px-2 py-1" value={days} onChange={(e) => setDays(e.target.value)} />
-            <label className="text-sm">Limit</label>
-            <input className="border rounded px-2 py-1" value={limit} onChange={(e) => setLimit(e.target.value)} />
-          </>
-        ) : null}
+        <label className="text-sm">Days</label>
+        <input className="border rounded px-2 py-1" value={days} onChange={(e) => setDays(e.target.value)} />
+        <label className="text-sm">Limit</label>
+        <input className="border rounded px-2 py-1" value={limit} onChange={(e) => setLimit(e.target.value)} />
 
         {name === "admin_submissions" ? (
           <>
@@ -100,8 +118,6 @@ export default function PerfAdminClient() {
               <option value="APPROVED">APPROVED</option>
               <option value="REJECTED">REJECTED</option>
             </select>
-            <label className="text-sm">Limit</label>
-            <input className="border rounded px-2 py-1" value={limit} onChange={(e) => setLimit(e.target.value)} />
           </>
         ) : null}
 

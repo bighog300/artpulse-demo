@@ -9,6 +9,7 @@ import { getBoundingBox, isWithinRadiusKm } from "@/lib/geo";
 import { logInfo, logWarn } from "@/lib/logging";
 import { getRequestId } from "@/lib/request-id";
 import { captureException } from "@/lib/telemetry";
+import { collectGeoFilteredPage } from "@/lib/events-geo-pagination";
 
 type EventWithJoin = {
   id: string;
@@ -68,33 +69,65 @@ export async function GET(req: NextRequest) {
         ],
       });
     }
-    filters.push(...buildStartAtIdCursorPredicate(decodedCursor));
 
-    const items = (await db.event.findMany({
-      where: {
-        isPublished: true,
-        ...(filters.length ? { AND: filters } : {}),
-      },
-      take: limit + 1,
-      orderBy: START_AT_ID_ORDER_BY,
-      include: {
-        eventArtists: { select: { artistId: true } },
-        venue: { select: { id: true, name: true, slug: true, city: true, lat: true, lng: true } },
-        images: { take: 1, orderBy: { sortOrder: "asc" }, include: { asset: { select: { url: true } } } },
-        eventTags: { include: { tag: { select: { name: true, slug: true } } } },
-      },
-    })) as EventWithJoin[];
+    const shouldLogSegments = process.env.PERF_LOG_QUERY_SEGMENTS === "true";
 
-    const filtered = box && lat != null && lng != null && radiusKm != null
-      ? items.filter((e) => {
-          const sourceLat = e.lat ?? e.venue?.lat;
-          const sourceLng = e.lng ?? e.venue?.lng;
-          return sourceLat != null && sourceLng != null && isWithinRadiusKm(lat, lng, sourceLat, sourceLng, radiusKm);
+    const findBatch = async (batchCursor: { id: string; startAt: Date } | null, take: number) => {
+      const effectiveCursor = batchCursor ?? decodedCursor;
+      const batchFilters = [...filters, ...buildStartAtIdCursorPredicate(effectiveCursor)];
+      const queryStartedAt = performance.now();
+      const rows = (await db.event.findMany({
+        where: {
+          isPublished: true,
+          ...(batchFilters.length ? { AND: batchFilters } : {}),
+        },
+        take,
+        orderBy: START_AT_ID_ORDER_BY,
+        include: {
+          eventArtists: { select: { artistId: true } },
+          venue: { select: { id: true, name: true, slug: true, city: true, lat: true, lng: true } },
+          images: { take: 1, orderBy: { sortOrder: "asc" }, include: { asset: { select: { url: true } } } },
+          eventTags: { include: { tag: { select: { name: true, slug: true } } } },
+        },
+      })) as EventWithJoin[];
+
+      if (shouldLogSegments) {
+        logInfo({
+          message: "api_events_batch_query_completed",
+          route: "/api/events",
+          requestId,
+          durationMs: Number((performance.now() - queryStartedAt).toFixed(1)),
+          take,
+          resultCount: rows.length,
+          geoEnabled: Boolean(box),
+        });
+      }
+
+      return rows;
+    };
+
+    const geoEnabled = box && lat != null && lng != null && radiusKm != null;
+    const pageResult = geoEnabled
+      ? await collectGeoFilteredPage<EventWithJoin>({
+          limit,
+          initialCursor: decodedCursor,
+          fetchBatch: findBatch,
+          toCursor: (item) => ({ id: item.id, startAt: item.startAt }),
+          isMatch: (e) => {
+            const sourceLat = e.lat ?? e.venue?.lat;
+            const sourceLng = e.lng ?? e.venue?.lng;
+            return sourceLat != null && sourceLng != null && isWithinRadiusKm(lat, lng, sourceLat, sourceLng, radiusKm);
+          },
         })
-      : items;
+      : (() => ({
+          page: [] as EventWithJoin[],
+          hasMore: false,
+          nextCursor: null,
+        }))();
 
-    const hasMore = filtered.length > limit;
-    const page = hasMore ? filtered.slice(0, limit) : filtered;
+    const fallbackItems = geoEnabled ? [] : await findBatch(null, limit + 1);
+    const hasMore = geoEnabled ? pageResult.hasMore : fallbackItems.length > limit;
+    const page = geoEnabled ? pageResult.page : (hasMore ? fallbackItems.slice(0, limit) : fallbackItems);
     const durationMs = Number((performance.now() - startedAt).toFixed(1));
 
     logInfo({ message: "api_events_completed", route: "/api/events", requestId, durationMs, resultCount: page.length });
@@ -109,7 +142,7 @@ export async function GET(req: NextRequest) {
         tags: (e.eventTags ?? []).map((et) => ({ name: et.tag.name, slug: et.tag.slug })),
         artistIds: (e.eventArtists ?? []).map((eventArtist) => eventArtist.artistId),
       })),
-      nextCursor: hasMore ? encodeCursor(page[page.length - 1]) : null,
+      nextCursor: hasMore && page.length > 0 ? encodeCursor(page[page.length - 1]) : null,
     });
   } catch (error) {
     captureException(error, { route: "/api/events", requestId });
