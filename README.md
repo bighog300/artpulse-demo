@@ -77,12 +77,16 @@ If missing in production-like environments, auth boot will fail fast with a clea
 
 1. Set the following **production** environment variables in Vercel:
    - `DATABASE_URL`
+   - `DIRECT_URL`
    - `AUTH_SECRET`
+   - `NEXTAUTH_URL`
+   - `CRON_SECRET`
    - `AUTH_GOOGLE_ID`
    - `AUTH_GOOGLE_SECRET`
    - Optional: `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` (enables `/nearby` map view)
 2. Ensure the production database is reachable from Vercel.
 3. Run migrations on deploy (`pnpm prisma:deploy`) before serving traffic.
 4. Optionally run `pnpm db:seed` for initial sample/admin data.
-5. Verify `/api/health` returns `{ ok: true }` after deployment.
+5. Verify `/api/health` and `/api/ready` return `{ ok: true }` after deployment.
+6. Run `pnpm check-env` in CI/production build pipelines to enforce env contract.
 

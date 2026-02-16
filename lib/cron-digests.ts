@@ -1,3 +1,4 @@
+import { captureException, trackMetric } from "@/lib/telemetry";
 import { Prisma } from "@prisma/client";
 import { digestDedupeKey, digestSnapshotItemsSchema, isoWeekStamp } from "@/lib/digest";
 import { runSavedSearchEvents } from "@/lib/saved-searches";
@@ -23,6 +24,7 @@ export async function runWeeklyDigests(headerSecret: string | null, digestDb: Di
   if (!configuredSecret) return Response.json({ error: { code: "misconfigured", message: "CRON_SECRET is not configured", details: undefined } }, { status: 500 });
   if (headerSecret !== configuredSecret) return Response.json({ error: { code: "unauthorized", message: "Invalid cron secret", details: undefined } }, { status: 401 });
 
+  try {
   const now = new Date();
   const periodKey = isoWeekStamp(now);
   const threshold = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000);
@@ -87,5 +89,10 @@ export async function runWeeklyDigests(headerSecret: string | null, digestDb: Di
     sent += 1;
   }
 
+  trackMetric("cron.digest.processed", processed, { sent, skipped });
   return Response.json({ processed, sent, skipped });
+  } catch (error) {
+    captureException(error, { route: "/api/cron/digests/weekly" });
+    return Response.json({ error: { code: "internal_error", message: "Cron execution failed", details: undefined } }, { status: 500 });
+  }
 }

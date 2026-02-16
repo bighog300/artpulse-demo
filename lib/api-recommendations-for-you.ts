@@ -20,7 +20,7 @@ export async function handleForYouGet(req: { nextUrl: URL }, deps: {
       limit: parsed.data.limit,
     });
 
-    return NextResponse.json({ windowDays: result.windowDays, items: result.items });
+    return NextResponse.json({ windowDays: result.windowDays, items: result.items }, { headers: { "cache-control": "private, no-store" } });
   } catch {
     return apiError(401, "unauthorized", "Login required");
   }

@@ -3,6 +3,8 @@ import GoogleProvider from "next-auth/providers/google";
 import { db } from "@/lib/db";
 import type { VenueMembershipRole } from "@prisma/client";
 import { hasMinimumVenueRole } from "@/lib/ownership";
+import { logWarn } from "@/lib/logging";
+import { trackMetric } from "@/lib/telemetry";
 
 export type SessionUser = { id: string; email: string; name: string | null; role: "USER" | "EDITOR" | "ADMIN" };
 
@@ -16,6 +18,24 @@ if (isProdLikeEnv && !authSecret) {
 }
 
 const hasAuthConfig = Boolean(authSecret && googleClientId && googleClientSecret);
+
+
+const authFailureWindowMs = 60_000;
+const authFailureState = { windowStart: 0, count: 0 };
+
+function logRateLimitedAuthFailure() {
+  const now = Date.now();
+  if (now - authFailureState.windowStart >= authFailureWindowMs) {
+    authFailureState.windowStart = now;
+    authFailureState.count = 0;
+  }
+  authFailureState.count += 1;
+  if (authFailureState.count <= 3) {
+    logWarn({ message: "auth_failure", reason: "missing_session", countInWindow: authFailureState.count });
+  }
+  trackMetric("auth.failure", 1, { reason: "missing_session" });
+}
+
 
 export const authOptions: NextAuthOptions = {
   secret: authSecret,
@@ -81,7 +101,10 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 
 export async function requireAuth() {
   const user = await getSessionUser();
-  if (!user) throw new Error("unauthorized");
+  if (!user) {
+    logRateLimitedAuthFailure();
+    throw new Error("unauthorized");
+  }
   return user;
 }
 

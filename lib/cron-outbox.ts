@@ -1,3 +1,4 @@
+import { captureException, trackMetric } from "@/lib/telemetry";
 export type SendPendingNotifications = ({ limit }: { limit: number }) => Promise<{
   sent: number;
   failed: number;
@@ -17,6 +18,12 @@ export async function runCronOutboxSend(
     return Response.json({ error: { code: "unauthorized", message: "Invalid cron secret", details: undefined } }, { status: 401 });
   }
 
-  const result = await sendPendingNotifications({ limit: 25 });
-  return Response.json(result);
+  try {
+    const result = await sendPendingNotifications({ limit: 25 });
+    trackMetric("cron.outbox.sent", result.sent, { failed: result.failed, skipped: result.skipped });
+    return Response.json(result);
+  } catch (error) {
+    captureException(error, { route: "/api/cron/outbox/send" });
+    return Response.json({ error: { code: "internal_error", message: "Cron execution failed", details: undefined } }, { status: 500 });
+  }
 }
