@@ -20,7 +20,8 @@
     "prisma:deploy": "prisma migrate deploy",
     "db:seed": "node prisma/seed.js",
     "postinstall": "prisma generate",
-    "prisma:check-migration-order": "node scripts/check-migration-order.mjs"
+    "prisma:check-migration-order": "node scripts/check-migration-order.mjs",
+    "check-env": "node scripts/check-env.mjs"
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.20",

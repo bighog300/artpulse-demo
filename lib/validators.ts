@@ -9,7 +9,7 @@ export const httpUrlSchema = z.url().refine((value) => value.startsWith("http://
 const isoDatetimeSchema = z.iso.datetime({ offset: true }).or(z.iso.datetime({ local: true }));
 
 export const eventsQuerySchema = z.object({
-  query: z.string().trim().min(1).optional(),
+  query: z.string().trim().min(1).max(120).optional(),
   from: isoDatetimeSchema.optional(),
   to: isoDatetimeSchema.optional(),
   lat: z.coerce.number().min(-90).max(90).optional(),
@@ -17,7 +17,7 @@ export const eventsQuerySchema = z.object({
   radiusKm: z.coerce.number().positive().max(500).optional(),
   venue: slugSchema.optional(),
   artist: slugSchema.optional(),
-  tags: z.string().optional(),
+  tags: z.string().optional().refine((value) => !value || value.split(",").map((tag) => tag.trim()).filter(Boolean).length <= 20, "tags must include at most 20 values"),
   cursor: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });

@@ -69,3 +69,12 @@ test("unauthenticated access rejected by service deps", async () => {
     /unauthorized/,
   );
 });
+
+
+test("runExplain is gated behind PERF_EXPLAIN_ENABLED", async () => {
+  const { runExplain } = await import("../lib/perf/explain.ts");
+  const previous = process.env.PERF_EXPLAIN_ENABLED;
+  process.env.PERF_EXPLAIN_ENABLED = "false";
+  await assert.rejects(() => runExplain("SELECT 1", []), /explain_disabled/);
+  process.env.PERF_EXPLAIN_ENABLED = previous;
+});

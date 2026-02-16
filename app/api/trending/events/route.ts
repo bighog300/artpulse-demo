@@ -1,13 +1,18 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { unstable_cache } from "next/cache";
 import { FavoriteTargetType } from "@prisma/client";
 import { db } from "@/lib/db";
 import { resolveImageUrl } from "@/lib/assets";
+import { getRequestId } from "@/lib/request-id";
+import { logInfo, logWarn } from "@/lib/logging";
+import { captureException } from "@/lib/telemetry";
+import { apiError } from "@/lib/api";
 
 export const runtime = "nodejs";
 
 const WINDOW_DAYS = 14;
 const LIMIT = 10;
+const SLOW_ROUTE_THRESHOLD_MS = 800;
 
 const getTrendingEvents = unstable_cache(
   async () => {
@@ -62,7 +67,22 @@ const getTrendingEvents = unstable_cache(
   { revalidate: 300 },
 );
 
-export async function GET() {
-  const items = await getTrendingEvents();
-  return NextResponse.json({ items });
+export async function GET(req: NextRequest) {
+  const requestId = getRequestId(req.headers);
+  const startedAt = performance.now();
+
+  try {
+    const items = await getTrendingEvents();
+    const durationMs = Number((performance.now() - startedAt).toFixed(1));
+
+    logInfo({ message: "api_trending_events_completed", route: "/api/trending/events", requestId, durationMs, resultCount: items.length });
+    if (durationMs > SLOW_ROUTE_THRESHOLD_MS) {
+      logWarn({ message: "api_trending_events_slow", route: "/api/trending/events", requestId, durationMs, resultCount: items.length, thresholdMs: SLOW_ROUTE_THRESHOLD_MS });
+    }
+
+    return NextResponse.json({ items }, { headers: { "cache-control": "public, s-maxage=300, stale-while-revalidate=60" } });
+  } catch (error) {
+    captureException(error, { route: "/api/trending/events", requestId });
+    return apiError(500, "internal_error", "Unexpected server error", undefined, requestId);
+  }
 }

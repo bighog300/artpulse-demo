@@ -25,6 +25,11 @@ jobs:
 
     env:
       AUTH_SECRET: ci-dummy-auth-secret
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/artpulse_ci?schema=public
+      DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/artpulse_ci?schema=public
+      NEXTAUTH_URL: http://127.0.0.1:3000
+      CRON_SECRET: ci-dummy-cron-secret
+      PERF_EXPLAIN_ENABLED: false
 
     steps:
       - name: Checkout
@@ -56,9 +61,6 @@ jobs:
         run: pnpm prisma:check-migration-order
 
       - name: Verify migrate deploy on clean Postgres
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/artpulse_ci?schema=public
-          DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/artpulse_ci?schema=public
         run: pnpm prisma migrate deploy
 
       - name: Lint
@@ -69,6 +71,9 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+      - name: Check production env contract
+        run: pnpm check-env
 
       - name: Build
         run: pnpm build

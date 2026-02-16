@@ -3,17 +3,26 @@ import { apiError } from "@/lib/api";
 import { requireAuth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { resolveImageUrl } from "@/lib/assets";
+import { getRequestId } from "@/lib/request-id";
+import { logInfo, logWarn } from "@/lib/logging";
+import { captureException } from "@/lib/telemetry";
 
 export const runtime = "nodejs";
 
+const SLOW_ROUTE_THRESHOLD_MS = 800;
+
 export async function GET(req: NextRequest) {
+  const requestId = getRequestId(req.headers);
+  const startedAt = performance.now();
+
   try {
     const user = await requireAuth();
-    const limit = Math.min(Number(req.nextUrl.searchParams.get("limit") ?? "10") || 10, 20);
+    const limit = Math.min(Math.max(Number(req.nextUrl.searchParams.get("limit") ?? "10") || 10, 1), 20);
     const exclude = (req.nextUrl.searchParams.get("exclude") ?? "")
       .split(",")
       .map((item) => item.trim())
-      .filter(Boolean);
+      .filter(Boolean)
+      .slice(0, 20);
 
     const follows = await db.follow.findMany({
       where: { userId: user.id },
@@ -24,7 +33,7 @@ export async function GET(req: NextRequest) {
     const followedVenueIds = follows.filter((follow) => follow.targetType === "VENUE").map((follow) => follow.targetId);
 
     if (!followedArtistIds.length && !followedVenueIds.length) {
-      return NextResponse.json({ items: [], reason: null });
+      return NextResponse.json({ items: [], reason: null }, { headers: { "cache-control": "private, no-store" } });
     }
 
     const now = new Date();
@@ -67,7 +76,7 @@ export async function GET(req: NextRequest) {
       .slice(0, 8)
       .map(([tag]) => tag);
 
-    if (!topTags.length) return NextResponse.json({ items: [], reason: null });
+    if (!topTags.length) return NextResponse.json({ items: [], reason: null }, { headers: { "cache-control": "private, no-store" } });
 
     const excludedIds = new Set<string>([...exclude, ...seedEvents.map((event) => event.id)]);
 
@@ -113,12 +122,19 @@ export async function GET(req: NextRequest) {
       .sort((a, b) => b.score - a.score || a.startAt.localeCompare(b.startAt))
       .slice(0, limit);
 
+    const durationMs = Number((performance.now() - startedAt).toFixed(1));
+    logInfo({ message: "api_recommendations_events_completed", route: "/api/recommendations/events", requestId, durationMs, resultCount: items.length });
+    if (durationMs > SLOW_ROUTE_THRESHOLD_MS) {
+      logWarn({ message: "api_recommendations_events_slow", route: "/api/recommendations/events", requestId, durationMs, resultCount: items.length, thresholdMs: SLOW_ROUTE_THRESHOLD_MS });
+    }
+
     const reason = followedArtists[0]?.name ?? followedVenues[0]?.name ?? null;
-    return NextResponse.json({ items, reason });
+    return NextResponse.json({ items, reason }, { headers: { "cache-control": "private, no-store" } });
   } catch (error) {
     if (error instanceof Error && error.message === "unauthorized") {
-      return apiError(401, "unauthorized", "Authentication required");
+      return apiError(401, "unauthorized", "Authentication required", undefined, requestId);
     }
-    return NextResponse.json({ items: [], reason: null });
+    captureException(error, { route: "/api/recommendations/events", requestId });
+    return apiError(500, "internal_error", "Unexpected server error", undefined, requestId);
   }
 }

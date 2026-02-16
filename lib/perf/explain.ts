@@ -14,6 +14,7 @@ export function assertExplainSafe(sql: string) {
 }
 
 export async function runExplain(sql: string, params: unknown[]): Promise<string> {
+  if (process.env.PERF_EXPLAIN_ENABLED !== "true") throw new Error("explain_disabled");
   assertExplainSafe(sql);
 
   const allowAnalyze = process.env.PERF_ALLOW_ANALYZE === "true";

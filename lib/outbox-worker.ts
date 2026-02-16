@@ -1,3 +1,4 @@
+import { captureException } from "@/lib/telemetry";
 import { NotificationType, Prisma } from "@prisma/client";
 
 type OutboxRow = {
@@ -85,6 +86,7 @@ export async function sendPendingNotificationsWithDb({ limit }: { limit: number 
         skipped += 1;
       }
     } catch (error) {
+      captureException(error, { worker: "outbox", outboxId: notification.id, dedupeKey: notification.dedupeKey });
       const message = error instanceof Error ? error.message : "Unknown send error";
       const markedFailed = await db.notificationOutbox.updateMany({
         where: { id: notification.id, status: "PROCESSING", errorMessage: null },
