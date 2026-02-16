@@ -88,7 +88,7 @@ export function FollowButton({
 
   if (!isAuthenticated) {
     return (
-      <Link className="inline-flex rounded border px-3 py-1 text-sm hover:bg-gray-50" href="/login">
+      <Link className="inline-flex rounded border px-3 py-1 text-sm motion-safe:transition-colors motion-safe:duration-150 motion-reduce:transition-none hover:bg-zinc-50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900" href="/login">
         Sign in to follow · {followersCount}
       </Link>
     );
@@ -99,7 +99,10 @@ export function FollowButton({
       type="button"
       onClick={onToggle}
       disabled={isSaving}
-      className="inline-flex rounded border px-3 py-1 text-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-70"
+      className="inline-flex rounded border px-3 py-1 text-sm motion-safe:transition-colors motion-safe:duration-150 motion-reduce:transition-none hover:bg-zinc-50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 disabled:cursor-not-allowed disabled:opacity-70"
+      aria-pressed={isFollowing}
+      aria-busy={isSaving}
+      aria-label={`${isFollowing ? "Unfollow" : "Follow"} ${targetType.toLowerCase()} with ${followersCount} followers`}
     >
       {isFollowing ? "Following" : "Follow"} · {followersCount}
     </button>

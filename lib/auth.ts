@@ -9,6 +9,11 @@ export type SessionUser = { id: string; email: string; name: string | null; role
 const googleClientId = process.env.AUTH_GOOGLE_ID;
 const googleClientSecret = process.env.AUTH_GOOGLE_SECRET;
 const authSecret = process.env.AUTH_SECRET;
+const isProdLikeEnv = process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
+
+if (isProdLikeEnv && !authSecret) {
+  throw new Error("AUTH_SECRET is required in production/preview (set AUTH_SECRET to a secure random value, e.g. `openssl rand -base64 32`).");
+}
 
 const hasAuthConfig = Boolean(authSecret && googleClientId && googleClientSecret);
 

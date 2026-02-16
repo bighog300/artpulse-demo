@@ -56,6 +56,16 @@ pnpm prisma:deploy
 pnpm db:seed
 ```
 
+## Auth secret required
+
+`AUTH_SECRET` must be set for preview/production-like environments (`VERCEL=1` or `NODE_ENV=production`).
+
+- Generate one with `openssl rand -base64 32`
+- Set it in your `.env.local` for local production testing
+- Set it in Vercel environment variables for Preview and Production
+
+If missing in production-like environments, auth boot will fail fast with a clear error.
+
 ## Deployment
 
 - Push to GitHub

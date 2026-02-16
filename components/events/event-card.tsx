@@ -23,7 +23,10 @@ function formatRange(startAt: string | Date, endAt?: string | Date | null) {
 
 export function EventCard({ title, startAt, endAt, venueName, imageUrl, href, badges, secondaryText, action }: EventCardProps) {
   const card = (
-    <Link href={href} className="group block overflow-hidden rounded-lg border bg-white transition hover:border-zinc-400 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900">
+    <Link
+      href={href}
+      className="group block overflow-hidden rounded-lg border bg-white motion-safe:transition-colors motion-safe:transition-shadow motion-safe:duration-150 motion-reduce:transition-none hover:border-zinc-400 hover:bg-zinc-50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900"
+    >
       <div className="flex gap-3 p-3">
         <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded bg-zinc-100">
           {imageUrl ? <Image src={imageUrl} alt="" fill className="object-cover" sizes="80px" /> : <div className="flex h-full items-center justify-center text-xs text-zinc-500">No image</div>}

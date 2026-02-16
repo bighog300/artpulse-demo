@@ -27,14 +27,17 @@ export function CalendarScopeToggle({ scope }: { scope: CalendarScope }) {
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Calendar scope">
       {SCOPES.map((item) => (
         <Button
           key={item.value}
           type="button"
           size="sm"
           variant={scope === item.value ? "default" : "outline"}
+          role="tab"
+          aria-selected={scope === item.value}
           onClick={() => onSelect(item.value)}
+          className="focus-visible:ring-2 focus-visible:ring-zinc-900"
         >
           {item.label}
         </Button>
