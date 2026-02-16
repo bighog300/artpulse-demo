@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { getNavItems } from "@/components/navigation/nav-config";
 
@@ -25,6 +26,28 @@ function NotificationLink({ unread }: { unread: number }) {
     <Link className="text-sm text-zinc-700 hover:text-zinc-900" href="/notifications">
       Notifications
       {unread > 0 ? <span className="ml-1 rounded-full bg-black px-2 py-0.5 text-xs text-white">{unread}</span> : null}
+    </Link>
+  );
+}
+
+function isPathActive(pathname: string, href: string) {
+  if (href === "/") return pathname === "/";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function NavItemLink({ href, label, onClick, className = "" }: { href: string; label: string; onClick?: () => void; className?: string }) {
+  const pathname = usePathname() ?? "/";
+  const isActive = isPathActive(pathname, href);
+
+  return (
+    <Link
+      key={href}
+      className={`text-sm ${isActive ? "font-medium text-zinc-900" : "text-zinc-700 hover:text-zinc-900"} ${className}`}
+      href={href}
+      aria-current={isActive ? "page" : undefined}
+      onClick={onClick}
+    >
+      {label}
     </Link>
   );
 }
@@ -106,7 +129,7 @@ export function SiteNavClient({ isAuthenticated }: SiteNavClientProps) {
           {otherItems.map((item) => (
             item.href === "/notifications" && isAuthenticated
               ? <NotificationLink key={item.href} unread={unread} />
-              : <Link key={item.href} className="text-sm text-zinc-700 hover:text-zinc-900" href={item.href}>{item.label}</Link>
+              : <NavItemLink key={item.href} href={item.href} label={item.label} />
           ))}
 
           {isAuthenticated ? (
@@ -144,7 +167,7 @@ export function SiteNavClient({ isAuthenticated }: SiteNavClientProps) {
           {notificationOrAccountItems.map((item) => (
             item.href === "/notifications" && isAuthenticated
               ? <NotificationLink key={item.href} unread={unread} />
-              : <Link key={item.href} className="text-sm text-zinc-700 hover:text-zinc-900" href={item.href}>{item.label}</Link>
+              : <NavItemLink key={item.href} href={item.href} label={item.label} />
           ))}
 
           {isAuthenticated ? null : <Link className="rounded border px-3 py-1.5 text-sm" href="/login">Sign in</Link>}
@@ -166,7 +189,7 @@ export function SiteNavClient({ isAuthenticated }: SiteNavClientProps) {
           {items.map((item) => (
             item.href === "/notifications" && isAuthenticated
               ? <div key={item.href}><NotificationLink unread={unread} /></div>
-              : <Link key={item.href} className="block text-sm text-zinc-700 hover:text-zinc-900" href={item.href} onClick={() => setIsMobileOpen(false)}>{item.label}</Link>
+              : <NavItemLink key={item.href} href={item.href} label={item.label} className="block" onClick={() => setIsMobileOpen(false)} />
           ))}
           {isAuthenticated ? (
             <div className="mt-3 space-y-1 border-t pt-3">
