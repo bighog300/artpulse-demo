@@ -16,9 +16,23 @@ export const SummaryArtifactSchema = z.object({
   updatedAt: z.string().min(1).optional(),
 }).strict();
 
-export const DriveSummaryEnvelopeSchema = SummaryArtifactSchema.passthrough();
+const isoDateString = z.string().datetime({ offset: true });
 
-export const DriveSummaryJsonSchema = DriveSummaryEnvelopeSchema;
+export const DriveEnvelopeOptionalFieldsSchema = z.object({
+  type: z.literal("summary").optional(),
+  status: z.string().optional(),
+  id: z.string().optional(),
+  updatedAtISO: isoDateString.optional(),
+  meta: z.object({
+    origin: z.string().optional(),
+    source: z.string().optional(),
+    actor: z.string().optional(),
+  }).partial().passthrough().optional(),
+});
+
+export const DriveSummaryEnvelopeSchema = SummaryArtifactSchema.and(DriveEnvelopeOptionalFieldsSchema);
+
+export const DriveSummaryJsonSchema = DriveSummaryEnvelopeSchema.and(z.object({}).passthrough());
 
 export const SummarizeRequestSchema = z.object({
   prompt: z.string().trim().min(1),

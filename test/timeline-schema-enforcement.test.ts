@@ -71,6 +71,37 @@ test("POST /api/timeline/summarize accepts Drive summary JSON with unknown top-l
   assert.equal(body.artifactCount, 1);
 });
 
+test("POST /api/timeline/summarize validates optional Drive envelope fields when present", async () => {
+  const req = new NextRequest("http://localhost/api/timeline/summarize", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-request-id": "req-envelope-fields" },
+    body: JSON.stringify({ prompt: "hello", summaryFileIds: ["enveloped"] }),
+  });
+
+  const res = await handleTimelineSummarizePost(req, {
+    readSummaryJson: async () => JSON.stringify({
+      id: "enveloped",
+      title: "T",
+      text: "content",
+      type: "summary",
+      status: "ready",
+      updatedAtISO: "2024-01-01T00:00:00.000Z",
+      meta: {
+        origin: "drive",
+        source: "folder",
+        actor: "system",
+        newKey: "forward-compatible",
+      },
+    }),
+    summarize: async (_prompt, artifacts) => ({ summary: artifacts.map((artifact) => artifact.id).join(",") || "none" }),
+  });
+
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.summary, "enveloped");
+  assert.equal(body.artifactCount, 1);
+});
+
 test("PUT /api/timeline/selection-set validates SelectionSetSchema", async () => {
   const req = new NextRequest("http://localhost/api/timeline/selection-set", {
     method: "PUT",
