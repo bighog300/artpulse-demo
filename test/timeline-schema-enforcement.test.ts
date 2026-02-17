@@ -46,6 +46,31 @@ test("POST /api/timeline/summarize skips corrupt Drive summary JSON", async () =
   }
 });
 
+
+test("POST /api/timeline/summarize accepts Drive summary JSON with unknown top-level fields", async () => {
+  const req = new NextRequest("http://localhost/api/timeline/summarize", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-request-id": "req-forward-compatible" },
+    body: JSON.stringify({ prompt: "hello", summaryFileIds: ["future"] }),
+  });
+
+  const res = await handleTimelineSummarizePost(req, {
+    readSummaryJson: async () => JSON.stringify({
+      id: "future",
+      title: "T",
+      text: "content",
+      version: 2,
+      nested: { hello: "world" },
+    }),
+    summarize: async (_prompt, artifacts) => ({ summary: artifacts.map((artifact) => artifact.id).join(",") || "none" }),
+  });
+
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.summary, "future");
+  assert.equal(body.artifactCount, 1);
+});
+
 test("PUT /api/timeline/selection-set validates SelectionSetSchema", async () => {
   const req = new NextRequest("http://localhost/api/timeline/selection-set", {
     method: "PUT",

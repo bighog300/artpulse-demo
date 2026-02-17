@@ -9,12 +9,16 @@ export const ApiErrorSchema = z.object({
   }),
 });
 
-export const DriveSummaryJsonSchema = z.object({
+export const SummaryArtifactSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1),
   text: z.string().min(1),
   updatedAt: z.string().min(1).optional(),
-});
+}).strict();
+
+export const DriveSummaryEnvelopeSchema = SummaryArtifactSchema.passthrough();
+
+export const DriveSummaryJsonSchema = DriveSummaryEnvelopeSchema;
 
 export const SummarizeRequestSchema = z.object({
   prompt: z.string().trim().min(1),
