@@ -72,7 +72,7 @@ async function main() {
 
   // Fetch endpoints. Neon may return multiple endpoints; we must filter by branch_id.
   const endpointResp = await neonRequest({
-    path: `/projects/${projectId}/endpoints?branch_id=${encodeURIComponent(branch.id)}`,
+    path: `/projects/${projectId}/endpoints`,
     apiKey,
   });
 
