@@ -16,9 +16,16 @@ export function apiSchemaError(status: number, code: string, message: string, de
 }
 
 export function zodIssues(error: ZodError) {
-  return error.issues.map((issue) => ({
-    path: issue.path.join("."),
-    message: issue.message,
-    code: issue.code,
-  }));
+  return error.issues.map((issue) => {
+    const basePath = issue.path.join(".");
+    const keyPath = issue.code === "unrecognized_keys" && "keys" in issue && issue.keys.length > 0
+      ? issue.keys.join(",")
+      : "";
+
+    return {
+      path: [basePath, keyPath].filter(Boolean).join("."),
+      message: issue.message,
+      code: issue.code,
+    };
+  });
 }

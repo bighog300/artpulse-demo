@@ -21,18 +21,26 @@ const isoDateString = z.string().datetime({ offset: true });
 export const DriveEnvelopeOptionalFieldsSchema = z.object({
   type: z.literal("summary").optional(),
   status: z.string().optional(),
-  id: z.string().optional(),
   updatedAtISO: isoDateString.optional(),
   meta: z.object({
     origin: z.string().optional(),
     source: z.string().optional(),
     actor: z.string().optional(),
-  }).partial().passthrough().optional(),
-});
+  }).partial().strict().optional(),
+}).strict();
 
-export const DriveSummaryEnvelopeSchema = SummaryArtifactSchema.and(DriveEnvelopeOptionalFieldsSchema);
+export const DriveSummaryEnvelopeSchema = SummaryArtifactSchema.extend({
+  type: z.literal("summary").optional(),
+  status: z.string().optional(),
+  updatedAtISO: isoDateString.optional(),
+  meta: z.object({
+    origin: z.string().optional(),
+    source: z.string().optional(),
+    actor: z.string().optional(),
+  }).partial().strict().optional(),
+}).strict();
 
-export const DriveSummaryJsonSchema = DriveSummaryEnvelopeSchema.and(z.object({}).passthrough());
+export const DriveSummaryJsonSchema = DriveSummaryEnvelopeSchema;
 
 export const SummarizeRequestSchema = z.object({
   prompt: z.string().trim().min(1),

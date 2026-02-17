@@ -29,7 +29,7 @@ test("POST /api/timeline/summarize skips corrupt Drive summary JSON", async () =
       body: JSON.stringify({ prompt: "hello", summaryFileIds: ["good", "bad"] }),
     });
 
-    const res = await handleTimelineSummarizePost(req, {
+      const res = await handleTimelineSummarizePost(req, {
       readSummaryJson: async (fileId) => fileId === "good"
         ? JSON.stringify({ id: "good", title: "T", text: "content" })
         : "{not-json",
@@ -47,8 +47,12 @@ test("POST /api/timeline/summarize skips corrupt Drive summary JSON", async () =
 });
 
 
-test("POST /api/timeline/summarize accepts Drive summary JSON with unknown top-level fields", async () => {
-  const req = new NextRequest("http://localhost/api/timeline/summarize", {
+test("POST /api/timeline/summarize rejects Drive summary JSON with unknown top-level fields", async () => {
+  const warnings: unknown[] = [];
+  const warn = console.warn;
+  console.warn = (...args: unknown[]) => warnings.push(args);
+  try {
+    const req = new NextRequest("http://localhost/api/timeline/summarize", {
     method: "POST",
     headers: { "content-type": "application/json", "x-request-id": "req-forward-compatible" },
     body: JSON.stringify({ prompt: "hello", summaryFileIds: ["future"] }),
@@ -65,10 +69,18 @@ test("POST /api/timeline/summarize accepts Drive summary JSON with unknown top-l
     summarize: async (_prompt, artifacts) => ({ summary: artifacts.map((artifact) => artifact.id).join(",") || "none" }),
   });
 
-  assert.equal(res.status, 200);
-  const body = await res.json();
-  assert.equal(body.summary, "future");
-  assert.equal(body.artifactCount, 1);
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.summary, "none");
+    assert.equal(body.artifactCount, 0);
+    assert.equal(warnings.length, 1);
+    const warning = warnings[0] as unknown[];
+    assert.equal((warning[1] as { fileId: string }).fileId, "future");
+    const issues = (warning[1] as { issues: Array<{ path: string }> }).issues;
+    assert.ok(issues.some((issue) => issue.path.includes("version")));
+  } finally {
+    console.warn = warn;
+  }
 });
 
 test("POST /api/timeline/summarize validates optional Drive envelope fields when present", async () => {
@@ -90,7 +102,6 @@ test("POST /api/timeline/summarize validates optional Drive envelope fields when
         origin: "drive",
         source: "folder",
         actor: "system",
-        newKey: "forward-compatible",
       },
     }),
     summarize: async (_prompt, artifacts) => ({ summary: artifacts.map((artifact) => artifact.id).join(",") || "none" }),
@@ -100,6 +111,43 @@ test("POST /api/timeline/summarize validates optional Drive envelope fields when
   const body = await res.json();
   assert.equal(body.summary, "enveloped");
   assert.equal(body.artifactCount, 1);
+});
+
+test("POST /api/timeline/summarize rejects unknown keys inside Drive summary meta", async () => {
+  const warnings: unknown[] = [];
+  const warn = console.warn;
+  console.warn = (...args: unknown[]) => warnings.push(args);
+  try {
+    const req = new NextRequest("http://localhost/api/timeline/summarize", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-request-id": "req-meta-strict" },
+      body: JSON.stringify({ prompt: "hello", summaryFileIds: ["meta-unknown"] }),
+    });
+
+    const res = await handleTimelineSummarizePost(req, {
+      readSummaryJson: async () => JSON.stringify({
+        id: "meta-unknown",
+        title: "T",
+        text: "content",
+        meta: {
+          origin: "drive",
+          newKey: "should-fail",
+        },
+      }),
+      summarize: async (_prompt, artifacts) => ({ summary: artifacts.map((artifact) => artifact.id).join(",") || "none" }),
+    });
+
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.summary, "none");
+    assert.equal(body.artifactCount, 0);
+    assert.equal(warnings.length, 1);
+    const warning = warnings[0] as unknown[];
+    const issues = (warning[1] as { issues: Array<{ path: string }> }).issues;
+    assert.ok(issues.some((issue) => issue.path === "meta.newKey"));
+  } finally {
+    console.warn = warn;
+  }
 });
 
 test("PUT /api/timeline/selection-set validates SelectionSetSchema", async () => {
