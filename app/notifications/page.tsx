@@ -6,6 +6,7 @@ import { redirectToLogin } from "@/lib/auth-redirect";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { NotificationsEmptyState } from "@/components/notifications/notifications-empty-state";
 import { PageHeader } from "@/components/ui/page-header";
+import { PageShell } from "@/components/ui/page-shell";
 
 export default async function NotificationsPage() {
   const user = await getSessionUser();
@@ -13,10 +14,10 @@ export default async function NotificationsPage() {
 
   if (!hasDatabaseUrl()) {
     return (
-      <main className="space-y-4 p-6">
-        <PageHeader title="Notifications" subtitle="Updates about follows, invites, and saved search activity." />
+      <PageShell className="space-y-4">
+        <PageHeader title="Notifications" subtitle="Updates from your follows, invites, and saved searches" />
         <p>Set DATABASE_URL to view notifications locally.</p>
-      </main>
+      </PageShell>
     );
   }
 
@@ -32,10 +33,10 @@ export default async function NotificationsPage() {
   const items = hasMore ? page.slice(0, limit) : page;
 
   return (
-    <main className="space-y-4 p-6">
-      <PageHeader title="Notifications" subtitle="Updates about follows, invites, and saved search activity." />
+    <PageShell className="space-y-4">
+      <PageHeader title="Notifications" subtitle="Updates from your follows, invites, and saved searches" />
       {items.length === 0 ? <NotificationsEmptyState /> : null}
       <NotificationsClient initialItems={items} initialNextCursor={hasMore ? items[items.length - 1]?.id ?? null : null} />
-    </main>
+    </PageShell>
   );
 }
