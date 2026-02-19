@@ -37,19 +37,19 @@ export default async function DigestsPage() {
   });
 
   return (
-    <PageShell className="space-y-5">
+    <PageShell className="page-stack">
       <PageViewTracker name="digests_list_viewed" />
       <PageHeader
         title="Digests"
         subtitle="Your personalized event roundups"
-        actions={<Link href="/saved-searches" className="rounded border border-border px-3 py-1.5 text-sm font-medium ui-trans ui-press hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">Saved Searches</Link>}
+        actions={<Link href="/saved-searches" className="rounded border border-border px-3 py-1.5 text-sm font-medium ui-trans ui-press hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">Create saved search</Link>}
       />
 
       {items.length === 0 ? (
         <EmptyState title="No digests yet" description="Create a saved search to start receiving curated updates." actions={[{ label: "Create a saved search", href: "/saved-searches" }]} />
       ) : null}
 
-      <ul className="space-y-4">
+      <ul className="page-stack">
         {items.map((item, index) => {
           const preview = digestSnapshotItemsSchema.safeParse(item.itemsJson);
           const previewItems = preview.success ? preview.data.slice(0, 3) : [];
@@ -57,12 +57,12 @@ export default async function DigestsPage() {
           return (
             <li
               key={item.id}
-              className={`group rounded-2xl border border-border bg-card p-5 shadow-sm ui-hover-lift ui-press ${isFresh ? "bg-amber-50/40" : ""}`}
+              className={`group rounded-2xl border border-border bg-card p-6 shadow-sm ui-hover-lift ui-press ${isFresh ? "bg-amber-50/40" : ""}`}
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">{item.savedSearch.name}</p>
-                  <h2 className="mt-1 text-xl font-semibold text-foreground">{item.itemCount} events this week</h2>
+                  <h2 className="mt-1 type-h3">{item.itemCount} events this week</h2>
                   <p className="text-sm text-muted-foreground">{formatPeriodRange(item.periodKey, item.createdAt)} · Generated {item.createdAt.toLocaleDateString()}</p>
                 </div>
                 {isFresh || index === 0 ? <span className="rounded-full border border-amber-300 bg-amber-100 px-2 py-1 text-xs font-medium text-amber-900">New</span> : null}

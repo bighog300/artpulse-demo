@@ -5,7 +5,7 @@ import { FollowedEntitySkeleton } from "@/components/personal/followed-entity-sk
 
 export default function Loading() {
   return (
-    <PageShell className="space-y-4" aria-busy="true">
+    <PageShell className="page-stack" aria-busy="true">
       <LoadingCard lines={2} />
       <PersonalFeedSkeleton />
       <div className="space-y-2">

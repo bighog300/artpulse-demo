@@ -122,7 +122,7 @@
   }
 
   .type-h1 {
-    @apply text-3xl font-semibold leading-tight tracking-tight;
+    @apply text-3xl font-semibold leading-tight tracking-tight md:text-4xl;
   }
 
   .type-h2 {
@@ -130,7 +130,7 @@
   }
 
   .type-h3 {
-    @apply text-xl font-medium leading-tight tracking-tight;
+    @apply text-xl font-medium leading-snug tracking-tight;
   }
 
   .type-body {
@@ -139,6 +139,18 @@
 
   .type-caption {
     @apply text-sm leading-6 text-muted-foreground;
+  }
+
+  .page-stack {
+    @apply space-y-8 md:space-y-10;
+  }
+
+  .section-stack {
+    @apply space-y-4;
+  }
+
+  .card-grid {
+    @apply grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 md:gap-6;
   }
 }
 

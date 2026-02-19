@@ -15,7 +15,7 @@ export default async function NotificationsPage() {
 
   if (!hasDatabaseUrl()) {
     return (
-      <PageShell className="space-y-4">
+      <PageShell className="page-stack">
         <PageHeader title="Notifications" subtitle="Updates from your follows, invites, and saved searches" />
         <EmptyState title="Notifications unavailable" description="Set DATABASE_URL to view notifications in local development." actions={[{ label: "Go to Following", href: "/following", variant: "secondary" }]} />
       </PageShell>
@@ -34,7 +34,7 @@ export default async function NotificationsPage() {
   const items = hasMore ? page.slice(0, limit) : page;
 
   return (
-    <PageShell className="space-y-4">
+    <PageShell className="page-stack">
       <PageHeader title="Notifications" subtitle="Updates from your follows, invites, and saved searches" />
       {items.length === 0 ? <NotificationsEmptyState /> : null}
       <NotificationsClient initialItems={items} initialNextCursor={hasMore ? items[items.length - 1]?.id ?? null : null} />

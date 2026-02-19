@@ -26,7 +26,7 @@ export default async function FollowingPage({ searchParams }: { searchParams: Se
 
   if (!hasDatabaseUrl()) {
     return (
-      <PageShell className="space-y-4">
+      <PageShell className="page-stack">
       <PageViewTracker name="following_viewed" />
         <PageHeader title="Following" subtitle="Updates from artists and venues you follow" actions={<Link href="/following/manage" className="rounded border px-3 py-1 text-sm">Manage</Link>} />
         <EmptyState title="Following feed unavailable" description="Set DATABASE_URL to load personalized following updates in local development." actions={[{ label: "Manage follows", href: "/following/manage", variant: "secondary" }]} />
@@ -76,7 +76,7 @@ export default async function FollowingPage({ searchParams }: { searchParams: Se
   const hasNoFollows = followCount === 0;
 
   return (
-    <PageShell className="space-y-4">
+    <PageShell className="page-stack">
       <PageHeader title="Following" subtitle="Updates from artists and venues you follow" actions={<Link href="/following/manage" className="rounded border px-3 py-1 text-sm">Manage</Link>} />
       <OnboardingPanel />
       <GetStartedBanner />

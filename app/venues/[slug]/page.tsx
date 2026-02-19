@@ -91,7 +91,7 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
   const jsonLd = buildVenueJsonLd({ name: venue.name, description: venue.description, detailUrl, imageUrl: coverUrl, websiteUrl: venue.websiteUrl, address: venue.addressLine1 });
 
   return (
-    <PageShell className="space-y-6">
+    <PageShell className="page-stack">
       <PageViewTracker name="entity_viewed" props={{ type: "venue", slug }} />
       <EntityHeader
         title={venue.name}

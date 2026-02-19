@@ -13,6 +13,8 @@ import { EventRailCard } from "@/components/events/event-rail-card";
 import { formatEventDateRange } from "@/components/events/event-format";
 import { buildDetailMetadata, buildEventJsonLd, getDetailUrl } from "@/lib/seo.public-profiles";
 import { getSessionUser } from "@/lib/auth";
+import { PageShell } from "@/components/ui/page-shell";
+import { SectionHeader } from "@/components/ui/section-header";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +34,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 }
 
 export default async function EventDetail({ params }: { params: Promise<{ slug: string }> }) {
-  if (!hasDatabaseUrl()) return <main className="p-6"><p>Set DATABASE_URL to view events locally.</p></main>;
+  if (!hasDatabaseUrl()) return <PageShell><p className="type-caption">Set DATABASE_URL to view events locally.</p></PageShell>;
 
   const { slug } = await params;
   const [event, user] = await Promise.all([
@@ -73,59 +75,43 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
   const calendarLink = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(event.title)}&dates=${new Date(event.startAt).toISOString().replace(/[-:]|\.\d{3}/g, "")}/${new Date(event.endAt ?? event.startAt).toISOString().replace(/[-:]|\.\d{3}/g, "")}`;
 
   return (
-    <main className="space-y-6 p-4 md:p-6">
+    <PageShell className="page-stack">
       <Breadcrumbs items={[{ label: "Events", href: "/events" }, { label: event.title, href: `/events/${slug}` }]} />
 
       <section className="relative overflow-hidden rounded-2xl border border-border">
         <div className="relative h-64 md:h-80">
           {primaryImage ? <Image src={primaryImage} alt={event.images[0]?.alt ?? event.title} fill sizes="100vw" className="object-cover" /> : <div className="flex h-full items-center justify-center bg-muted text-muted-foreground">No event image</div>}
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent" />
-          <div className="absolute bottom-0 left-0 w-full space-y-3 p-5 text-white">
-            <h1 className="text-2xl font-semibold md:text-4xl">{event.title}</h1>
-            <p className="text-sm text-white/90">{formatEventDateRange(event.startAt, event.endAt)} · {event.venue?.name ?? "Venue TBA"}</p>
+          <div className="absolute bottom-0 left-0 w-full section-stack p-5 text-white">
+            <h1 className="type-h2 text-white">{event.title}</h1>
+            <p className="type-caption text-white/90">{formatEventDateRange(event.startAt, event.endAt)} · {event.venue?.name ?? "Venue TBA"}</p>
             <EventDetailActions eventId={event.id} eventSlug={event.slug} nextUrl={`/events/${slug}`} isAuthenticated={isAuthenticated} initialSaved={initialSaved} calendarLink={calendarLink} />
           </div>
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-[2fr_1fr]">
-        <div className="space-y-5">
-          <article className="space-y-2">
-            <h2 className="text-lg font-semibold">About this event</h2>
-            <p className="whitespace-pre-wrap text-sm text-muted-foreground">{event.description || "Details coming soon."}</p>
+      <section className="grid gap-4 md:grid-cols-[2fr_1fr] md:gap-6">
+        <div className="section-stack">
+          <article className="section-stack">
+            <SectionHeader title="About this event" />
+            <p className="type-caption whitespace-pre-wrap">{event.description || "Details coming soon."}</p>
           </article>
-
-          {event.eventArtists.length ? (
-            <article className="space-y-2">
-              <h2 className="text-lg font-semibold">Lineup</h2>
-              <div className="flex flex-wrap gap-2">
-                {event.eventArtists.map((entry) => <Badge key={entry.artistId} variant="secondary">{entry.artist.name}</Badge>)}
-              </div>
-            </article>
-          ) : null}
-
-          {event.eventTags.length ? (
-            <article className="space-y-2">
-              <h2 className="text-lg font-semibold">Tags</h2>
-              <div className="flex flex-wrap gap-2">
-                {event.eventTags.map((eventTag) => <Badge key={eventTag.tag.id} variant="outline">{eventTag.tag.name}</Badge>)}
-              </div>
-            </article>
-          ) : null}
+          {event.eventArtists.length ? <article className="section-stack"><SectionHeader title="Lineup" /><div className="flex flex-wrap gap-2">{event.eventArtists.map((entry) => <Badge key={entry.artistId} variant="secondary">{entry.artist.name}</Badge>)}</div></article> : null}
+          {event.eventTags.length ? <article className="section-stack"><SectionHeader title="Tags" /><div className="flex flex-wrap gap-2">{event.eventTags.map((eventTag) => <Badge key={eventTag.tag.id} variant="outline">{eventTag.tag.name}</Badge>)}</div></article> : null}
         </div>
 
-        <Card className="h-fit space-y-2 p-4">
-          <h3 className="font-semibold">At a glance</h3>
-          <p className="text-sm text-muted-foreground">{formatEventDateRange(event.startAt, event.endAt)}</p>
-          <p className="text-sm text-muted-foreground">{event.venue?.name ?? "Venue TBA"}</p>
-          <p className="text-sm text-muted-foreground">{event.venue?.addressLine1 ?? "Address unavailable"}</p>
-          {event.venue?.slug ? <Link href={`/venues/${event.venue.slug}`} className="text-sm underline">View venue profile</Link> : null}
+        <Card className="section-stack h-fit p-6">
+          <h3 className="type-h3">At a glance</h3>
+          <p className="type-caption">{formatEventDateRange(event.startAt, event.endAt)}</p>
+          <p className="type-caption">{event.venue?.name ?? "Venue TBA"}</p>
+          <p className="type-caption">{event.venue?.addressLine1 ?? "Address unavailable"}</p>
+          {event.venue?.slug ? <Link href={`/venues/${event.venue.slug}`} className="text-sm underline">View details</Link> : null}
         </Card>
       </section>
 
       {similarEvents.length ? (
-        <section className="space-y-3">
-          <h2 className="text-lg font-semibold">You might also like</h2>
+        <section className="section-stack">
+          <SectionHeader title="You might also like" />
           <div className="flex gap-3 overflow-x-auto pb-2">
             {similarEvents.map((similar) => (
               <EventRailCard
@@ -142,6 +128,6 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
       ) : null}
 
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-    </main>
+    </PageShell>
   );
 }

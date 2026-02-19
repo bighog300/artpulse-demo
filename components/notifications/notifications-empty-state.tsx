@@ -7,8 +7,8 @@ export function NotificationsEmptyState() {
       description="You’ll see invites, submission updates, and digests here."
       actions={[
         { label: "Discover events", href: "/events", variant: "secondary" },
-        { label: "Following", href: "/following", variant: "secondary" },
-        { label: "Saved searches", href: "/saved-searches", variant: "secondary" },
+        { label: "View details", href: "/following", variant: "secondary" },
+        { label: "Create saved search", href: "/saved-searches", variant: "secondary" },
       ]}
     />
   );

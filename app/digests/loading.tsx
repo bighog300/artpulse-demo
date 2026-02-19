@@ -3,9 +3,9 @@ import { PageShell } from "@/components/ui/page-shell";
 
 export default function Loading() {
   return (
-    <PageShell className="space-y-5" aria-busy="true">
+    <PageShell className="page-stack" aria-busy="true">
       <PageHeader title="Digests" subtitle="Your personalized event roundups" />
-      <div className="space-y-4">
+      <div className="page-stack">
         {Array.from({ length: 3 }).map((_, index) => (
           <div key={index} className="rounded-2xl border border-border bg-card p-5">
             <div className="h-5 w-40 animate-pulse rounded bg-muted" />

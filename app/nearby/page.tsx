@@ -10,7 +10,7 @@ import { PageShell } from "@/components/ui/page-shell";
 export default async function NearbyPage({ searchParams }: { searchParams: Promise<{ view?: string }> }) {
   if (!hasDatabaseUrl()) {
     return (
-      <PageShell className="space-y-4">
+      <PageShell className="page-stack">
         <PageHeader title="Nearby events" subtitle="Upcoming events near your saved location." />
         <p>Set DATABASE_URL to view nearby events locally.</p>
       </PageShell>
@@ -28,10 +28,10 @@ export default async function NearbyPage({ searchParams }: { searchParams: Promi
   const query = await searchParams;
 
   return (
-    <PageShell className="space-y-4">
+    <PageShell className="page-stack">
       <PageHeader title="Nearby events" subtitle="Upcoming events near your saved location." />
-      <p className="text-sm text-muted-foreground">
-        Set your location to discover published events happening near you. {user ? <Link className="underline" href="/account">Manage on account settings</Link> : <Link className="underline" href="/login">Login</Link>} to save this preference.
+      <p className="type-caption">
+        Set your location to discover published events happening near you. {user ? <Link className="underline" href="/account">Refine search</Link> : <Link className="underline" href="/login">Login</Link>} to save this preference.
       </p>
       <NearbyClient
         isAuthenticated={Boolean(user)}

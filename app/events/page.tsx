@@ -16,7 +16,7 @@ export default async function EventsPage() {
 
   if (!hasDatabaseUrl()) {
     return (
-      <PageShell className="space-y-4">
+      <PageShell className="page-stack">
         <PageHeader title="Events" subtitle="Discover what’s on near you" actions={pageHeaderActions} />
         {fixturesEnabled ? (
           <EventsClient isAuthenticated={Boolean(user)} fixtureItems={uiFixtureEvents} fallbackFixtureItems={uiFixtureEvents} />
@@ -28,7 +28,7 @@ export default async function EventsPage() {
   }
 
   return (
-    <PageShell className="space-y-4">
+    <PageShell className="page-stack">
       <PageHeader title="Events" subtitle="Discover what’s on near you" actions={pageHeaderActions} />
       <EventsClient isAuthenticated={Boolean(user)} fallbackFixtureItems={fixturesEnabled ? uiFixtureEvents : undefined} />
     </PageShell>

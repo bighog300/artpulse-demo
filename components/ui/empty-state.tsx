@@ -22,12 +22,14 @@ export function EmptyState({ icon, title, body, description, actions = [], child
   const text = body ?? description;
 
   return (
-    <section className="rounded-xl border border-border bg-card p-5 text-card-foreground">
-      {icon ? <div className="mb-3 text-muted-foreground">{icon}</div> : null}
-      <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
-      {text ? <p className="mt-2 text-sm text-muted-foreground">{text}</p> : null}
+    <section className="section-stack rounded-xl border border-border bg-card p-6 text-card-foreground">
+      {icon ? <div className="text-muted-foreground [&_svg]:h-5 [&_svg]:w-5">{icon}</div> : null}
+      <div className="section-stack">
+        <h2 className="type-h3">{title}</h2>
+        {text ? <p className="type-caption max-w-2xl">{text}</p> : null}
+      </div>
       {actions.length > 0 ? (
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2">
           {actions.map((action) => (
             <Link
               key={`${action.label}-${action.href}`}
@@ -39,7 +41,7 @@ export function EmptyState({ icon, title, body, description, actions = [], child
           ))}
         </div>
       ) : null}
-      {children ? <div className="mt-3">{children}</div> : null}
+      {children ? <div className="section-stack">{children}</div> : null}
     </section>
   );
 }
