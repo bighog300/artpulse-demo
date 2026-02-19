@@ -20,7 +20,13 @@ export type AnalyticsEventName =
   | "saved_search_preview_opened"
   | "saved_search_toggled"
   | "saved_search_frequency_changed"
-  | "saved_search_run_now";
+  | "saved_search_run_now"
+  | "onboarding_banner_shown"
+  | "onboarding_sheet_opened"
+  | "onboarding_dismissed"
+  | "onboarding_step_clicked"
+  | "onboarding_completed"
+;
 
 export type AnalyticsProps = {
   eventSlug?: string;
@@ -39,13 +45,16 @@ export type AnalyticsProps = {
   hasQuery?: boolean;
   hasLocation?: boolean;
   nextState?: "saved" | "unsaved" | "followed" | "unfollowed" | "enabled" | "disabled";
-  method?: "native" | "copy";
   type?: "artist" | "venue";
   slug?: string;
   mode?: "single" | "bulk";
   frequency?: string;
   notificationType?: string;
   hasTarget?: boolean;
+  page?: string;
+  step?: "follow" | "saved_search" | "saved_event" | "location" | "done";
+  destination?: string;
+  method?: "native" | "copy" | "follow" | "saved_search" | "saved_event" | "location";
 };
 
 export type AnalyticsPayload = {

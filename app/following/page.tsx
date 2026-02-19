@@ -6,16 +6,15 @@ import { getFollowingFeedWithDeps, type FollowingFeedTypeFilter } from "@/lib/fo
 import { getFollowRecommendations } from "@/lib/recommendations-follows";
 import { FollowButton } from "@/components/follows/follow-button";
 import { redirectToLogin } from "@/lib/auth-redirect";
-import { OnboardingPanel } from "@/components/onboarding/onboarding-panel";
 import { setOnboardingFlag } from "@/lib/onboarding";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
-import { GetStartedBanner } from "@/components/onboarding/get-started-banner";
 import { PersonalSection } from "@/components/personal/personal-section";
 import { PersonalEventFeed } from "@/components/personal/personal-event-feed";
 import { FollowedEntitiesGrid } from "@/components/personal/followed-entities-grid";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageViewTracker } from "@/components/analytics/page-view-tracker";
+import { OnboardingGate } from "@/components/onboarding/onboarding-gate";
 
 type SearchParams = Promise<{ days?: string; type?: string }>;
 
@@ -78,8 +77,7 @@ export default async function FollowingPage({ searchParams }: { searchParams: Se
   return (
     <PageShell className="page-stack">
       <PageHeader title="Following" subtitle="Updates from artists and venues you follow" actions={<Link href="/following/manage" className="rounded border px-3 py-1 text-sm">Manage</Link>} />
-      <OnboardingPanel />
-      <GetStartedBanner />
+      <OnboardingGate page="following" isAuthenticated />
 
       <PersonalSection title="Your feed" description="Upcoming events from your followed artists and venues.">
         <PersonalEventFeed items={result.items} selectedDays={String(days) as "7" | "30"} selectedType={type} hasNoFollows={hasNoFollows} />

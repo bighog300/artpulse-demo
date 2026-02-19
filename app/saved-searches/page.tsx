@@ -5,6 +5,7 @@ import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
 import { EmptyState } from "@/components/ui/empty-state";
+import { OnboardingGate } from "@/components/onboarding/onboarding-gate";
 
 export default async function SavedSearchesPage() {
   const user = await getSessionUser();
@@ -22,6 +23,7 @@ export default async function SavedSearchesPage() {
   return (
     <PageShell className="page-stack">
       <PageHeader title="Saved Searches" subtitle="Automate updates for what you care about" />
+      <OnboardingGate page="saved-searches" isAuthenticated />
       <SavedSearchesClient />
     </PageShell>
   );
