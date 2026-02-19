@@ -14,6 +14,9 @@ import { FollowedEntitiesGrid } from "@/components/personal/followed-entities-gr
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageViewTracker } from "@/components/analytics/page-view-tracker";
 import { OnboardingGate } from "@/components/onboarding/onboarding-gate";
+import { StartPacks } from "@/components/onboarding/start-packs";
+import { PostActivationTips } from "@/components/onboarding/post-activation-tips";
+import { SetupChecklistCard } from "@/components/onboarding/setup-checklist-card";
 
 type SearchParams = Promise<{ days?: string; type?: string }>;
 
@@ -76,6 +79,8 @@ export default async function FollowingPage({ searchParams }: { searchParams: Se
     <PageShell className="page-stack">
       <PageHeader title="Following" subtitle="Updates from artists and venues you follow" actions={<Link href="/following/manage" className="rounded border px-3 py-1 text-sm">Manage</Link>} />
       <OnboardingGate page="following" isAuthenticated />
+      <SetupChecklistCard page="following" />
+      <PostActivationTips />
 
       <PersonalSection title="Your feed" description="Upcoming events from your followed artists and venues.">
         <PersonalEventFeed items={result.items} selectedDays={String(days) as "7" | "30"} selectedType={type} hasNoFollows={hasNoFollows} />
@@ -86,6 +91,7 @@ export default async function FollowingPage({ searchParams }: { searchParams: Se
       </PersonalSection>
 
       <PersonalSection title="Suggested for you" description="Based on what you follow.">
+        {hasNoFollows ? <StartPacks page="following" isAuthenticated /> : null}
         <RecommendedFollows page="following" source={hasNoFollows ? "following_empty" : "following_page"} isAuthenticated />
       </PersonalSection>
     </PageShell>
