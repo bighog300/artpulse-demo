@@ -22,7 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function UIPreviewPage() {
   return (
-    <PageShell className="space-y-8">
+    <PageShell className="page-stack">
       <div className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive-foreground">
         Internal UI preview
       </div>
@@ -33,9 +33,28 @@ export default function UIPreviewPage() {
         actions={<Badge variant="secondary">Preview only</Badge>}
       />
 
-      <section className="space-y-3">
+      <section className="section-stack">
+        <SectionHeader title="Layout Rhythm" subtitle="Canonical spacing pattern for page stacks, section stacks, and card/list density." />
+        <div className="section-stack rounded-xl border border-border bg-card p-6">
+          <div className="section-stack">
+            <p className="type-caption">Page stack</p>
+            <div className="rounded-lg border border-dashed border-border p-4">Use <code>page-stack</code> between top-level sections.</div>
+          </div>
+          <div className="section-stack">
+            <p className="type-caption">Section stack</p>
+            <div className="rounded-lg border border-dashed border-border p-4">Use <code>section-stack</code> inside cards and content blocks.</div>
+          </div>
+          <div className="card-grid">
+            <Card><CardContent className="p-6"><p className="type-caption">Card spacing A</p></CardContent></Card>
+            <Card><CardContent className="p-6"><p className="type-caption">Card spacing B</p></CardContent></Card>
+            <Card><CardContent className="p-6"><p className="type-caption">Card spacing C</p></CardContent></Card>
+          </div>
+        </div>
+      </section>
+
+      <section className="section-stack">
         <SectionHeader title="Typography" />
-        <div className="space-y-2 rounded-xl border border-border bg-card p-5">
+        <div className="section-stack rounded-xl border border-border bg-card p-6">
           <p className="type-display">Display text style</p>
           <h1 className="type-h1">Heading one</h1>
           <h2 className="type-h2">Heading two</h2>
@@ -45,101 +64,50 @@ export default function UIPreviewPage() {
         </div>
       </section>
 
-      <section className="space-y-3">
+      <section className="section-stack">
         <SectionHeader title="Buttons" />
-        <div className="flex flex-wrap gap-3 rounded-xl border border-border bg-card p-5">
-          <Button>Primary</Button>
-          <Button variant="secondary">Secondary</Button>
-          <Button variant="outline">Outline</Button>
-          <Button variant="ghost">Ghost</Button>
-          <Button variant="destructive">Destructive</Button>
-          <Button disabled>Disabled</Button>
+        <div className="flex flex-wrap gap-3 rounded-xl border border-border bg-card p-6">
+          <Button>Primary</Button><Button variant="secondary">Secondary</Button><Button variant="outline">Outline</Button><Button variant="ghost">Ghost</Button><Button variant="destructive">Destructive</Button><Button disabled>Disabled</Button>
         </div>
       </section>
 
-      <section className="space-y-3">
+      <section className="section-stack">
         <SectionHeader title="Inputs & badges" />
-        <div className="space-y-4 rounded-xl border border-border bg-card p-5">
+        <div className="section-stack rounded-xl border border-border bg-card p-6">
           <Input placeholder="Default input" />
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input className="pl-9" placeholder="Input with icon" />
-          </div>
-          <div className="flex gap-2">
-            <Badge>Default</Badge>
-            <Badge variant="secondary">Secondary</Badge>
-            <Badge variant="destructive">Destructive</Badge>
-          </div>
+          <div className="relative"><Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><Input className="pl-9" placeholder="Input with icon" /></div>
+          <div className="flex gap-2"><Badge>Default</Badge><Badge variant="secondary">Secondary</Badge><Badge variant="destructive">Destructive</Badge></div>
         </div>
       </section>
 
-      <section className="space-y-3">
+      <section className="section-stack">
         <SectionHeader title="Card, tabs, dropdown" />
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2 md:gap-6">
           <Card>
-            <CardHeader>
-              <CardTitle>Card title</CardTitle>
-              <CardDescription>Semantic card token usage.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="type-caption">Cards are used for grouped content blocks.</p>
-            </CardContent>
-            <CardFooter>
-              <Button size="sm">Action</Button>
-            </CardFooter>
+            <CardHeader><CardTitle>Card title</CardTitle><CardDescription>Semantic card token usage.</CardDescription></CardHeader>
+            <CardContent><p className="type-caption">Cards are used for grouped content blocks.</p></CardContent>
+            <CardFooter><Button size="sm">Action</Button></CardFooter>
           </Card>
-
           <Card>
-            <CardHeader>
-              <CardTitle>Interactive examples</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Tabs defaultValue="first" className="w-full">
-                <TabsList>
-                  <TabsTrigger value="first">First</TabsTrigger>
-                  <TabsTrigger value="second">Second</TabsTrigger>
-                </TabsList>
-                <TabsContent value="first" className="type-caption">
-                  First tab panel content.
-                </TabsContent>
-                <TabsContent value="second" className="type-caption">
-                  Second tab panel content.
-                </TabsContent>
-              </Tabs>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    Menu <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem>Open</DropdownMenuItem>
-                  <DropdownMenuItem>Edit</DropdownMenuItem>
-                  <DropdownMenuItem>Archive</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+            <CardHeader><CardTitle>Interactive examples</CardTitle></CardHeader>
+            <CardContent className="section-stack">
+              <Tabs defaultValue="first" className="w-full"><TabsList><TabsTrigger value="first">First</TabsTrigger><TabsTrigger value="second">Second</TabsTrigger></TabsList><TabsContent value="first" className="type-caption">First tab panel content.</TabsContent><TabsContent value="second" className="type-caption">Second tab panel content.</TabsContent></Tabs>
+              <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="sm">Menu <ChevronDown className="h-4 w-4" /></Button></DropdownMenuTrigger><DropdownMenuContent><DropdownMenuLabel>Actions</DropdownMenuLabel><DropdownMenuSeparator /><DropdownMenuItem>Open</DropdownMenuItem><DropdownMenuItem>Edit</DropdownMenuItem><DropdownMenuItem>Archive</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
             </CardContent>
           </Card>
         </div>
       </section>
 
-      <section className="space-y-3">
+      <section className="section-stack">
         <SectionHeader title="Skeletons & empty state" />
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-4 rounded-xl border border-border bg-card p-5">
+        <div className="grid gap-4 md:grid-cols-2 md:gap-6">
+          <div className="section-stack rounded-xl border border-border bg-card p-6">
             <Skeleton className="h-5 w-1/3" />
             <SkeletonList />
             <Separator />
             <SkeletonCard />
           </div>
-          <EmptyState
-            icon={<Paintbrush className="h-5 w-5" />}
-            title="No curated elements yet"
-            body="Use this baseline to keep future UI additions cohesive and token-driven."
-            actions={[{ label: 'Learn more', href: '/', variant: 'secondary' }]}
-          />
+          <EmptyState icon={<Paintbrush className="h-5 w-5" />} title="No curated elements yet" body="Use this baseline to keep future UI additions cohesive and token-driven." actions={[{ label: 'Learn more', href: '/', variant: 'secondary' }]} />
         </div>
       </section>
     </PageShell>

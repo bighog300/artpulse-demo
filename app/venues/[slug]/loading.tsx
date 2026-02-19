@@ -4,9 +4,9 @@ import { PageShell } from "@/components/ui/page-shell";
 
 export default function Loading() {
   return (
-    <PageShell className="space-y-6">
+    <PageShell className="page-stack">
       <EntityHeaderSkeleton />
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="card-grid">
         {Array.from({ length: 3 }).map((_, index) => <EventCardSkeleton key={index} />)}
       </div>
     </PageShell>

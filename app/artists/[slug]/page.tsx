@@ -95,7 +95,7 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
   const jsonLd = buildArtistJsonLd({ name: artist.name, description: artist.bio, detailUrl, imageUrl, websiteUrl: artist.websiteUrl });
 
   return (
-    <PageShell className="space-y-6">
+    <PageShell className="page-stack">
       <PageViewTracker name="entity_viewed" props={{ type: "artist", slug }} />
       <EntityHeader
         title={artist.name}

@@ -1,11 +1,14 @@
 import { EventCardSkeleton } from "@/components/events/event-card-skeleton";
+import { PageHeader } from "@/components/ui/page-header";
+import { PageShell } from "@/components/ui/page-shell";
 
 export default function Loading() {
   return (
-    <main className="space-y-4 p-6" aria-busy="true">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <PageShell className="page-stack" aria-busy="true">
+      <PageHeader title="Nearby events" subtitle="Upcoming events near your saved location." />
+      <div className="card-grid">
         {Array.from({ length: 6 }).map((_, index) => <EventCardSkeleton key={index} />)}
       </div>
-    </main>
+    </PageShell>
   );
 }

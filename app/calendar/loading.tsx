@@ -5,7 +5,7 @@ import { Section } from "@/components/ui/section";
 
 export default function Loading() {
   return (
-    <PageShell className="space-y-4">
+    <PageShell className="page-stack">
       <PageHeader title="Calendar" subtitle="Your saved and followed events" />
       <Section title="Controls"><LoadingCard lines={2} /></Section>
       <Section title="Calendar view"><LoadingCard lines={6} /></Section>

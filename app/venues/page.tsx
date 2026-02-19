@@ -16,7 +16,7 @@ export default async function VenuesPage() {
 
   if (!hasDatabaseUrl() && !fixturesEnabled) {
     return (
-      <PageShell className="space-y-4">
+      <PageShell className="page-stack">
         <PageHeader title="Venues" subtitle="Find spaces for exhibitions, performances, and shows." />
         <DataSourceEmptyState isAdmin={user?.role === "ADMIN"} showDevHint={process.env.NODE_ENV === "development"} />
       </PageShell>
@@ -63,7 +63,7 @@ export default async function VenuesPage() {
   }
 
   return (
-    <PageShell className="space-y-4">
+    <PageShell className="page-stack">
       <PageHeader title="Venues" subtitle="Find spaces for exhibitions, performances, and shows." />
       <VenuesClient venues={venues} isAuthenticated={Boolean(user)} />
     </PageShell>

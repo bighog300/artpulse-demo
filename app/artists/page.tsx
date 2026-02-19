@@ -15,7 +15,7 @@ export default async function ArtistsPage() {
 
   if (!hasDatabaseUrl() && !fixturesEnabled) {
     return (
-      <PageShell className="space-y-4">
+      <PageShell className="page-stack">
         <PageHeader title="Artists" subtitle="Discover artists and follow the creators you care about." />
         <DataSourceEmptyState isAdmin={user?.role === "ADMIN"} showDevHint={process.env.NODE_ENV === "development"} />
       </PageShell>
@@ -59,7 +59,7 @@ export default async function ArtistsPage() {
   }
 
   return (
-    <PageShell className="space-y-4">
+    <PageShell className="page-stack">
       <PageHeader title="Artists" subtitle="Discover artists and follow the creators you care about." />
       <ArtistsClient artists={artists} isAuthenticated={Boolean(user)} />
     </PageShell>

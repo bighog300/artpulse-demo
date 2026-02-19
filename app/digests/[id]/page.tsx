@@ -39,7 +39,7 @@ export default async function DigestDetailPage({ params }: { params: Promise<{ i
   const sections = Object.entries(grouped);
 
   return (
-    <PageShell className="space-y-6">
+    <PageShell className="page-stack">
       <PageViewTracker name="digest_opened" props={{ digestId: digest.id }} />
       <Breadcrumbs items={[{ label: "Saved Searches", href: "/saved-searches" }, { label: digest.savedSearch.name, href: `/saved-searches/${digest.savedSearch.id}` }, { label: digest.periodKey, href: `/digests/${digest.id}` }]} />
 
@@ -58,10 +58,10 @@ export default async function DigestDetailPage({ params }: { params: Promise<{ i
         <p className="text-sm text-muted-foreground">Events matching your saved search for <span className="font-medium text-foreground">{digest.savedSearch.name}</span>.</p>
       </section>
 
-      <section className="space-y-6">
+      <section className="page-stack">
         {sections.map(([label, dayItems], sectionIndex) => (
-          <div key={label} className="space-y-3">
-            <h2 className="text-lg font-semibold text-foreground">{label}</h2>
+          <div key={label} className="section-stack">
+            <h2 className="type-h3">{label}</h2>
             {sectionIndex === 0 ? (
               <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {dayItems.map((item) => (
@@ -71,7 +71,7 @@ export default async function DigestDetailPage({ params }: { params: Promise<{ i
                 ))}
               </ul>
             ) : (
-              <ul className="space-y-2">
+              <ul className="section-stack">
                 {dayItems.map((item) => (
                   <li key={`${digest.id}-${item.slug}`}>
                     <EventRow href={`/events/${item.slug}`} title={item.title} startAt={item.startAt} venueName={item.venueName} />
@@ -86,7 +86,7 @@ export default async function DigestDetailPage({ params }: { params: Promise<{ i
       <section className="rounded-xl border border-border bg-card p-4">
         <h2 className="text-base font-semibold">Keep this digest useful</h2>
         <div className="mt-3 flex flex-wrap gap-2">
-          <Link className="rounded border border-border px-3 py-2 text-sm font-medium" href={`/saved-searches/${digest.savedSearch.id}`}>Refine this search</Link>
+          <Link className="rounded border border-border px-3 py-2 text-sm font-medium" href={`/saved-searches/${digest.savedSearch.id}`}>Refine search</Link>
           <Link className="rounded border border-border px-3 py-2 text-sm font-medium" href="/saved-searches">Change frequency</Link>
           <form action={disableSavedSearch.bind(null, digest.savedSearch.id)}>
             <button type="submit" className="rounded border border-red-300 px-3 py-2 text-sm font-medium text-red-700">Turn off updates</button>

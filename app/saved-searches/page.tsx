@@ -12,7 +12,7 @@ export default async function SavedSearchesPage() {
 
   if (!hasDatabaseUrl()) {
     return (
-      <PageShell className="space-y-4">
+      <PageShell className="page-stack">
         <PageHeader title="Saved Searches" subtitle="Automate updates for what you care about" />
         <EmptyState title="Saved searches unavailable" description="Set DATABASE_URL to manage saved searches in local development." actions={[{ label: "Explore search", href: "/search", variant: "secondary" }]} />
       </PageShell>
@@ -20,7 +20,7 @@ export default async function SavedSearchesPage() {
   }
 
   return (
-    <PageShell className="space-y-4">
+    <PageShell className="page-stack">
       <PageHeader title="Saved Searches" subtitle="Automate updates for what you care about" />
       <SavedSearchesClient />
     </PageShell>
