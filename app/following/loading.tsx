@@ -1,10 +1,11 @@
 import { LoadingCard } from "@/components/ui/loading-card";
+import { PageShell } from "@/components/ui/page-shell";
 
 export default function Loading() {
   return (
-    <main className="space-y-3 p-6" aria-busy="true">
+    <PageShell className="space-y-3" aria-busy="true">
       <LoadingCard lines={3} />
       <LoadingCard lines={3} />
-    </main>
+    </PageShell>
   );
 }

@@ -1,6 +1,7 @@
 import { getSessionUser } from "@/lib/auth";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { PageHeader } from "@/components/ui/page-header";
+import { PageShell } from "@/components/ui/page-shell";
 import { DataSourceEmptyState } from "@/components/ui/data-source-empty-state";
 import { useUiFixtures as getUiFixturesEnabled, uiFixtureEvents } from "@/lib/ui-fixtures";
 import { EventsClient } from "./events-client";
@@ -15,21 +16,21 @@ export default async function EventsPage() {
 
   if (!hasDatabaseUrl()) {
     return (
-      <main className="space-y-4 p-6">
+      <PageShell className="space-y-4">
         <PageHeader title="Events" subtitle="Discover what’s on near you" actions={pageHeaderActions} />
         {fixturesEnabled ? (
           <EventsClient isAuthenticated={Boolean(user)} fixtureItems={uiFixtureEvents} fallbackFixtureItems={uiFixtureEvents} />
         ) : (
           <DataSourceEmptyState isAdmin={user?.role === "ADMIN"} showDevHint={process.env.NODE_ENV === "development"} />
         )}
-      </main>
+      </PageShell>
     );
   }
 
   return (
-    <main className="space-y-4 p-6">
+    <PageShell className="space-y-4">
       <PageHeader title="Events" subtitle="Discover what’s on near you" actions={pageHeaderActions} />
       <EventsClient isAuthenticated={Boolean(user)} fallbackFixtureItems={fixturesEnabled ? uiFixtureEvents : undefined} />
-    </main>
+    </PageShell>
   );
 }

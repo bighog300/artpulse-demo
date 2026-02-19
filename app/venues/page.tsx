@@ -6,6 +6,7 @@ import { CardGrid } from "@/components/ui/card-grid";
 import { DataSourceEmptyState } from "@/components/ui/data-source-empty-state";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
+import { PageShell } from "@/components/ui/page-shell";
 import { Section } from "@/components/ui/section";
 import { getSessionUser, type SessionUser } from "@/lib/auth";
 import { getVenueAssocCounts, getVenueRoleFacetCounts, type AssocCounts, type RoleCounts } from "@/lib/discovery-counts";
@@ -44,11 +45,11 @@ export default async function VenuesPage({ searchParams }: VenuesPageProps) {
 
   if (!hasDatabaseUrl() && !fixturesEnabled) {
     return (
-      <main className="space-y-4 p-6">
+      <PageShell className="space-y-4">
         <PageHeader title="Venues" subtitle="Find spaces hosting exhibitions, performances, and shows." />
         <DiscoveryFilterBar assoc={filters.assoc} role={filters.role} />
         <DataSourceEmptyState isAdmin={user?.role === "ADMIN"} showDevHint={process.env.NODE_ENV === "development"} />
-      </main>
+      </PageShell>
     );
   }
 
@@ -102,7 +103,7 @@ export default async function VenuesPage({ searchParams }: VenuesPageProps) {
   const featured = items.slice(0, 3);
 
   return (
-    <main className="space-y-4 p-6">
+    <PageShell className="space-y-4">
       <PageHeader title="Venues" subtitle="Find spaces hosting exhibitions, performances, and shows." />
       <Section title="Browse" subtitle="Filter venues by verified associations and role.">
         <DiscoveryFilterBar assoc={filters.assoc} role={filters.role} assocCounts={assocCounts} roleCounts={roleCounts} />
@@ -121,7 +122,7 @@ export default async function VenuesPage({ searchParams }: VenuesPageProps) {
           </CardGrid>
         )}
       </Section>
-    </main>
+    </PageShell>
   );
 }
 

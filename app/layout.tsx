@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import { SiteNav } from '@/components/navigation/site-nav';
 import { MobileBottomNav } from '@/components/navigation/mobile-bottom-nav';
 import { ToastViewport } from '@/components/ui/toast';
 import { getSessionUser } from '@/lib/auth';
 import { CommandPalette } from '@/components/command-palette/command-palette';
+import { AppShell } from '@/components/shell/app-shell';
 
 export const metadata: Metadata = {
   title: { default: 'Artpulse', template: '%s | Artpulse' },
@@ -25,10 +25,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         >
           Skip to content
         </a>
-        <SiteNav />
-        <main id="main" className="pb-20 md:pb-0">
-          {children}
-        </main>
+        <AppShell user={user}>{children}</AppShell>
         <ToastViewport />
         <MobileBottomNav isAuthenticated={Boolean(user)} />
         <CommandPalette isAuthenticated={Boolean(user)} isAdmin={user?.role === 'ADMIN'} />
