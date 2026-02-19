@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { track } from "@/lib/analytics/client";
 import { EventCard } from "@/components/events/event-card";
 import { EventRailCard } from "@/components/events/event-rail-card";
 import { EventRow } from "@/components/events/event-row";
@@ -81,6 +82,31 @@ export function EventsClient({ isAuthenticated, fixtureItems, fallbackFixtureIte
   useEffect(() => { void fetchEvents(null); }, [fetchEvents]);
 
   useEffect(() => {
+    track("events_list_viewed", { source: "events" });
+  }, []);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      const query = searchParams?.get("query") ?? "";
+      const from = searchParams?.get("from") ?? "";
+      const to = searchParams?.get("to") ?? "";
+      const tags = (searchParams?.get("tags") ?? "").split(",").filter(Boolean);
+      const sortParam = searchParams?.get("sort") ?? "soonest";
+      const datePreset = from && to ? (from === to ? "today" : "range") : "all";
+      const filtersAppliedCount = [query.trim(), from, to, tags.length ? "tags" : "", sortParam !== "soonest" ? sortParam : ""].filter(Boolean).length;
+      track("events_filters_changed", {
+        hasQuery: Boolean(query.trim()),
+        queryLength: query.trim().length,
+        datePreset,
+        sort: sortParam,
+        tagsCount: tags.length,
+        filtersAppliedCount,
+      });
+    }, 500);
+    return () => window.clearTimeout(timeout);
+  }, [searchParams]);
+
+  useEffect(() => {
     if (!isAuthenticated) {
       setFavoriteIds(new Set());
       return;
@@ -139,8 +165,7 @@ export function EventsClient({ isAuthenticated, fixtureItems, fallbackFixtureIte
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {visibleItems.map((event) => (
-              <EventCard
-                key={event.id}
+              <div key={event.id} onClick={() => track("event_viewed", { eventSlug: event.slug, source: "events", ui: "card" })}><EventCard
                 href={`/events/${event.slug}`}
                 title={event.title}
                 startAt={event.startAt}
@@ -148,8 +173,8 @@ export function EventsClient({ isAuthenticated, fixtureItems, fallbackFixtureIte
                 venueName={event.venue?.name}
                 imageUrl={event.primaryImageUrl}
                 badges={(event.tags ?? []).map((tag) => tag.slug)}
-                action={<SaveEventButton eventId={event.id} initialSaved={favoriteIds.has(event.id)} nextUrl={`/events?${searchParams?.toString() ?? ""}`} isAuthenticated={isAuthenticated} />}
-              />
+                action={<SaveEventButton eventId={event.id} initialSaved={favoriteIds.has(event.id)} nextUrl={`/events?${searchParams?.toString() ?? ""}`} isAuthenticated={isAuthenticated} analytics={{ eventSlug: event.slug }} />}
+              /></div>
             ))}
           </div>
 
@@ -157,15 +182,14 @@ export function EventsClient({ isAuthenticated, fixtureItems, fallbackFixtureIte
             <h3 className="text-base font-semibold tracking-tight">This weekend</h3>
             <div className="grid gap-2">
               {visibleItems.slice(0, 3).map((event) => (
-                <EventRow
-                  key={`row-${event.id}`}
+                <div key={`row-${event.id}`} onClick={() => track("event_viewed", { eventSlug: event.slug, source: "events", ui: "row" })}><EventRow
                   href={`/events/${event.slug}`}
                   title={event.title}
                   startAt={event.startAt}
                   endAt={event.endAt}
                   venueName={event.venue?.name}
-                  action={<SaveEventButton eventId={event.id} initialSaved={favoriteIds.has(event.id)} nextUrl={`/events?${searchParams?.toString() ?? ""}`} isAuthenticated={isAuthenticated} />}
-                />
+                  action={<SaveEventButton eventId={event.id} initialSaved={favoriteIds.has(event.id)} nextUrl={`/events?${searchParams?.toString() ?? ""}`} isAuthenticated={isAuthenticated} analytics={{ eventSlug: event.slug }} />}
+                /></div>
               ))}
             </div>
           </div>
@@ -174,15 +198,14 @@ export function EventsClient({ isAuthenticated, fixtureItems, fallbackFixtureIte
             <h3 className="text-base font-semibold tracking-tight">Quick picks</h3>
             <div className="flex gap-3 overflow-x-auto pb-2">
               {visibleItems.slice(0, 6).map((event) => (
-                <EventRailCard
-                  key={`rail-${event.id}`}
+                <div key={`rail-${event.id}`} onClick={() => track("event_viewed", { eventSlug: event.slug, source: "events", ui: "rail" })}><EventRailCard
                   href={`/events/${event.slug}`}
                   title={event.title}
                   startAt={event.startAt}
                   endAt={event.endAt}
                   venueName={event.venue?.name}
                   imageUrl={event.primaryImageUrl}
-                />
+                /></div>
               ))}
             </div>
           </div>

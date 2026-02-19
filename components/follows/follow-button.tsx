@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { trackEngagement } from "@/lib/engagement-client";
+import { track } from "@/lib/analytics/client";
 import { enqueueToast } from "@/lib/toast";
 
 type FollowButtonProps = {
@@ -11,6 +12,7 @@ type FollowButtonProps = {
   initialIsFollowing: boolean;
   initialFollowersCount: number;
   isAuthenticated: boolean;
+  analyticsSlug?: string;
 };
 
 type ToggleDeps = {
@@ -43,6 +45,7 @@ export function FollowButton({
   initialIsFollowing,
   initialFollowersCount,
   isAuthenticated,
+  analyticsSlug,
 }: FollowButtonProps) {
   const [isFollowing, setIsFollowing] = useState(initialIsFollowing);
   const [followersCount, setFollowersCount] = useState(initialFollowersCount);
@@ -77,6 +80,11 @@ export function FollowButton({
           action: "FOLLOW",
           targetType,
           targetId,
+        });
+        track("entity_follow_toggled", {
+          type: targetType === "ARTIST" ? "artist" : "venue",
+          slug: analyticsSlug,
+          nextState: next ? "followed" : "unfollowed",
         });
         enqueueToast({ title: next ? "Following updated" : "Unfollowed" });
       },

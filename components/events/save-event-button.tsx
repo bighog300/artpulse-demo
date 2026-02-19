@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { track } from "@/lib/analytics/client";
 import { enqueueToast } from "@/lib/toast";
 import { buildLoginRedirectUrl } from "@/lib/auth-redirect";
 
@@ -10,9 +11,13 @@ type SaveEventButtonProps = {
   initialSaved: boolean;
   nextUrl: string;
   isAuthenticated: boolean;
+  analytics?: {
+    eventSlug?: string;
+    ui?: "detail" | "calendar_panel";
+  };
 };
 
-export function SaveEventButton({ eventId, initialSaved, nextUrl, isAuthenticated }: SaveEventButtonProps) {
+export function SaveEventButton({ eventId, initialSaved, nextUrl, isAuthenticated, analytics }: SaveEventButtonProps) {
   const router = useRouter();
   const [saved, setSaved] = useState(initialSaved);
   const [isPending, setIsPending] = useState(false);
@@ -50,6 +55,11 @@ export function SaveEventButton({ eventId, initialSaved, nextUrl, isAuthenticate
         return;
       }
 
+      track("event_saved_toggled", {
+        eventSlug: analytics?.eventSlug,
+        ui: analytics?.ui,
+        nextState: nextSaved ? "saved" : "unsaved",
+      });
       enqueueToast({ title: nextSaved ? "Saved" : "Removed from saved" });
     } catch {
       setSaved(!nextSaved);

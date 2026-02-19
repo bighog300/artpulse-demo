@@ -7,6 +7,7 @@ import { EventRow } from "@/components/events/event-row";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageViewTracker } from "@/components/analytics/page-view-tracker";
 
 function formatPeriodRange(periodKey: string, createdAt: Date) {
   const weekly = periodKey.match(/^(\d{4})-W(\d{2})$/);
@@ -37,6 +38,7 @@ export default async function DigestsPage() {
 
   return (
     <PageShell className="space-y-5">
+      <PageViewTracker name="digests_list_viewed" />
       <PageHeader
         title="Digests"
         subtitle="Your personalized event roundups"

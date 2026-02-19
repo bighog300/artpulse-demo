@@ -20,6 +20,7 @@ import { Section } from "@/components/ui/section";
 import { SaveEventButton } from "@/components/events/save-event-button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { buildEventQueryString, parseEventFilters } from "@/lib/events-filters";
+import { track } from "@/lib/analytics/client";
 
 type CalendarItem = {
   id: string;
@@ -53,6 +54,7 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
   const [selectedEvent, setSelectedEvent] = useState<CalendarItem | null>(null);
 
   useEffect(() => {
+    track("calendar_viewed");
     const onToday = () => calendarRef.current?.getApi().today();
     window.addEventListener("calendar:today", onToday);
     return () => window.removeEventListener("calendar:today", onToday);
@@ -160,7 +162,10 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
   function openEventPanel(clickInfo: EventClickArg) {
     clickInfo.jsEvent.preventDefault();
     const event = filteredEvents.find((item) => item.id === clickInfo.event.id);
-    if (event) setSelectedEvent(event);
+    if (event) {
+      track("calendar_event_opened", { eventSlug: event.slug, eventId: event.id, source: "calendar" });
+      setSelectedEvent(event);
+    }
   }
 
   return (
@@ -216,7 +221,7 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
               <div className="mt-2 flex flex-col gap-3">
             <EventRow href={`/events/${selectedEvent.slug}`} title={selectedEvent.title} startAt={selectedEvent.start} endAt={selectedEvent.end} venueName={selectedEvent.venue?.name ?? undefined} />
             <div className="flex flex-wrap gap-2">
-              <SaveEventButton eventId={selectedEvent.id} initialSaved={savedSet.has(selectedEvent.id)} nextUrl="/calendar" isAuthenticated={isAuthenticated} />
+              <SaveEventButton eventId={selectedEvent.id} initialSaved={savedSet.has(selectedEvent.id)} nextUrl="/calendar" isAuthenticated={isAuthenticated} analytics={{ eventSlug: selectedEvent.slug, ui: "calendar_panel" }} />
               <Link href={`/events/${selectedEvent.slug}`} className="rounded border px-3 py-2 text-sm">View details</Link>
               <button type="button" className="rounded border px-3 py-2 text-sm" onClick={() => navigator.share?.({ title: selectedEvent.title, url: `${window.location.origin}/events/${selectedEvent.slug}` })}>Share</button>
             </div>

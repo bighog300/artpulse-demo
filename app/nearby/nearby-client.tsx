@@ -8,6 +8,7 @@ import { ErrorCard } from "@/components/ui/error-card";
 import { resolveNearbyView, type NearbyEventItem, type NearbyView } from "@/lib/nearby-map";
 import { SaveSearchButton } from "@/components/saved-searches/save-search-button";
 import { trackEngagement } from "@/lib/engagement-client";
+import { track } from "@/lib/analytics/client";
 import { EventCard } from "@/components/events/event-card";
 import { EventRailCard } from "@/components/events/event-rail-card";
 import { EventsFiltersBar } from "@/components/events/events-filters-bar";
@@ -82,6 +83,10 @@ export function NearbyClient({ initialLocation, isAuthenticated, initialView }: 
   useEffect(() => { if (canSearch) void loadEvents(); }, [canSearch, loadEvents]);
 
   useEffect(() => {
+    track("events_list_viewed", { source: "nearby", hasLocation: canSearch });
+  }, [canSearch]);
+
+  useEffect(() => {
     const visible = items.slice(0, 10);
     for (const [index, item] of visible.entries()) {
       const key = `${item.id}:${index}`;
@@ -140,7 +145,7 @@ export function NearbyClient({ initialLocation, isAuthenticated, initialView }: 
               <h2 className="text-lg font-semibold tracking-tight">Near-term picks</h2>
               <div className="flex gap-3 overflow-x-auto pb-2">
                 {items.slice(0, 6).map((item) => (
-                  <div key={`rail-${item.id}`} onClick={() => trackEngagement({ surface: "NEARBY", action: "CLICK", targetType: "EVENT", targetId: item.id })}>
+                  <div key={`rail-${item.id}`} onClick={() => { trackEngagement({ surface: "NEARBY", action: "CLICK", targetType: "EVENT", targetId: item.id }); track("event_viewed", { eventSlug: item.slug, source: "nearby", ui: "rail" }); }}>
                     <EventRailCard href={`/events/${item.slug}`} title={item.title} startAt={item.startAt} venueName={item.venueName} imageUrl={item.primaryImageUrl} distanceLabel={toKmLabel(form.lat, form.lng, item)} />
                   </div>
                 ))}
@@ -149,7 +154,7 @@ export function NearbyClient({ initialLocation, isAuthenticated, initialView }: 
 
             <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {items.map((item, idx) => (
-                <div key={item.id} onClick={() => trackEngagement({ surface: "NEARBY", action: "CLICK", targetType: "EVENT", targetId: item.id, meta: { position: idx } })}>
+                <div key={item.id} onClick={() => { trackEngagement({ surface: "NEARBY", action: "CLICK", targetType: "EVENT", targetId: item.id, meta: { position: idx } }); track("event_viewed", { eventSlug: item.slug, source: "nearby", ui: "card" }); }}>
                   <EventCard href={`/events/${item.slug}`} title={item.title} startAt={item.startAt} venueName={item.venueName} imageUrl={item.primaryImageUrl} distanceLabel={toKmLabel(form.lat, form.lng, item)} badges={(item.tags ?? []).map((tag) => tag.slug)} />
                 </div>
               ))}

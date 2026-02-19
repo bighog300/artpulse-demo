@@ -8,6 +8,7 @@ import { ErrorCard } from "@/components/ui/error-card";
 import { LoadingCard } from "@/components/ui/loading-card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { enqueueToast } from "@/lib/toast";
+import { track } from "@/lib/analytics/client";
 
 type SavedSearch = { id: string; name: string; type: "NEARBY" | "EVENTS_FILTER"; frequency: "WEEKLY"; isEnabled: boolean; lastSentAt: string | null; createdAt?: string };
 type RunItem = { id: string; slug: string; title: string; startAt: string; endAt: string | null; venue: { name: string | null } | null };
@@ -45,6 +46,7 @@ export function SavedSearchesClient() {
   };
 
   useEffect(() => {
+    track("saved_searches_viewed");
     void load();
   }, []);
 
@@ -83,6 +85,7 @@ export function SavedSearchesClient() {
       const response = await fetch(`/api/saved-searches/${id}/run?limit=6`, { cache: "no-store" });
       if (!response.ok) throw new Error("request_failed");
       const data = await response.json();
+      track("saved_search_run_now", { savedSearchId: id });
       setRunMessages((current) => ({ ...current, [id]: `Found ${data.items?.length ?? 0} events right now.` }));
     } catch {
       setRunMessages((current) => ({ ...current, [id]: "Unable to run this search right now." }));
@@ -95,6 +98,7 @@ export function SavedSearchesClient() {
 
   const openPreview = async (id: string) => {
     setPreviewFor(id);
+    track("saved_search_preview_opened", { savedSearchId: id });
     setPreviewLoading(true);
     setPreviewError(null);
     setPreviewItems([]);
@@ -156,7 +160,10 @@ export function SavedSearchesClient() {
                     type="checkbox"
                     checked={item.isEnabled}
                     disabled={disabled}
-                    onChange={() => void patchItem(item.id, (current) => ({ ...current, isEnabled: !current.isEnabled }), `/api/saved-searches/${item.id}/toggle`, { isEnabled: !item.isEnabled })}
+                    onChange={() => {
+                      track("saved_search_toggled", { savedSearchId: item.id, nextState: item.isEnabled ? "disabled" : "enabled" });
+                      void patchItem(item.id, (current) => ({ ...current, isEnabled: !current.isEnabled }), `/api/saved-searches/${item.id}/toggle`, { isEnabled: !item.isEnabled });
+                    }}
                   />
                   Enabled
                 </label>
@@ -168,6 +175,7 @@ export function SavedSearchesClient() {
                   title="Choose Weekly to receive recurring digest updates, or Off to pause."
                   onChange={(event) => {
                     const next = event.target.value as "OFF" | "WEEKLY";
+                    track("saved_search_frequency_changed", { savedSearchId: item.id, frequency: next });
                     void patchItem(item.id, (current) => ({ ...current, isEnabled: next === "WEEKLY" }), `/api/saved-searches/${item.id}/frequency`, { frequency: next });
                   }}
                 >

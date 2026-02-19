@@ -5,12 +5,10 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { resolveImageUrl } from "@/lib/assets";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
-import { ShareButton } from "@/components/share-button";
-import { SaveEventButton } from "@/components/events/save-event-button";
+import { EventDetailActions } from "@/components/events/event-detail-actions";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { EventRailCard } from "@/components/events/event-rail-card";
 import { formatEventDateRange } from "@/components/events/event-format";
 import { buildDetailMetadata, buildEventJsonLd, getDetailUrl } from "@/lib/seo.public-profiles";
@@ -85,11 +83,7 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
           <div className="absolute bottom-0 left-0 w-full space-y-3 p-5 text-white">
             <h1 className="text-2xl font-semibold md:text-4xl">{event.title}</h1>
             <p className="text-sm text-white/90">{formatEventDateRange(event.startAt, event.endAt)} · {event.venue?.name ?? "Venue TBA"}</p>
-            <div className="flex flex-wrap gap-2">
-              <SaveEventButton eventId={event.id} initialSaved={initialSaved} nextUrl={`/events/${slug}`} isAuthenticated={isAuthenticated} />
-              <Button asChild variant="secondary" size="sm"><a href={calendarLink} target="_blank" rel="noreferrer">Add to Calendar</a></Button>
-              <ShareButton />
-            </div>
+            <EventDetailActions eventId={event.id} eventSlug={event.slug} nextUrl={`/events/${slug}`} isAuthenticated={isAuthenticated} initialSaved={initialSaved} calendarLink={calendarLink} />
           </div>
         </div>
       </section>

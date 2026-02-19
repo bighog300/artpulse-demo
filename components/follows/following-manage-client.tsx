@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorCard } from "@/components/ui/error-card";
 import { LoadingCard } from "@/components/ui/loading-card";
 import { enqueueToast } from "@/lib/toast";
+import { track } from "@/lib/analytics/client";
 
 type ManageItem = { id: string; name: string; slug: string; followersCount: number; upcomingEventsCount: number };
 type ManageResponse = { artists: ManageItem[]; venues: ManageItem[] };
@@ -81,6 +82,11 @@ export function FollowingManageClient() {
         body: JSON.stringify({ targets: selectedTargets }),
       });
       if (!response.ok) throw new Error("request_failed");
+      selectedTargets.forEach((target) => track("entity_unfollowed", {
+        type: target.targetType === "ARTIST" ? "artist" : "venue",
+        slug: rows.find((row) => row.id === target.targetId && row.targetType === target.targetType)?.slug,
+        mode: "bulk",
+      }));
       enqueueToast({ title: "Selected follows removed" });
     } catch {
       setData(prev);
