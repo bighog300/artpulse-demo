@@ -1,20 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import listPlugin from "@fullcalendar/list";
+import type { EventClickArg } from "@fullcalendar/core";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorCard } from "@/components/ui/error-card";
 import { CalendarScopeToggle, parseCalendarScope } from "@/components/calendar/calendar-scope-toggle";
 import { EventFilterChips } from "@/components/events/filter-chips";
 import { EventCard } from "@/components/events/event-card";
 import { EventCardSkeleton } from "@/components/events/event-card-skeleton";
+import { EventRow } from "@/components/events/event-row";
 import { InlineBanner } from "@/components/ui/inline-banner";
 import { Section } from "@/components/ui/section";
+import { SaveEventButton } from "@/components/events/save-event-button";
 import { buildEventQueryString, parseEventFilters } from "@/lib/events-filters";
 
 type CalendarItem = {
@@ -27,21 +30,13 @@ type CalendarItem = {
   artistIds?: string[];
 };
 
-type EventsResponse = {
-  items: CalendarItem[];
-};
-
-type FollowResponse = {
-  artists?: string[];
-  venues?: string[];
-};
-
-type FavoriteItem = {
-  targetType: string;
-  targetId: string;
-};
+type EventsResponse = { items: CalendarItem[] };
+type FollowResponse = { artists?: string[]; venues?: string[] };
+type FavoriteItem = { targetType: string; targetId: string };
 
 export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureItems }: { isAuthenticated: boolean; fixtureItems?: CalendarItem[]; fallbackFixtureItems?: CalendarItem[] }) {
+  const calendarRef = useRef<FullCalendar | null>(null);
+  const panelCloseRef = useRef<HTMLButtonElement | null>(null);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -55,6 +50,23 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
   const [range, setRange] = useState<{ from: string; to: string } | null>(null);
   const [followSet, setFollowSet] = useState<{ artistIds: Set<string>; venueIds: Set<string> }>({ artistIds: new Set(), venueIds: new Set() });
   const [savedSet, setSavedSet] = useState<Set<string>>(new Set());
+  const [selectedEvent, setSelectedEvent] = useState<CalendarItem | null>(null);
+
+  useEffect(() => {
+    const onToday = () => calendarRef.current?.getApi().today();
+    window.addEventListener("calendar:today", onToday);
+    return () => window.removeEventListener("calendar:today", onToday);
+  }, []);
+
+  useEffect(() => {
+    if (!selectedEvent) return;
+    panelCloseRef.current?.focus();
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSelectedEvent(null);
+    };
+    document.addEventListener("keydown", onEscape);
+    return () => document.removeEventListener("keydown", onEscape);
+  }, [selectedEvent]);
 
   useEffect(() => {
     if (fixtureItems) {
@@ -68,23 +80,15 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
       setFollowSet({ artistIds: new Set(), venueIds: new Set() });
       return;
     }
-
     let cancelled = false;
     (async () => {
       try {
         const response = await fetch("/api/follows", { cache: "no-store" });
-        if (!response.ok) {
-          if (!cancelled) setFollowSet({ artistIds: new Set(), venueIds: new Set() });
-          return;
-        }
+        if (!response.ok) return;
         const data = (await response.json()) as FollowResponse;
-        if (cancelled) return;
-        setFollowSet({ artistIds: new Set(data.artists ?? []), venueIds: new Set(data.venues ?? []) });
-      } catch {
-        if (!cancelled) setFollowSet({ artistIds: new Set(), venueIds: new Set() });
-      }
+        if (!cancelled) setFollowSet({ artistIds: new Set(data.artists ?? []), venueIds: new Set(data.venues ?? []) });
+      } catch { if (!cancelled) setFollowSet({ artistIds: new Set(), venueIds: new Set() }); }
     })();
-
     return () => { cancelled = true; };
   }, [isAuthenticated, scope]);
 
@@ -93,39 +97,27 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
       setSavedSet(new Set());
       return;
     }
-
     let cancelled = false;
     (async () => {
       try {
         const response = await fetch("/api/favorites", { cache: "no-store" });
-        if (!response.ok) {
-          if (!cancelled) setSavedSet(new Set());
-          return;
-        }
+        if (!response.ok) return;
         const data = (await response.json()) as { items?: FavoriteItem[] };
-        if (cancelled) return;
-        setSavedSet(new Set((data.items ?? []).filter((item) => item.targetType === "EVENT").map((item) => item.targetId)));
-      } catch {
-        if (!cancelled) setSavedSet(new Set());
-      }
+        if (!cancelled) setSavedSet(new Set((data.items ?? []).filter((item) => item.targetType === "EVENT").map((item) => item.targetId)));
+      } catch { if (!cancelled) setSavedSet(new Set()); }
     })();
-
     return () => { cancelled = true; };
   }, [isAuthenticated, scope]);
 
-  const replaceSearch = useCallback(
-    (updates: Record<string, string | null>) => {
-      const next = buildEventQueryString(searchParams, updates);
-      router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
-    },
-    [pathname, router, searchParams],
-  );
+  const replaceSearch = useCallback((updates: Record<string, string | null>) => {
+    const next = buildEventQueryString(searchParams, updates);
+    router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
+  }, [pathname, router, searchParams]);
 
   const fetchEvents = useCallback(async () => {
     if (fixtureItems || !range) return;
     setIsLoading(true);
     setError(null);
-
     const params = new URLSearchParams();
     if (filters.query) params.set("query", filters.query);
     if (filters.tags.length) params.set("tags", filters.tags.join(","));
@@ -140,16 +132,7 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
 
     try {
       const response = await fetch(`/api/events?${params.toString()}`, { cache: "no-store" });
-      if (!response.ok) {
-        if (fallbackFixtureItems?.length) {
-          setEvents(fallbackFixtureItems);
-          setError(null);
-          return;
-        }
-        setError("Unable to load calendar events right now.");
-        setEvents([]);
-        return;
-      }
+      if (!response.ok) throw new Error("failed");
       const data = (await response.json()) as EventsResponse;
       setEvents(data.items ?? []);
     } catch {
@@ -165,9 +148,7 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
     }
   }, [fallbackFixtureItems, filters.artist, filters.from, filters.lat, filters.lng, filters.query, filters.radiusKm, filters.tags, filters.to, filters.venue, fixtureItems, range]);
 
-  useEffect(() => {
-    void fetchEvents();
-  }, [fetchEvents]);
+  useEffect(() => { void fetchEvents(); }, [fetchEvents]);
 
   const filteredEvents = useMemo(() => {
     if (scope === "saved") return events.filter((event) => savedSet.has(event.id));
@@ -186,19 +167,19 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
   const filtersQueryString = useMemo(() => buildEventQueryString(searchParams, { scope: null }), [searchParams]);
   const eventsHref = filtersQueryString ? `/events?${filtersQueryString}` : "/events";
 
+  function openEventPanel(clickInfo: EventClickArg) {
+    clickInfo.jsEvent.preventDefault();
+    const event = filteredEvents.find((item) => item.id === clickInfo.event.id);
+    if (event) setSelectedEvent(event);
+  }
+
   return (
     <section className="space-y-4">
       <Section title="Controls" subtitle="Change scope, filters, and view mode.">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <CalendarScopeToggle scope={scope} />
-          <div className="flex items-center gap-3 text-sm text-zinc-700">
-            <Link className="underline" href={eventsHref}>Go to Events</Link>
-            <button type="button" className="underline" onClick={() => replaceSearch({ view: viewMode === "calendar" ? "agenda" : "calendar" })}>
-              View: {viewMode === "calendar" ? "Calendar" : "Agenda"}
-            </button>
-          </div>
+          <Link className="text-sm underline" href={eventsHref}>Go to Events</Link>
         </div>
-
         <EventFilterChips filters={{ query: filters.query, tags: activeTags, from: filters.from, to: filters.to }} onRemove={replaceSearch} onClearAll={() => replaceSearch({ query: null, tags: null, from: null, to: null })} />
         {hasActiveFilters ? <InlineBanner>Filtered calendar view</InlineBanner> : null}
       </Section>
@@ -207,16 +188,14 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
         {error ? <ErrorCard message={error} onRetry={() => void fetchEvents()} /> : null}
         <div className="rounded-lg border bg-white p-2">
           <FullCalendar
+            ref={calendarRef}
             plugins={[dayGridPlugin, timeGridPlugin, listPlugin]}
             initialView="dayGridMonth"
-            headerToolbar={{ left: "prev,next today", center: "title", right: "dayGridMonth,timeGridWeek,listWeek" }}
+            headerToolbar={{ left: "prev,next", center: "title", right: "dayGridMonth,timeGridWeek,listWeek" }}
             height="auto"
             datesSet={(info) => setRange({ from: info.startStr.slice(0, 10), to: info.endStr.slice(0, 10) })}
             events={filteredEvents.map((event) => ({ id: event.id, title: event.title, start: event.start, end: event.end ?? undefined, url: `/events/${event.slug}` }))}
-            eventClick={(info) => {
-              info.jsEvent.preventDefault();
-              if (info.event.url) router.push(info.event.url);
-            }}
+            eventClick={openEventPanel}
           />
         </div>
 
@@ -234,6 +213,23 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
             </ul>
           )}
         </Section>
+      ) : null}
+
+      {selectedEvent ? (
+        <div className="fixed inset-0 z-50 bg-black/50" role="dialog" aria-modal="true" aria-label="Event details panel" onClick={() => setSelectedEvent(null)}>
+          <div className="ml-auto flex h-full w-full max-w-md flex-col gap-3 bg-background p-4 shadow-xl" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Event details</h2>
+              <button ref={panelCloseRef} type="button" className="rounded border px-2 py-1 text-sm" onClick={() => setSelectedEvent(null)} aria-label="Close event panel">Close</button>
+            </div>
+            <EventRow href={`/events/${selectedEvent.slug}`} title={selectedEvent.title} startAt={selectedEvent.start} endAt={selectedEvent.end} venueName={selectedEvent.venue?.name ?? undefined} />
+            <div className="flex flex-wrap gap-2">
+              <SaveEventButton eventId={selectedEvent.id} initialSaved={savedSet.has(selectedEvent.id)} nextUrl="/calendar" isAuthenticated={isAuthenticated} />
+              <Link href={`/events/${selectedEvent.slug}`} className="rounded border px-3 py-2 text-sm">View details</Link>
+              <button type="button" className="rounded border px-3 py-2 text-sm" onClick={() => navigator.share?.({ title: selectedEvent.title, url: `${window.location.origin}/events/${selectedEvent.slug}` })}>Share</button>
+            </div>
+          </div>
+        </div>
       ) : null}
     </section>
   );

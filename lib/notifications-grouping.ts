@@ -1,4 +1,5 @@
 import type { Notification, NotificationType } from "@prisma/client";
+import { dateGroupLabel } from "@/lib/date-grouping";
 
 export type NotificationGroup = {
   key: string;
@@ -14,13 +15,7 @@ export function notificationTypeGroup(type: NotificationType) {
 }
 
 export function notificationBucketLabel(createdAt: Date, now = new Date()) {
-  const d = new Date(createdAt);
-  const startNow = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const startDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const diffDays = Math.floor((startNow.getTime() - startDate.getTime()) / 86_400_000);
-  if (diffDays === 0) return "Today";
-  if (diffDays === 1) return "Yesterday";
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  return dateGroupLabel(new Date(createdAt), now);
 }
 
 export function groupNotificationsByDay(items: Notification[], now = new Date()): NotificationGroup[] {

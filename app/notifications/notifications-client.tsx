@@ -1,10 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ErrorCard } from "@/components/ui/error-card";
 import { LoadingCard } from "@/components/ui/loading-card";
 import { enqueueToast } from "@/lib/toast";
-import { groupNotificationsByDay, notificationTypeGroup } from "@/lib/notifications-grouping";
+import { groupNotificationsByDay } from "@/lib/notifications-grouping";
 import type { Notification, NotificationInboxStatus } from "@prisma/client";
 
 type NotificationPageProps = {
@@ -19,12 +20,7 @@ function relativeTimeLabel(date: Date) {
   const hours = Math.floor(diffMinutes / 60);
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  const weeks = Math.floor(days / 7);
-  if (weeks < 5) return `${weeks}w ago`;
-  const months = Math.floor(days / 30);
-  if (months < 12) return `${months}mo ago`;
-  return `${Math.floor(days / 365)}y ago`;
+  return `${days}d ago`;
 }
 
 async function refreshUnreadBadge() {
@@ -41,32 +37,21 @@ export function NotificationsClient({ initialItems, initialNextCursor }: Notific
   const [nextCursor, setNextCursor] = useState<string | null>(initialNextCursor);
   const [loadingMore, setLoadingMore] = useState(false);
   const [activeTab, setActiveTab] = useState<"ALL" | "UNREAD">("ALL");
-  const [typeFilter, setTypeFilter] = useState<"ALL" | "INVITES" | "SUBMISSIONS" | "DIGESTS" | "OTHER">("ALL");
   const [error, setError] = useState<string | null>(null);
   const [markingAllRead, setMarkingAllRead] = useState(false);
 
   const unreadCount = useMemo(() => items.filter((item) => item.status === "UNREAD").length, [items]);
-  const visibleItems = useMemo(() => items.filter((item) => {
-    if (activeTab === "UNREAD" && item.status !== "UNREAD") return false;
-    if (typeFilter === "ALL") return true;
-    return notificationTypeGroup(item.type) === typeFilter;
-  }), [activeTab, items, typeFilter]);
+  const visibleItems = useMemo(() => items.filter((item) => (activeTab === "UNREAD" ? item.status === "UNREAD" : true)), [activeTab, items]);
   const groups = useMemo(() => groupNotificationsByDay(visibleItems), [visibleItems]);
 
   async function markRead(id: string) {
-    await fetch(`/api/notifications/${id}/read`, { method: "POST" });
     setItems((current) => current.map((item) => item.id === id ? { ...item, status: "READ" as NotificationInboxStatus } : item));
-    void refreshUnreadBadge();
-  }
-
-  async function markBatch(ids: string[]) {
-    const response = await fetch("/api/notifications/read-batch", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ ids }),
-    });
-    if (!response.ok) return false;
-    setItems((current) => current.map((item) => ids.includes(item.id) ? { ...item, status: "READ" as NotificationInboxStatus } : item));
+    const response = await fetch(`/api/notifications/${id}/read`, { method: "POST" });
+    if (!response.ok) {
+      setItems((current) => current.map((item) => item.id === id ? { ...item, status: "UNREAD" as NotificationInboxStatus } : item));
+      enqueueToast({ title: "Unable to mark as read", variant: "error" });
+      return false;
+    }
     void refreshUnreadBadge();
     return true;
   }
@@ -74,18 +59,15 @@ export function NotificationsClient({ initialItems, initialNextCursor }: Notific
   async function markAllRead() {
     if (markingAllRead) return;
     setMarkingAllRead(true);
+    setItems((current) => current.map((item) => ({ ...item, status: "READ" as NotificationInboxStatus })));
     try {
-      const unreadIds = items.filter((item) => item.status === "UNREAD").map((item) => item.id);
-      let ok = true;
-      for (let i = 0; i < unreadIds.length; i += 100) {
-        const chunkOk = await markBatch(unreadIds.slice(i, i + 100));
-        if (!chunkOk) { ok = false; break; }
-      }
-      if (!ok) {
-        enqueueToast({ title: "Unable to mark all read", variant: "error" });
-        return;
-      }
+      const response = await fetch("/api/notifications/read-all", { method: "POST" });
+      if (!response.ok) throw new Error("request_failed");
       enqueueToast({ title: "All notifications marked read" });
+      void refreshUnreadBadge();
+    } catch {
+      setItems(initialItems);
+      enqueueToast({ title: "Unable to mark all read", variant: "error" });
     } finally {
       setMarkingAllRead(false);
     }
@@ -109,59 +91,64 @@ export function NotificationsClient({ initialItems, initialNextCursor }: Notific
     }
   }
 
+  if (activeTab === "UNREAD" && groups.length === 0) {
+    return (
+      <section className="space-y-4">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex gap-2">
+            <button className="rounded border px-3 py-1 text-sm" type="button" onClick={() => setActiveTab("ALL")}>All</button>
+            <button className="rounded border border-foreground px-3 py-1 text-sm" type="button" onClick={() => setActiveTab("UNREAD")}>Unread</button>
+          </div>
+        </div>
+        <p className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">You&apos;re all caught up.</p>
+      </section>
+    );
+  }
+
   return (
     <section className="space-y-4" aria-busy={loadingMore}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-gray-700">Unread: {unreadCount}</p>
-        <button className="rounded border px-3 py-1 text-sm" type="button" onClick={markAllRead} disabled={markingAllRead}>{markingAllRead ? "Marking..." : "Mark all read"}</button>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <button className={`rounded border px-3 py-1 text-sm ${activeTab === "ALL" ? "border-black" : "border-gray-300"}`} type="button" onClick={() => setActiveTab("ALL")}>All</button>
-        <button className={`rounded border px-3 py-1 text-sm ${activeTab === "UNREAD" ? "border-black" : "border-gray-300"}`} type="button" onClick={() => setActiveTab("UNREAD")}>Unread</button>
-        <select className="rounded border px-2 py-1 text-sm" value={typeFilter} onChange={(event) => setTypeFilter(event.target.value as typeof typeFilter)}>
-          <option value="ALL">All types</option>
-          <option value="INVITES">Invites</option>
-          <option value="SUBMISSIONS">Submissions</option>
-          <option value="DIGESTS">Digests</option>
-          <option value="OTHER">Other</option>
-        </select>
+        <div className="flex gap-2">
+          <button className={`rounded border px-3 py-1 text-sm ${activeTab === "ALL" ? "border-foreground" : "border-border"}`} type="button" onClick={() => setActiveTab("ALL")}>All</button>
+          <button className={`rounded border px-3 py-1 text-sm ${activeTab === "UNREAD" ? "border-foreground" : "border-border"}`} type="button" onClick={() => setActiveTab("UNREAD")}>Unread</button>
+          <button className="rounded border px-3 py-1 text-sm" type="button" onClick={markAllRead} disabled={markingAllRead || unreadCount === 0}>{markingAllRead ? "Marking..." : "Mark all read"}</button>
+        </div>
       </div>
 
       {error ? <ErrorCard message={error} onRetry={() => void loadMore()} /> : null}
-      <div className="space-y-3">
-        {groups.map((group) => {
-          const groupUnreadIds = group.items.filter((item) => item.status === "UNREAD").map((item) => item.id);
-          return (
-            <section key={group.key} className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="text-sm font-semibold text-zinc-700">{group.label}</h2>
-                {groupUnreadIds.length ? <button className="rounded border px-2 py-0.5 text-xs" type="button" onClick={() => void markBatch(groupUnreadIds)}>Mark section read</button> : null}
-              </div>
-              <ul className="space-y-2">
-                {group.items.map((item) => (
-                  <li key={item.id} className={`rounded border p-3 ${item.status === "UNREAD" ? "border-black" : "border-gray-300"}`}>
+      <div className="space-y-4">
+        {groups.map((group) => (
+          <section key={group.key} className="space-y-2">
+            <h2 className="text-sm font-semibold text-zinc-700">{group.label}</h2>
+            <ul className="space-y-2">
+              {group.items.map((item) => (
+                <li key={item.id} className={`rounded-lg border p-3 ${item.status === "UNREAD" ? "border-foreground bg-muted/40" : "border-border"}`}>
+                  <div className="flex items-start justify-between gap-2">
                     <button
                       type="button"
-                      className="w-full text-left"
+                      className="min-w-0 flex-1 text-left"
                       onClick={async () => {
-                        await markRead(item.id);
-                        if (item.href) window.location.href = item.href;
+                        const ok = await markRead(item.id);
+                        if (!ok || !item.href) return;
+                        window.location.href = item.href;
                       }}
                     >
                       <div className="flex items-center gap-2">
-                        {item.status === "UNREAD" ? <span className="h-2 w-2 rounded-full bg-black" aria-hidden="true" /> : null}
+                        {item.status === "UNREAD" ? <span className="mt-1 h-2 w-2 rounded-full bg-foreground" aria-hidden="true" /> : null}
                         <p className={item.status === "UNREAD" ? "font-semibold" : "font-medium"}>{item.title}</p>
                       </div>
                       <p className="text-sm text-gray-700">{item.body}</p>
-                      <p className="text-xs text-gray-500">{relativeTimeLabel(new Date(item.createdAt))}</p>
+                      <p className="text-xs text-gray-500" title={new Date(item.createdAt).toLocaleString()}>{relativeTimeLabel(new Date(item.createdAt))}</p>
                     </button>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          );
-        })}
+                    <button className="rounded border px-2 py-1 text-xs" type="button" onClick={() => void markRead(item.id)} aria-label={`Mark ${item.title} as read`}>Read</button>
+                  </div>
+                  {item.href ? <Link href={item.href} className="mt-2 inline-block text-sm font-medium underline">Open</Link> : null}
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
       </div>
 
       {loadingMore ? <LoadingCard lines={2} /> : null}
