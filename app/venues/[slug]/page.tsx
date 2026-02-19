@@ -7,6 +7,7 @@ import { EventCard } from "@/components/events/event-card";
 import { FollowButton } from "@/components/follows/follow-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageShell } from "@/components/ui/page-shell";
+import { PageViewTracker } from "@/components/analytics/page-view-tracker";
 import { SectionHeader } from "@/components/ui/section-header";
 import { resolveImageUrl } from "@/lib/assets";
 import { getSessionUser } from "@/lib/auth";
@@ -91,12 +92,13 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
 
   return (
     <PageShell className="space-y-6">
+      <PageViewTracker name="entity_viewed" props={{ type: "venue", slug }} />
       <EntityHeader
         title={venue.name}
         subtitle={subtitle}
         imageUrl={coverUrl}
         coverUrl={coverUrl}
-        primaryAction={<FollowButton targetType="VENUE" targetId={venue.id} initialIsFollowing={Boolean(existingFollow)} initialFollowersCount={followersCount} isAuthenticated={Boolean(user)} />}
+        primaryAction={<FollowButton targetType="VENUE" targetId={venue.id} initialIsFollowing={Boolean(existingFollow)} initialFollowersCount={followersCount} isAuthenticated={Boolean(user)} analyticsSlug={venue.slug} />}
         secondaryAction={mapHref ? <a className="inline-flex rounded-md border px-3 py-1 text-sm" href={mapHref} target="_blank" rel="noreferrer">Open in Maps</a> : undefined}
       />
 

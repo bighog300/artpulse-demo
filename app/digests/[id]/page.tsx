@@ -7,6 +7,7 @@ import { PageShell } from "@/components/ui/page-shell";
 import { EventCard } from "@/components/events/event-card";
 import { EventRow } from "@/components/events/event-row";
 import { dateGroupLabel } from "@/lib/date-grouping";
+import { PageViewTracker } from "@/components/analytics/page-view-tracker";
 
 async function disableSavedSearch(id: string) {
   "use server";
@@ -39,6 +40,7 @@ export default async function DigestDetailPage({ params }: { params: Promise<{ i
 
   return (
     <PageShell className="space-y-6">
+      <PageViewTracker name="digest_opened" props={{ digestId: digest.id }} />
       <Breadcrumbs items={[{ label: "Saved Searches", href: "/saved-searches" }, { label: digest.savedSearch.name, href: `/saved-searches/${digest.savedSearch.id}` }, { label: digest.periodKey, href: `/digests/${digest.id}` }]} />
 
       <header className="rounded-2xl border border-border bg-card p-6">

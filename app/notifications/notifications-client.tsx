@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ErrorCard } from "@/components/ui/error-card";
 import { LoadingCard } from "@/components/ui/loading-card";
 import { enqueueToast } from "@/lib/toast";
+import { track } from "@/lib/analytics/client";
 import { groupNotificationsByDay } from "@/lib/notifications-grouping";
 import type { Notification, NotificationInboxStatus } from "@prisma/client";
 
@@ -40,6 +41,10 @@ export function NotificationsClient({ initialItems, initialNextCursor }: Notific
   const [error, setError] = useState<string | null>(null);
   const [markingAllRead, setMarkingAllRead] = useState(false);
 
+  useEffect(() => {
+    track("notifications_viewed");
+  }, []);
+
   const unreadCount = useMemo(() => items.filter((item) => item.status === "UNREAD").length, [items]);
   const visibleItems = useMemo(() => items.filter((item) => (activeTab === "UNREAD" ? item.status === "UNREAD" : true)), [activeTab, items]);
   const groups = useMemo(() => groupNotificationsByDay(visibleItems), [visibleItems]);
@@ -52,6 +57,8 @@ export function NotificationsClient({ initialItems, initialNextCursor }: Notific
       enqueueToast({ title: "Unable to mark as read", variant: "error" });
       return false;
     }
+    const matched = items.find((entry) => entry.id === id);
+    track("notification_marked_read", { notificationType: matched?.type, hasTarget: Boolean(matched?.href) });
     void refreshUnreadBadge();
     return true;
   }
@@ -63,6 +70,7 @@ export function NotificationsClient({ initialItems, initialNextCursor }: Notific
     try {
       const response = await fetch("/api/notifications/read-all", { method: "POST" });
       if (!response.ok) throw new Error("request_failed");
+      track("notifications_mark_all_read");
       enqueueToast({ title: "All notifications marked read" });
       void refreshUnreadBadge();
     } catch {
