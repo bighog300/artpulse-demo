@@ -1,53 +1,72 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { Badge } from "@/components/ui/badge";
+import { formatEventDateRange, formatEventDayMonth } from "@/components/events/event-format";
+import { cn } from "@/lib/utils";
 
 type EventCardProps = {
   title: string;
   startAt: string | Date;
   endAt?: string | Date | null;
   venueName?: string | null;
-  venueSlug?: string | null;
   imageUrl?: string | null;
   href: string;
   badges?: string[];
   secondaryText?: string;
   action?: ReactNode;
+  distanceLabel?: string;
+  className?: string;
 };
 
-function formatRange(startAt: string | Date, endAt?: string | Date | null) {
-  const start = new Date(startAt);
-  const end = endAt ? new Date(endAt) : null;
-  return end ? `${start.toLocaleString()} – ${end.toLocaleString()}` : start.toLocaleString();
-}
-
-export function EventCard({ title, startAt, endAt, venueName, imageUrl, href, badges, secondaryText, action }: EventCardProps) {
-  const card = (
-    <Link
-      href={href}
-      className="group block overflow-hidden rounded-lg border bg-white motion-safe:transition-colors motion-safe:transition-shadow motion-safe:duration-150 motion-reduce:transition-none hover:border-zinc-400 hover:bg-zinc-50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900"
-    >
-      <div className="flex gap-3 p-3">
-        <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded bg-zinc-100">
-          {imageUrl ? <Image src={imageUrl} alt="" fill className="object-cover" sizes="80px" /> : <div className="flex h-full items-center justify-center text-xs text-zinc-500">No image</div>}
-        </div>
-        <div className="min-w-0 flex-1 space-y-1">
-          <h3 className="line-clamp-2 font-semibold text-zinc-900 group-hover:underline">{title}</h3>
-          <p className="text-sm text-zinc-700">{formatRange(startAt, endAt)}</p>
-          {secondaryText ? <p className="text-xs text-zinc-600">{secondaryText}</p> : null}
-          {venueName ? <p className="text-xs text-zinc-600">{venueName}</p> : null}
-          {badges?.length ? <div className="flex flex-wrap gap-1 pt-1">{badges.map((badge) => <span key={badge} className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">{badge}</span>)}</div> : null}
-        </div>
-      </div>
-    </Link>
-  );
-
-  if (!action) return card;
+export function EventCard({ title, startAt, endAt, venueName, imageUrl, href, badges, secondaryText, action, distanceLabel, className }: EventCardProps) {
+  const dayMonth = formatEventDayMonth(startAt);
+  const dateRange = formatEventDateRange(startAt, endAt);
 
   return (
-    <div className="flex items-start gap-2 sm:items-center">
-      <div className="min-w-0 flex-1">{card}</div>
-      <div className="shrink-0">{action}</div>
-    </div>
+    <article className={cn("group overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg", className)}>
+      <Link
+        href={href}
+        aria-label={`Open event ${title}`}
+        className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      >
+        <div className="relative aspect-[16/10] overflow-hidden">
+          {imageUrl ? (
+            <Image
+              src={imageUrl}
+              alt={title}
+              fill
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              className="object-cover transition-transform duration-300 group-hover:scale-105"
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center bg-muted text-sm text-muted-foreground">No event image</div>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+          <div className="absolute left-3 top-3 rounded-md bg-background/95 px-2 py-1 text-center text-xs font-semibold leading-tight text-foreground">
+            <p>{dayMonth.day}</p>
+            <p className="uppercase text-[10px] text-muted-foreground">{dayMonth.month}</p>
+          </div>
+          {distanceLabel ? <Badge className="absolute right-3 top-3 bg-background/90 text-foreground">{distanceLabel}</Badge> : null}
+        </div>
+
+        <div className="space-y-2 p-4">
+          <h3 className="line-clamp-2 text-base font-semibold tracking-tight text-foreground">{title}</h3>
+          <p className="text-sm text-muted-foreground">{dateRange}</p>
+          {secondaryText ? <p className="text-sm text-muted-foreground">{secondaryText}</p> : null}
+          {venueName ? <p className="line-clamp-1 text-sm text-muted-foreground">{venueName}</p> : null}
+          {badges?.length ? (
+            <div className="flex flex-wrap gap-1">
+              {badges.slice(0, 2).map((badge) => (
+                <Badge key={badge} variant="secondary" className="text-xs">
+                  {badge}
+                </Badge>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </Link>
+      {action ? <div className="border-t border-border p-3">{action}</div> : null}
+    </article>
   );
 }

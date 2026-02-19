@@ -6,6 +6,8 @@ export type NearbyEventItem = {
   title: string;
   startAt: string;
   venueName?: string | null;
+  primaryImageUrl?: string | null;
+  tags?: Array<{ name?: string; slug: string }>;
   lat?: number | null;
   lng?: number | null;
   mapLat?: number | null;
