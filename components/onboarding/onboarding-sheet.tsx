@@ -5,17 +5,22 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { track } from "@/lib/analytics/client";
 import { setOnboardingStep } from "@/lib/onboarding/state";
 import { OnboardingProgress, type OnboardingStepStatus } from "@/components/onboarding/onboarding-progress";
+import { RecommendedFollows } from "@/components/onboarding/recommended-follows";
 
 export function OnboardingSheet({
   open,
   onOpenChange,
   page,
   steps,
+  hasLocation,
+  isAuthenticated,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   page: string;
   steps: OnboardingStepStatus[];
+  hasLocation: boolean;
+  isAuthenticated: boolean;
 }) {
   const clickStep = (step: OnboardingStepStatus["key"], destination: string) => {
     setOnboardingStep(step);
@@ -39,6 +44,9 @@ export function OnboardingSheet({
               <Link href="/artists" className="rounded border px-2 py-1" onClick={() => clickStep("follow", "/artists")}>Browse artists</Link>
               <Link href="/venues" className="rounded border px-2 py-1" onClick={() => clickStep("follow", "/venues")}>Browse venues</Link>
             </div>
+            <div className="mt-3">
+              <RecommendedFollows page={page} source="onboarding_sheet" isAuthenticated={isAuthenticated} />
+            </div>
           </div>
 
           <div className="rounded-lg border p-3">
@@ -55,6 +63,7 @@ export function OnboardingSheet({
           <div className="rounded-lg border p-3">
             <p className="font-medium">Enable nearby (optional)</p>
             <p className="text-muted-foreground">Nearby works best when your device shares location. Manage preferences in your location settings.</p>
+            <p className="mt-2 text-xs text-muted-foreground">{hasLocation ? "Location enabled ✓" : "Enable location to use Nearby"}</p>
             <Link href="/nearby" className="mt-2 inline-block rounded border px-2 py-1" onClick={() => clickStep("location", "/nearby")}>Open nearby</Link>
           </div>
         </div>

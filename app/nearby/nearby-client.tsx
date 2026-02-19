@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { LocationPreferencesForm } from "@/components/location/location-preferences-form";
@@ -38,6 +39,7 @@ export function NearbyClient({ initialLocation, isAuthenticated, initialView }: 
   const [items, setItems] = useState<NearbyEventItem[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
   const [view, setView] = useState<NearbyView>(initialView);
   const router = useRouter();
   const pathname = usePathname();
@@ -84,6 +86,7 @@ export function NearbyClient({ initialLocation, isAuthenticated, initialView }: 
 
   useEffect(() => {
     track("events_list_viewed", { source: "nearby", hasLocation: canSearch });
+    if (!canSearch) track("location_education_shown", { page: "nearby" });
   }, [canSearch]);
 
   useEffect(() => {
@@ -97,6 +100,35 @@ export function NearbyClient({ initialLocation, isAuthenticated, initialView }: 
   }, [items]);
 
   const tags = useMemo(() => Array.from(new Set(items.flatMap((item) => (item.tags ?? []).map((tag) => tag.slug)))), [items]);
+
+  const enableLocation = async () => {
+    track("location_enable_clicked", { page: "nearby" });
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      track("location_enable_result", { result: "error" });
+      setMessage("Location is unavailable in this browser.");
+      return;
+    }
+
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(async (position) => {
+      const nextLat = String(position.coords.latitude);
+      const nextLng = String(position.coords.longitude);
+      setForm((prev) => ({ ...prev, lat: nextLat, lng: nextLng, locationLabel: prev.locationLabel || "Current location" }));
+      if (isAuthenticated) {
+        await fetch("/api/me/location", {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ locationLabel: form.locationLabel || "Current location", lat: position.coords.latitude, lng: position.coords.longitude, radiusKm: Number(form.radiusKm || "25") }),
+        });
+      }
+      track("location_enable_result", { result: "granted" });
+      setIsLocating(false);
+    }, () => {
+      track("location_enable_result", { result: "denied" });
+      setMessage("Location permission was denied.");
+      setIsLocating(false);
+    });
+  };
 
   return (
     <div className="space-y-5">
@@ -134,11 +166,22 @@ export function NearbyClient({ initialLocation, isAuthenticated, initialView }: 
 
       {view === "list" && !isLoading ? (
         items.length === 0 ? (
-          <EmptyState
-            title="No nearby events found"
-            description="Enable location, increase your radius, or try another area to discover events."
-            actions={[{ label: isAuthenticated ? "Manage location" : "Sign in", href: isAuthenticated ? "/account" : "/login", variant: "secondary" }]}
-          />
+          canSearch ? (
+            <EmptyState
+              title="No nearby events found"
+              description="Increase your radius, or try another area to discover events."
+              actions={[{ label: isAuthenticated ? "Manage location" : "Sign in", href: isAuthenticated ? "/account" : "/login", variant: "secondary" }]}
+            />
+          ) : (
+            <div className="rounded-lg border p-4">
+              <h3 className="font-medium">Enable location</h3>
+              <p className="mt-1 text-sm text-muted-foreground">Nearby uses your device location to compute distance.</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button type="button" className="rounded border px-3 py-1 text-sm" onClick={() => void enableLocation()} disabled={isLocating}>{isLocating ? "Enabling..." : "Enable location"}</button>
+                <Link href="/events" className="rounded border px-3 py-1 text-sm">Browse all events</Link>
+              </div>
+            </div>
+          )
         ) : (
           <>
             <section className="space-y-3">

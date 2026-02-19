@@ -26,6 +26,14 @@ export type AnalyticsEventName =
   | "onboarding_dismissed"
   | "onboarding_step_clicked"
   | "onboarding_completed"
+  | "recommended_follows_shown"
+  | "recommended_follow_clicked"
+  | "saved_search_cta_shown"
+  | "saved_search_created"
+  | "saved_search_cta_preview_clicked"
+  | "location_education_shown"
+  | "location_enable_clicked"
+  | "location_enable_result"
 ;
 
 export type AnalyticsProps = {
@@ -54,7 +62,8 @@ export type AnalyticsProps = {
   page?: string;
   step?: "follow" | "saved_search" | "saved_event" | "location" | "done";
   destination?: string;
-  method?: "native" | "copy" | "follow" | "saved_search" | "saved_event" | "location";
+  method?: "native" | "copy" | "follow" | "saved_search" | "saved_event" | "location" | "search_cta";
+  result?: "granted" | "denied" | "error";
 };
 
 export type AnalyticsPayload = {

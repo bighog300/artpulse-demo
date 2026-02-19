@@ -13,6 +13,7 @@ type FollowButtonProps = {
   initialFollowersCount: number;
   isAuthenticated: boolean;
   analyticsSlug?: string;
+  onToggled?: (nextState: "followed" | "unfollowed") => void;
 };
 
 type ToggleDeps = {
@@ -46,6 +47,7 @@ export function FollowButton({
   initialFollowersCount,
   isAuthenticated,
   analyticsSlug,
+  onToggled,
 }: FollowButtonProps) {
   const [isFollowing, setIsFollowing] = useState(initialIsFollowing);
   const [followersCount, setFollowersCount] = useState(initialFollowersCount);
@@ -94,6 +96,10 @@ export function FollowButton({
           nextState: next ? "followed" : "unfollowed",
         });
         enqueueToast({ title: next ? "Following updated" : "Unfollowed" });
+        onToggled?.(next ? "followed" : "unfollowed");
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("artpulse:follow_toggled", { detail: { nextState: next ? "followed" : "unfollowed" } }));
+        }
         setShowSuccessHint(true);
       },
       onError: () => enqueueToast({ title: "Could not update follow", variant: "error" }),
