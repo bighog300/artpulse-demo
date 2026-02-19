@@ -30,11 +30,11 @@ export function EventCard({ title, startAt, endAt, venueName, imageUrl, href, ba
   const chips = badges ?? tags;
 
   return (
-    <article className={cn("group overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg", className)}>
+    <article className={cn("group overflow-hidden rounded-xl border border-border bg-card shadow-sm ui-hover-lift ui-press", className)}>
       <Link
         href={href}
         aria-label={`Open event ${title}`}
-        className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        className="block focus-visible:rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       >
         <div className="relative aspect-[16/10] overflow-hidden">
           {imageUrl ? (
@@ -43,7 +43,7 @@ export function EventCard({ title, startAt, endAt, venueName, imageUrl, href, ba
               alt={title}
               fill
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              className="object-cover transition-transform duration-300 group-hover:scale-105"
+              className="object-cover ui-trans motion-safe:group-hover:scale-[1.02] motion-safe:group-focus-visible:scale-[1.02]"
             />
           ) : (
             <div className="flex h-full items-center justify-center bg-muted text-sm text-muted-foreground">No event image</div>

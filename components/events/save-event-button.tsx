@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { track } from "@/lib/analytics/client";
 import { enqueueToast } from "@/lib/toast";
 import { buildLoginRedirectUrl } from "@/lib/auth-redirect";
@@ -21,6 +21,13 @@ export function SaveEventButton({ eventId, initialSaved, nextUrl, isAuthenticate
   const router = useRouter();
   const [saved, setSaved] = useState(initialSaved);
   const [isPending, setIsPending] = useState(false);
+  const [showSavedHint, setShowSavedHint] = useState(false);
+
+  useEffect(() => {
+    if (!showSavedHint) return;
+    const timeout = setTimeout(() => setShowSavedHint(false), 2000);
+    return () => clearTimeout(timeout);
+  }, [showSavedHint]);
 
   async function onToggle() {
     if (isPending) return;
@@ -61,6 +68,7 @@ export function SaveEventButton({ eventId, initialSaved, nextUrl, isAuthenticate
         nextState: nextSaved ? "saved" : "unsaved",
       });
       enqueueToast({ title: nextSaved ? "Saved" : "Removed from saved" });
+      if (nextSaved) setShowSavedHint(true);
     } catch {
       setSaved(!nextSaved);
       enqueueToast({ title: "Could not update saved event", variant: "error" });
@@ -74,12 +82,15 @@ export function SaveEventButton({ eventId, initialSaved, nextUrl, isAuthenticate
       type="button"
       onClick={onToggle}
       disabled={isPending}
-      className="inline-flex rounded border px-3 py-1 text-sm motion-safe:transition-colors motion-safe:duration-150 motion-reduce:transition-none hover:bg-zinc-50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 disabled:cursor-not-allowed disabled:opacity-70"
+      className="group inline-flex items-center gap-1.5 rounded border border-border px-3 py-1 text-sm ui-trans ui-press hover:bg-muted hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
       aria-pressed={saved}
       aria-busy={isPending}
       aria-label={saved ? "Remove event from saved" : "Save event"}
     >
-      <span aria-hidden="true">{saved ? "♥" : "♡"}</span><span>{isPending ? "Saving..." : saved ? "Saved" : "Save"}</span>
+      <span aria-hidden="true" className={`ui-trans motion-safe:transform-gpu motion-safe:group-hover:scale-105 ${saved ? "motion-safe:scale-110" : ""}`}>{saved ? "♥" : "♡"}</span>
+      <span className="ui-trans">{isPending ? "Saving..." : saved ? "Saved" : "Save"}</span>
+      {isPending ? <span className="h-3 w-3 animate-spin rounded-full border border-current border-t-transparent" aria-hidden="true" /> : null}
+      <span className="sr-only" aria-live="polite">{isPending ? "Saving" : showSavedHint ? "Saved" : ""}</span>
     </button>
   );
 }

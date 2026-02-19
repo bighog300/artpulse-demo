@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { trackEngagement } from "@/lib/engagement-client";
 import { track } from "@/lib/analytics/client";
 import { enqueueToast } from "@/lib/toast";
@@ -50,6 +50,13 @@ export function FollowButton({
   const [isFollowing, setIsFollowing] = useState(initialIsFollowing);
   const [followersCount, setFollowersCount] = useState(initialFollowersCount);
   const [isSaving, setIsSaving] = useState(false);
+  const [showSuccessHint, setShowSuccessHint] = useState(false);
+
+  useEffect(() => {
+    if (!showSuccessHint) return;
+    const timeout = setTimeout(() => setShowSuccessHint(false), 2000);
+    return () => clearTimeout(timeout);
+  }, [showSuccessHint]);
 
   async function onToggle() {
     if (!isAuthenticated || isSaving) return;
@@ -87,6 +94,7 @@ export function FollowButton({
           nextState: next ? "followed" : "unfollowed",
         });
         enqueueToast({ title: next ? "Following updated" : "Unfollowed" });
+        setShowSuccessHint(true);
       },
       onError: () => enqueueToast({ title: "Could not update follow", variant: "error" }),
     });
@@ -96,7 +104,7 @@ export function FollowButton({
 
   if (!isAuthenticated) {
     return (
-      <Link className="inline-flex rounded border px-3 py-1 text-sm motion-safe:transition-colors motion-safe:duration-150 motion-reduce:transition-none hover:bg-zinc-50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900" href="/login">
+      <Link className="inline-flex rounded border border-border px-3 py-1 text-sm ui-trans ui-press hover:bg-muted hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" href="/login">
         Sign in to follow · {followersCount}
       </Link>
     );
@@ -107,12 +115,16 @@ export function FollowButton({
       type="button"
       onClick={onToggle}
       disabled={isSaving}
-      className="inline-flex rounded border px-3 py-1 text-sm motion-safe:transition-colors motion-safe:duration-150 motion-reduce:transition-none hover:bg-zinc-50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 disabled:cursor-not-allowed disabled:opacity-70"
+      className="group inline-flex items-center gap-1.5 rounded border border-border px-3 py-1 text-sm ui-trans ui-press hover:bg-muted hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
       aria-pressed={isFollowing}
       aria-busy={isSaving}
       aria-label={`${isFollowing ? "Unfollow" : "Follow"} ${targetType.toLowerCase()} with ${followersCount} followers`}
     >
-      {isFollowing ? "Following" : "Follow"} · {followersCount}
+      <span className={`ui-trans ${isFollowing ? "opacity-100" : "opacity-80"}`}>{isFollowing ? "Following" : "Follow"}</span>
+      <span aria-hidden="true">·</span>
+      <span>{followersCount}</span>
+      {isSaving ? <span className="h-3 w-3 animate-spin rounded-full border border-current border-t-transparent" aria-hidden="true" /> : null}
+      <span className="sr-only" aria-live="polite">{isSaving ? "Updating follow" : showSuccessHint ? "Follow updated" : ""}</span>
     </button>
   );
 }
