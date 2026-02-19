@@ -6,6 +6,7 @@ import { FOLLOWING_FEED_ORDER_BY, buildFollowingFeedCursorFilter, getFollowingFe
 import { followingFeedQuerySchema, paramsToObject, zodDetails } from "@/lib/validators";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const shouldLogPerf = process.env.NODE_ENV !== "production" || process.env.DEBUG_PERF === "1";
 

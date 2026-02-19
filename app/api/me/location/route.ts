@@ -5,6 +5,7 @@ import { requireAuth } from "@/lib/auth";
 import { locationPreferenceSchema, parseBody, zodDetails } from "@/lib/validators";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 function toResponse(location: { locationLabel: string | null; locationLat: number | null; locationLng: number | null; locationRadiusKm: number }) {
   return {

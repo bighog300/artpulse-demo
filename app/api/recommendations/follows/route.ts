@@ -4,6 +4,7 @@ import { apiError } from "@/lib/api";
 import { getFollowRecommendations } from "@/lib/recommendations-follows";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const rawLimit = req.nextUrl.searchParams.get("limit");

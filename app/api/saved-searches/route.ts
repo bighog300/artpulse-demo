@@ -6,6 +6,7 @@ import { parseBody, zodDetails } from "@/lib/validators";
 import { normalizeSavedSearchParams, savedSearchCreateSchema } from "@/lib/saved-searches";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {

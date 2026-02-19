@@ -6,6 +6,7 @@ import { EventRow } from "@/components/events/event-row";
 import { SavedSearchesEmptyState } from "@/components/saved-searches/saved-searches-empty-state";
 import { ErrorCard } from "@/components/ui/error-card";
 import { LoadingCard } from "@/components/ui/loading-card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { enqueueToast } from "@/lib/toast";
 
 type SavedSearch = { id: string; name: string; type: "NEARBY" | "EVENTS_FILTER"; frequency: "WEEKLY"; isEnabled: boolean; lastSentAt: string | null; createdAt?: string };
@@ -91,14 +92,6 @@ export function SavedSearchesClient() {
   };
 
 
-  useEffect(() => {
-    if (!previewFor) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setPreviewFor(null);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [previewFor]);
 
   const openPreview = async (id: string) => {
     setPreviewFor(id);
@@ -194,32 +187,27 @@ export function SavedSearchesClient() {
         })}
       </ul>
 
-      {previewFor ? (
-        <div className="fixed inset-0 z-50 bg-black/40 p-4" role="dialog" aria-modal="true" aria-label="Next digest preview" onClick={() => setPreviewFor(null)}>
-          <div className="mx-auto mt-16 max-w-2xl rounded-2xl border border-border bg-background p-4 shadow-xl" onClick={(event) => event.stopPropagation()}>
-            <div className="flex items-center justify-between gap-3 border-b border-border pb-3">
-              <div>
-                <h2 className="text-lg font-semibold">Next digest preview</h2>
-                <p className="text-sm text-muted-foreground">A look at events currently matching this saved search.</p>
-              </div>
-              <button className="rounded border border-border px-2 py-1 text-sm" onClick={() => setPreviewFor(null)}>Close</button>
-            </div>
-            <div className="mt-4 space-y-2">
-              {previewLoading ? <LoadingCard lines={2} /> : null}
-              {previewError ? <ErrorCard message={previewError} onRetry={() => void openPreview(previewFor)} /> : null}
-              {!previewLoading && !previewError && previewItems.length === 0 ? <p className="text-sm text-muted-foreground">No events match right now — your digest will send when new matches appear.</p> : null}
-              <ul className="space-y-2">
-                {previewItems.map((event) => (
-                  <li key={event.id}><EventRow href={`/events/${event.slug}`} title={event.title} startAt={event.startAt} endAt={event.endAt} venueName={event.venue?.name} /></li>
-                ))}
-              </ul>
-            </div>
-            <div className="mt-4 flex justify-end">
-              <Link href="/search" className="rounded border border-border px-3 py-1.5 text-sm">Adjust search</Link>
-            </div>
+      <Dialog open={Boolean(previewFor)} onOpenChange={(isOpen) => !isOpen && setPreviewFor(null)}>
+        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto" aria-describedby="saved-search-preview-description">
+          <DialogHeader>
+            <DialogTitle>Next digest preview</DialogTitle>
+            <DialogDescription id="saved-search-preview-description">A look at events currently matching this saved search.</DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 space-y-2">
+            {previewLoading ? <LoadingCard lines={2} /> : null}
+            {previewError && previewFor ? <ErrorCard message={previewError} onRetry={() => void openPreview(previewFor)} /> : null}
+            {!previewLoading && !previewError && previewItems.length === 0 ? <p className="text-sm text-muted-foreground">No events match right now — your digest will send when new matches appear.</p> : null}
+            <ul className="space-y-2">
+              {previewItems.map((event) => (
+                <li key={event.id}><EventRow href={`/events/${event.slug}`} title={event.title} startAt={event.startAt} endAt={event.endAt} venueName={event.venue?.name} /></li>
+              ))}
+            </ul>
           </div>
-        </div>
-      ) : null}
+          <div className="mt-4 flex justify-end">
+            <Link href="/search" className="rounded border border-border px-3 py-1.5 text-sm">Adjust search</Link>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

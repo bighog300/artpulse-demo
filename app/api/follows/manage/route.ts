@@ -6,6 +6,7 @@ import { getFollowManageData, getFollowManageDataSafe } from "@/lib/follows-mana
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
