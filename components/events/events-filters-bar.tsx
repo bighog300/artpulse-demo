@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +40,7 @@ export function EventsFiltersBar({ availableTags = [], defaultSort = "soonest" }
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
   const query = searchParams?.get("query") ?? "";
   const from = searchParams?.get("from") ?? "";
@@ -57,7 +58,9 @@ export function EventsFiltersBar({ availableTags = [], defaultSort = "soonest" }
 
   const updateQuery = (updates: Record<string, string | null>) => {
     const next = buildEventQueryString(searchParams, updates);
-    router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
+    startTransition(() => {
+      router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
+    });
   };
 
   const toggleTag = (tag: string) => {
@@ -73,9 +76,10 @@ export function EventsFiltersBar({ availableTags = [], defaultSort = "soonest" }
           onChange={(event) => updateQuery({ query: event.target.value || null })}
           placeholder="Search events"
           aria-label="Search events"
+          className="ui-trans focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         />
         <select
-          className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+          className="h-10 rounded-md border border-input bg-background px-3 text-sm ui-trans hover:border-ring/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           value={sort}
           onChange={(event) => updateQuery({ sort: event.target.value || null })}
           aria-label="Sort events"
@@ -84,7 +88,7 @@ export function EventsFiltersBar({ availableTags = [], defaultSort = "soonest" }
           <option value="popular">Popular</option>
           <option value="nearby">Nearby</option>
         </select>
-        {hasFilters ? <Button type="button" variant="ghost" onClick={() => updateQuery({ query: null, from: null, to: null, tags: null, sort: null })}>Clear</Button> : null}
+        {hasFilters ? <Button type="button" variant="ghost" className="ui-trans ui-press" onClick={() => updateQuery({ query: null, from: null, to: null, tags: null, sort: null })}>Clear</Button> : null}
       </div>
 
       <Tabs value={datePreset} onValueChange={(value) => {
@@ -102,19 +106,22 @@ export function EventsFiltersBar({ availableTags = [], defaultSort = "soonest" }
       {availableTags.length ? (
         <div className="flex flex-wrap gap-2">
           {availableTags.slice(0, 8).map((tag) => (
-            <Button key={tag} type="button" size="sm" variant={tags.includes(tag) ? "default" : "outline"} onClick={() => toggleTag(tag)} aria-label={`Filter by tag ${tag}`}>
+            <Button key={tag} type="button" size="sm" className={`ui-trans ui-press focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${tags.includes(tag) ? "shadow-sm" : ""}`} variant={tags.includes(tag) ? "default" : "outline"} onClick={() => toggleTag(tag)} aria-label={`Filter by tag ${tag}`}>
               {tag}
             </Button>
           ))}
         </div>
       ) : null}
+      <div className="h-4" aria-live="polite">
+        {isPending ? <span className="inline-flex items-center gap-1 text-xs text-muted-foreground"><span className="h-3 w-3 animate-spin rounded-full border border-current border-t-transparent" aria-hidden="true" />Updating filters…</span> : null}
+      </div>
     </div>
   );
 
   return (
     <>
       <div className="md:hidden">
-        <Button type="button" variant="outline" onClick={() => setIsMobileOpen((value) => !value)} aria-expanded={isMobileOpen} aria-controls="events-filters-mobile">
+        <Button type="button" variant="outline" className="ui-trans ui-press" onClick={() => setIsMobileOpen((value) => !value)} aria-expanded={isMobileOpen} aria-controls="events-filters-mobile">
           Filters
         </Button>
         {isMobileOpen ? <div id="events-filters-mobile" className="mt-2">{bar}</div> : null}

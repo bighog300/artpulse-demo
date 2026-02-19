@@ -42,7 +42,7 @@ export default async function DigestsPage() {
       <PageHeader
         title="Digests"
         subtitle="Your personalized event roundups"
-        actions={<Link href="/saved-searches" className="rounded border border-border px-3 py-1.5 text-sm font-medium">Saved Searches</Link>}
+        actions={<Link href="/saved-searches" className="rounded border border-border px-3 py-1.5 text-sm font-medium ui-trans ui-press hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">Saved Searches</Link>}
       />
 
       {items.length === 0 ? (
@@ -57,7 +57,7 @@ export default async function DigestsPage() {
           return (
             <li
               key={item.id}
-              className={`rounded-2xl border border-border bg-card p-5 shadow-sm transition-colors ${isFresh ? "bg-amber-50/40" : ""}`}
+              className={`group rounded-2xl border border-border bg-card p-5 shadow-sm ui-hover-lift ui-press ${isFresh ? "bg-amber-50/40" : ""}`}
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -84,7 +84,7 @@ export default async function DigestsPage() {
               )}
 
               <div className="mt-4">
-                <Link className="rounded border border-border px-3 py-2 text-sm font-medium hover:bg-muted" href={`/digests/${item.id}`}>View digest</Link>
+                <Link className="rounded border border-border px-3 py-2 text-sm font-medium ui-trans ui-press hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" href={`/digests/${item.id}`}>View digest</Link>
               </div>
             </li>
           );

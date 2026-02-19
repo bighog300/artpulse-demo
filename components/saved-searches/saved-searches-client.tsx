@@ -136,13 +136,13 @@ export function SavedSearchesClient() {
                         className="rounded border border-border px-2 py-1 text-sm"
                         autoFocus
                       />
-                      <button className="rounded border border-border px-2 py-1 text-sm" disabled={disabled} onClick={() => {
+                      <button className="rounded border border-border px-2 py-1 text-sm ui-trans ui-press hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" disabled={disabled} onClick={() => {
                         const next = renameValue.trim();
                         if (next.length < 2 || next.length > 60) return;
                         void patchItem(item.id, (current) => ({ ...current, name: next }), `/api/saved-searches/${item.id}/rename`, { name: next });
                         setRenamingId(null);
                       }}>Save</button>
-                      <button className="rounded border border-border px-2 py-1 text-sm" onClick={() => { setRenamingId(null); setRenameValue(""); }}>Cancel</button>
+                      <button className="rounded border border-border px-2 py-1 text-sm ui-trans ui-press hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" onClick={() => { setRenamingId(null); setRenameValue(""); }}>Cancel</button>
                     </div>
                   ) : (
                     <p className="text-lg font-semibold text-foreground">{item.name}</p>
@@ -183,13 +183,13 @@ export function SavedSearchesClient() {
                   <option value="WEEKLY">Weekly</option>
                 </select>
 
-                <button className="rounded border border-border px-2 py-1 text-sm" onClick={() => { setRenamingId(item.id); setRenameValue(item.name); }} disabled={disabled}>Rename</button>
-                <button className="rounded border border-border px-2 py-1 text-sm" onClick={() => void openPreview(item.id)} disabled={disabled}>Preview next digest</button>
-                <button className="rounded border border-border px-2 py-1 text-sm" title="Run now fetches matching events immediately without changing your schedule." onClick={() => void runNow(item.id)} disabled={disabled}>Run now</button>
-                <button className="rounded border border-red-300 px-2 py-1 text-sm text-red-700" onClick={async () => { await fetch(`/api/saved-searches/${item.id}`, { method: "DELETE" }); await load(); }}>Delete</button>
-                <Link href={`/saved-searches/${item.id}`} className="rounded border border-border px-2 py-1 text-sm">Open</Link>
+                <button className="rounded border border-border px-2 py-1 text-sm ui-trans ui-press hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" onClick={() => { setRenamingId(item.id); setRenameValue(item.name); }} disabled={disabled}>Rename</button>
+                <button className="rounded border border-border px-2 py-1 text-sm ui-trans ui-press hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" onClick={() => void openPreview(item.id)} disabled={disabled}>{disabled ? "Previewing..." : "Preview next digest"}</button>
+                <button className="inline-flex items-center gap-1.5 rounded border border-border px-2 py-1 text-sm ui-trans ui-press hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" title="Run now fetches matching events immediately without changing your schedule." onClick={() => void runNow(item.id)} disabled={disabled}>{disabled ? <span className="h-3 w-3 animate-spin rounded-full border border-current border-t-transparent" aria-hidden="true" /> : null}{disabled ? "Running..." : "Run now"}</button>
+                <button className="rounded border border-red-300 px-2 py-1 text-sm text-red-700 ui-trans ui-press hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" onClick={async () => { await fetch(`/api/saved-searches/${item.id}`, { method: "DELETE" }); await load(); }}>Delete</button>
+                <Link href={`/saved-searches/${item.id}`} className="rounded border border-border px-2 py-1 text-sm ui-trans ui-press hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">Open</Link>
               </div>
-              {runMessages[item.id] ? <p className="mt-2 text-sm text-muted-foreground">{runMessages[item.id]}</p> : null}
+              {runMessages[item.id] ? <p className="mt-2 text-sm text-muted-foreground" aria-live="polite">{runMessages[item.id]}</p> : null}
             </li>
           );
         })}
@@ -212,7 +212,7 @@ export function SavedSearchesClient() {
             </ul>
           </div>
           <div className="mt-4 flex justify-end">
-            <Link href="/search" className="rounded border border-border px-3 py-1.5 text-sm">Adjust search</Link>
+            <Link href="/search" className="rounded border border-border px-3 py-1.5 text-sm ui-trans ui-press hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">Adjust search</Link>
           </div>
         </DialogContent>
       </Dialog>
