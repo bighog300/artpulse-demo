@@ -6,6 +6,7 @@ import { track } from "@/lib/analytics/client";
 import { setOnboardingStep } from "@/lib/onboarding/state";
 import { OnboardingProgress, type OnboardingStepStatus } from "@/components/onboarding/onboarding-progress";
 import { RecommendedFollows } from "@/components/onboarding/recommended-follows";
+import { StartPacks } from "@/components/onboarding/start-packs";
 
 export function OnboardingSheet({
   open,
@@ -44,7 +45,8 @@ export function OnboardingSheet({
               <Link href="/artists" className="rounded border px-2 py-1" onClick={() => clickStep("follow", "/artists")}>Browse artists</Link>
               <Link href="/venues" className="rounded border px-2 py-1" onClick={() => clickStep("follow", "/venues")}>Browse venues</Link>
             </div>
-            <div className="mt-3">
+            <div className="mt-3 space-y-3">
+              <StartPacks page={page} isAuthenticated={isAuthenticated} />
               <RecommendedFollows page={page} source="onboarding_sheet" isAuthenticated={isAuthenticated} />
             </div>
           </div>

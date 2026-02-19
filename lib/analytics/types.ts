@@ -34,6 +34,17 @@ export type AnalyticsEventName =
   | "location_education_shown"
   | "location_enable_clicked"
   | "location_enable_result"
+  | "start_pack_shown"
+  | "start_pack_opened"
+  | "start_pack_follow_all_clicked"
+  | "start_pack_follow_result"
+  | "start_pack_entity_follow_clicked"
+  | "post_activation_tip_shown"
+  | "post_activation_tip_dismissed"
+  | "post_activation_tip_clicked"
+  | "setup_checklist_shown"
+  | "setup_checklist_item_clicked"
+  | "setup_checklist_dismissed"
 ;
 
 export type AnalyticsProps = {
@@ -64,6 +75,13 @@ export type AnalyticsProps = {
   destination?: string;
   method?: "native" | "copy" | "follow" | "saved_search" | "saved_event" | "location" | "search_cta";
   result?: "granted" | "denied" | "error";
+  packId?: string;
+  count?: number;
+  attempted?: number;
+  succeeded?: number;
+  failed?: number;
+  tipId?: string;
+  itemId?: string;
 };
 
 export type AnalyticsPayload = {
