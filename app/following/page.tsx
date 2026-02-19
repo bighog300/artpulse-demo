@@ -3,8 +3,7 @@ import { db } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { getFollowingFeedWithDeps, type FollowingFeedTypeFilter } from "@/lib/following-feed";
-import { getFollowRecommendations } from "@/lib/recommendations-follows";
-import { FollowButton } from "@/components/follows/follow-button";
+import { RecommendedFollows } from "@/components/onboarding/recommended-follows";
 import { redirectToLogin } from "@/lib/auth-redirect";
 import { setOnboardingFlag } from "@/lib/onboarding";
 import { PageHeader } from "@/components/ui/page-header";
@@ -37,7 +36,7 @@ export default async function FollowingPage({ searchParams }: { searchParams: Se
   const days: 7 | 30 = params.days === "30" ? 30 : 7;
   const type: FollowingFeedTypeFilter = params.type === "artist" || params.type === "venue" ? params.type : "both";
 
-  const [result, followCount, recommendations] = await Promise.all([
+  const [result, followCount] = await Promise.all([
     getFollowingFeedWithDeps(
       {
         now: () => new Date(),
@@ -68,7 +67,6 @@ export default async function FollowingPage({ searchParams }: { searchParams: Se
       { userId: user.id, days, type, limit: 50 },
     ),
     db.follow.count({ where: { userId: user.id } }),
-    getFollowRecommendations({ userId: user.id, limit: 6 }),
     setOnboardingFlag(user.id, "hasVisitedFollowing"),
   ]);
 
@@ -87,24 +85,9 @@ export default async function FollowingPage({ searchParams }: { searchParams: Se
         <FollowedEntitiesGrid />
       </PersonalSection>
 
-      {(recommendations.artists.length || recommendations.venues.length) ? (
-        <PersonalSection title="Suggested for you" description="Based on what you follow.">
-          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {[...recommendations.artists.map((item) => ({ ...item, targetType: "ARTIST" as const })), ...recommendations.venues.map((item) => ({ ...item, targetType: "VENUE" as const }))].slice(0, 6).map((item) => {
-              const href = item.targetType === "ARTIST" ? `/artists/${item.slug}` : `/venues/${item.slug}`;
-              return (
-                <li key={`${item.targetType}:${item.id}`} className="flex items-center justify-between gap-2 rounded-lg border p-3">
-                  <div>
-                    <Link href={href} className="font-medium underline">{item.name}</Link>
-                    <p className="text-xs text-muted-foreground">{item.reason}</p>
-                  </div>
-                  <FollowButton targetId={item.id} targetType={item.targetType} initialIsFollowing={false} initialFollowersCount={0} isAuthenticated />
-                </li>
-              );
-            })}
-          </ul>
-        </PersonalSection>
-      ) : null}
+      <PersonalSection title="Suggested for you" description="Based on what you follow.">
+        <RecommendedFollows page="following" source={hasNoFollows ? "following_empty" : "following_page"} isAuthenticated />
+      </PersonalSection>
     </PageShell>
   );
 }

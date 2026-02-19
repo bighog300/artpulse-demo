@@ -11,11 +11,15 @@ export function OnboardingBanner({
   steps,
   onDismiss,
   completionMessage,
+  hasLocation,
+  isAuthenticated,
 }: {
   page: string;
   steps: OnboardingStepStatus[];
   onDismiss: () => void;
   completionMessage?: string | null;
+  hasLocation: boolean;
+  isAuthenticated: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -61,7 +65,7 @@ export function OnboardingBanner({
       </div>
       <OnboardingProgress steps={steps.slice(0, 3)} />
 
-      <OnboardingSheet open={open} onOpenChange={setOpen} page={page} steps={steps} />
+      <OnboardingSheet open={open} onOpenChange={setOpen} page={page} steps={steps} hasLocation={hasLocation} isAuthenticated={isAuthenticated} />
     </aside>
   );
 }

@@ -95,6 +95,18 @@ export function OnboardingGate({ page, isAuthenticated }: { page: string; isAuth
     setShowCompletion(true);
   }, [completed]);
 
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onFollowToggle = (event: Event) => {
+      const customEvent = event as CustomEvent<{ nextState?: "followed" | "unfollowed" }>;
+      if (!customEvent.detail?.nextState) return;
+      setSignals((prev) => ({ ...prev, follows: Math.max(0, prev.follows + (customEvent.detail.nextState === "followed" ? 1 : -1)) }));
+    };
+    window.addEventListener("artpulse:follow_toggled", onFollowToggle);
+    return () => window.removeEventListener("artpulse:follow_toggled", onFollowToggle);
+  }, []);
+
   const steps = useMemo<OnboardingStepStatus[]>(() => ([
     { key: "follow", label: "Follow artists/venues", detail: `You're following ${signals.follows}`, done: signals.follows >= 3 },
     { key: "saved_search", label: "Save a search", detail: `Saved searches: ${signals.savedSearches}`, done: signals.savedSearches >= 1 },
@@ -108,8 +120,8 @@ export function OnboardingGate({ page, isAuthenticated }: { page: string; isAuth
 
   if (completed) {
     if (!showCompletion) return null;
-    return <OnboardingBanner page={page} steps={steps} onDismiss={() => setDismissed(true)} completionMessage="You're all set — nice work personalizing your feed. Next step: explore events picked for you." />;
+    return <OnboardingBanner page={page} steps={steps} onDismiss={() => setDismissed(true)} completionMessage="You're all set — nice work personalizing your feed. Next step: explore events picked for you." hasLocation={signals.hasLocation} isAuthenticated={isAuthenticated} />;
   }
 
-  return <OnboardingBanner page={page} steps={steps} onDismiss={() => setDismissed(true)} />;
+  return <OnboardingBanner page={page} steps={steps} onDismiss={() => setDismissed(true)} hasLocation={signals.hasLocation} isAuthenticated={isAuthenticated} />;
 }

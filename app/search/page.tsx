@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { eventsQuerySchema } from "@/lib/validators";
-import { SearchSaveSearchInline } from "@/app/search/save-search-inline";
+import { SaveSearchCta } from "@/components/search/save-search-cta";
 import { getSessionUser } from "@/lib/auth";
 import { SearchResultsList } from "@/app/search/search-results-list";
 import { SearchClient } from "@/app/search/search-client";
@@ -19,7 +19,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     return (
       <main className="space-y-4 p-6">
         <PageHeader title="Search" subtitle="Find events by date, tags, venue, artist, and distance." />
-        {user ? <SearchSaveSearchInline /> : null}
+        {user ? <SaveSearchCta /> : null}
         <p>Set DATABASE_URL to view events locally.</p>
       </main>
     );
@@ -44,7 +44,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     <main className="space-y-4 p-6">
       <PageHeader title="Search" subtitle="Find events by date, tags, venue, artist, and distance." />
       <SearchClient filters={Object.fromEntries(Object.entries(filters).map(([k, v]) => [k, v == null ? "" : String(v)]))} />
-      {user ? <SearchSaveSearchInline /> : null}
+      {user ? <SaveSearchCta /> : null}
       <form className="grid gap-2 md:grid-cols-2">
         {[
           ["query", "Query"], ["from", "From (ISO)"], ["to", "To (ISO)"], ["days", "Days"], ["lat", "Latitude"], ["lng", "Longitude"], ["radiusKm", "Radius (km)"], ["tags", "Tags (comma slugs)"], ["venue", "Venue slug"], ["artist", "Artist slug"], ["limit", "Limit"],
