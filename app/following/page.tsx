@@ -97,7 +97,7 @@ export default async function FollowingPage({ searchParams }: { searchParams: Se
                     <Link href={href} className="font-medium underline">{item.name}</Link>
                     <p className="text-xs text-muted-foreground">{item.reason}</p>
                   </div>
-                  <FollowButton targetId={item.id} targetType={item.targetType} initialFollowing={false} />
+                  <FollowButton targetId={item.id} targetType={item.targetType} initialIsFollowing={false} initialFollowersCount={0} isAuthenticated />
                 </li>
               );
             })}

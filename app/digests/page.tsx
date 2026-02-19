@@ -1,6 +1,26 @@
 import Link from "next/link";
+import { digestSnapshotItemsSchema } from "@/lib/digest";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { EventRow } from "@/components/events/event-row";
+import { PageHeader } from "@/components/ui/page-header";
+import { PageShell } from "@/components/ui/page-shell";
+
+function formatPeriodRange(periodKey: string, createdAt: Date) {
+  const weekly = periodKey.match(/^(\d{4})-W(\d{2})$/);
+  if (!weekly) return createdAt.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+
+  const year = Number(weekly[1]);
+  const week = Number(weekly[2]);
+  const jan4 = new Date(Date.UTC(year, 0, 4));
+  const jan4Day = jan4.getUTCDay() || 7;
+  const monday = new Date(jan4);
+  monday.setUTCDate(jan4.getUTCDate() - jan4Day + 1 + (week - 1) * 7);
+  const sunday = new Date(monday);
+  sunday.setUTCDate(monday.getUTCDate() + 6);
+
+  return `${monday.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${sunday.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`;
+}
 
 export default async function DigestsPage() {
   const user = await getSessionUser();
@@ -14,18 +34,62 @@ export default async function DigestsPage() {
   });
 
   return (
-    <main className="space-y-4 p-6">
-      <h1 className="text-2xl font-semibold">Digest snapshots</h1>
-      {items.length === 0 ? <p className="text-sm text-gray-600">No digests yet.</p> : null}
-      <ul className="space-y-2">
-        {items.map((item) => (
-          <li key={item.id} className="rounded border p-3">
-            <p className="font-medium">{item.savedSearch.name}</p>
-            <p className="text-sm text-gray-600">{item.periodKey} · {item.itemCount} items</p>
-            <Link className="text-sm underline" href={`/digests/${item.id}`}>Open digest</Link>
-          </li>
-        ))}
+    <PageShell className="space-y-5">
+      <PageHeader
+        title="Digests"
+        subtitle="Your personalized event roundups"
+        actions={<Link href="/saved-searches" className="rounded border border-border px-3 py-1.5 text-sm font-medium">Saved Searches</Link>}
+      />
+
+      {items.length === 0 ? (
+        <section className="rounded-xl border border-dashed border-border bg-card p-8 text-center">
+          <h2 className="text-lg font-semibold text-foreground">No digests yet</h2>
+          <p className="mt-2 text-sm text-muted-foreground">Create a saved search to start receiving curated updates.</p>
+          <Link href="/saved-searches" className="mt-4 inline-flex rounded bg-foreground px-4 py-2 text-sm font-medium text-background">Create a saved search</Link>
+        </section>
+      ) : null}
+
+      <ul className="space-y-4">
+        {items.map((item, index) => {
+          const preview = digestSnapshotItemsSchema.safeParse(item.itemsJson);
+          const previewItems = preview.success ? preview.data.slice(0, 3) : [];
+          const isFresh = Date.now() - item.createdAt.getTime() < 1000 * 60 * 60 * 24;
+          return (
+            <li
+              key={item.id}
+              className={`rounded-2xl border border-border bg-card p-5 shadow-sm transition-colors ${isFresh ? "bg-amber-50/40" : ""}`}
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">{item.savedSearch.name}</p>
+                  <h2 className="mt-1 text-xl font-semibold text-foreground">{item.itemCount} events this week</h2>
+                  <p className="text-sm text-muted-foreground">{formatPeriodRange(item.periodKey, item.createdAt)} · Generated {item.createdAt.toLocaleDateString()}</p>
+                </div>
+                {isFresh || index === 0 ? <span className="rounded-full border border-amber-300 bg-amber-100 px-2 py-1 text-xs font-medium text-amber-900">New</span> : null}
+              </div>
+
+              {previewItems.length > 0 ? (
+                <div className="mt-4 space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Preview</p>
+                  <ul className="space-y-2">
+                    {previewItems.map((previewItem) => (
+                      <li key={`${item.id}-${previewItem.slug}`}>
+                        <EventRow href={`/events/${previewItem.slug}`} title={previewItem.title} startAt={previewItem.startAt} venueName={previewItem.venueName} />
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <p className="mt-4 text-sm text-muted-foreground">No event preview available for this digest snapshot.</p>
+              )}
+
+              <div className="mt-4">
+                <Link className="rounded border border-border px-3 py-2 text-sm font-medium hover:bg-muted" href={`/digests/${item.id}`}>View digest</Link>
+              </div>
+            </li>
+          );
+        })}
       </ul>
-    </main>
+    </PageShell>
   );
 }
