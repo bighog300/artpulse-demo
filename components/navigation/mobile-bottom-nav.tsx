@@ -33,6 +33,8 @@ const MORE_PUBLIC_ITEMS = [
   { href: "/login", label: "Sign in", icon: UserCircle },
 ] as const;
 
+const HIDE_NAV_PREFIXES = ["/admin", "/my", "/login", "/invite"] as const;
+
 function isPathActive(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -139,5 +141,8 @@ export function MobileBottomNavInner({ isAuthenticated, pathname }: MobileBottom
 
 export function MobileBottomNav({ isAuthenticated }: MobileBottomNavProps) {
   const pathname = usePathname() ?? "/";
+
+  if (HIDE_NAV_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) return null;
+
   return <MobileBottomNavInner isAuthenticated={isAuthenticated} pathname={pathname} />;
 }

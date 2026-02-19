@@ -11,6 +11,8 @@ import { setOnboardingFlag } from "@/lib/onboarding";
 import { EmptyState } from "@/components/ui/empty-state";
 import { EventCard } from "@/components/events/event-card";
 import { PageHeader } from "@/components/ui/page-header";
+import { PageShell } from "@/components/ui/page-shell";
+import { SectionHeader } from "@/components/ui/section-header";
 import { GetStartedBanner } from "@/components/onboarding/get-started-banner";
 
 type SearchParams = Promise<{ days?: string; type?: string }>;
@@ -33,10 +35,10 @@ export default async function FollowingPage({ searchParams }: { searchParams: Se
 
   if (!hasDatabaseUrl()) {
     return (
-      <main className="space-y-4 p-6">
+      <PageShell className="space-y-4">
         <PageHeader title="Following" subtitle="Upcoming events from artists and venues you follow." actions={<Link href="/following/manage" className="rounded border px-3 py-1 text-sm">Manage</Link>} />
         <p>Set DATABASE_URL to view events locally.</p>
-      </main>
+      </PageShell>
     );
   }
 
@@ -82,7 +84,7 @@ export default async function FollowingPage({ searchParams }: { searchParams: Se
   const hasNoFollows = followCount === 0;
 
   return (
-    <main className="space-y-4 p-6">
+    <PageShell className="space-y-4">
       <PageHeader title="Following" subtitle="Upcoming events from artists and venues you follow." actions={<Link href="/following/manage" className="rounded border px-3 py-1 text-sm">Manage</Link>} />
       <OnboardingPanel />
       <GetStartedBanner />
@@ -115,7 +117,7 @@ export default async function FollowingPage({ searchParams }: { searchParams: Se
         />
       ) : (
         <section className="space-y-2">
-          <h2 className="text-lg font-semibold">Feed</h2>
+          <SectionHeader title="Feed" />
           {result.items.length === 0 ? (
             <EmptyState
               title="Nothing upcoming yet"
@@ -147,11 +149,11 @@ export default async function FollowingPage({ searchParams }: { searchParams: Se
       )}
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Suggested follows</h2>
+        <SectionHeader title="Suggested follows" />
 
         {hasNoFollows ? <p className="text-sm text-gray-600">Suggested follows to get your feed started.</p> : null}
 
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-2">
             <h3 className="font-medium">Artists</h3>
             {recommendations.artists.length === 0 ? (
@@ -203,6 +205,6 @@ export default async function FollowingPage({ searchParams }: { searchParams: Se
           </div>
         </div>
       </section>
-    </main>
+    </PageShell>
   );
 }

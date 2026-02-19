@@ -4,6 +4,7 @@ import { CardGrid } from "@/components/ui/card-grid";
 import { DataSourceEmptyState } from "@/components/ui/data-source-empty-state";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
+import { PageShell } from "@/components/ui/page-shell";
 import { Section } from "@/components/ui/section";
 import { getSessionUser } from "@/lib/auth";
 import { getArtistAssocCounts, getArtistRoleFacetCounts, type AssocCounts, type RoleCounts } from "@/lib/discovery-counts";
@@ -36,11 +37,11 @@ export default async function ArtistsPage({ searchParams }: ArtistsPageProps) {
 
   if (!hasDatabaseUrl() && !fixturesEnabled) {
     return (
-      <main className="space-y-4 p-6">
+      <PageShell className="space-y-4">
         <PageHeader title="Artists" subtitle="Explore artists and track who to follow next." />
         <DiscoveryFilterBar assoc={filters.assoc} role={filters.role} />
         <DataSourceEmptyState isAdmin={user?.role === "ADMIN"} showDevHint={process.env.NODE_ENV === "development"} />
-      </main>
+      </PageShell>
     );
   }
 
@@ -78,7 +79,7 @@ export default async function ArtistsPage({ searchParams }: ArtistsPageProps) {
   const featured = items.slice(0, 4);
 
   return (
-    <main className="space-y-4 p-6">
+    <PageShell className="space-y-4">
       <PageHeader title="Artists" subtitle="Explore artists and track who to follow next." />
       <Section title="Browse" subtitle="Filter artist profiles by verified associations and role.">
         <DiscoveryFilterBar assoc={filters.assoc} role={filters.role} assocCounts={assocCounts} roleCounts={roleCounts} />
@@ -97,7 +98,7 @@ export default async function ArtistsPage({ searchParams }: ArtistsPageProps) {
           <div className="space-y-2">{items.map((artist) => <ArtistListItem key={artist.id} artist={artist} isAuthenticated={Boolean(user)} />)}</div>
         )}
       </Section>
-    </main>
+    </PageShell>
   );
 }
 
