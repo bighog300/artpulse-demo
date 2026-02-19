@@ -67,8 +67,9 @@ export function SaveEventButton({ eventId, initialSaved, nextUrl, isAuthenticate
       className="inline-flex rounded border px-3 py-1 text-sm motion-safe:transition-colors motion-safe:duration-150 motion-reduce:transition-none hover:bg-zinc-50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 disabled:cursor-not-allowed disabled:opacity-70"
       aria-pressed={saved}
       aria-busy={isPending}
+      aria-label={saved ? "Remove event from saved" : "Save event"}
     >
-      {isPending ? "Saving..." : saved ? "Saved" : "Save"}
+      <span aria-hidden="true">{saved ? "♥" : "♡"}</span><span>{isPending ? "Saving..." : saved ? "Saved" : "Save"}</span>
     </button>
   );
 }
