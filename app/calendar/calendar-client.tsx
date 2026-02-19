@@ -18,6 +18,7 @@ import { EventRow } from "@/components/events/event-row";
 import { InlineBanner } from "@/components/ui/inline-banner";
 import { Section } from "@/components/ui/section";
 import { SaveEventButton } from "@/components/events/save-event-button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { buildEventQueryString, parseEventFilters } from "@/lib/events-filters";
 
 type CalendarItem = {
@@ -36,7 +37,6 @@ type FavoriteItem = { targetType: string; targetId: string };
 
 export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureItems }: { isAuthenticated: boolean; fixtureItems?: CalendarItem[]; fallbackFixtureItems?: CalendarItem[] }) {
   const calendarRef = useRef<FullCalendar | null>(null);
-  const panelCloseRef = useRef<HTMLButtonElement | null>(null);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -57,16 +57,6 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
     window.addEventListener("calendar:today", onToday);
     return () => window.removeEventListener("calendar:today", onToday);
   }, []);
-
-  useEffect(() => {
-    if (!selectedEvent) return;
-    panelCloseRef.current?.focus();
-    const onEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setSelectedEvent(null);
-    };
-    document.addEventListener("keydown", onEscape);
-    return () => document.removeEventListener("keydown", onEscape);
-  }, [selectedEvent]);
 
   useEffect(() => {
     if (fixtureItems) {
@@ -215,22 +205,26 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
         </Section>
       ) : null}
 
-      {selectedEvent ? (
-        <div className="fixed inset-0 z-50 bg-black/50" role="dialog" aria-modal="true" aria-label="Event details panel" onClick={() => setSelectedEvent(null)}>
-          <div className="ml-auto flex h-full w-full max-w-md flex-col gap-3 bg-background p-4 shadow-xl" onClick={(event) => event.stopPropagation()}>
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Event details</h2>
-              <button ref={panelCloseRef} type="button" className="rounded border px-2 py-1 text-sm" onClick={() => setSelectedEvent(null)} aria-label="Close event panel">Close</button>
-            </div>
+      <Dialog open={Boolean(selectedEvent)} onOpenChange={(isOpen) => !isOpen && setSelectedEvent(null)}>
+        <DialogContent className="left-auto right-0 top-0 h-full max-w-md translate-x-0 translate-y-0 rounded-none p-4 sm:max-w-md" aria-describedby="calendar-event-panel-description">
+          {selectedEvent ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Event details</DialogTitle>
+                <DialogDescription id="calendar-event-panel-description">Quick actions for this selected event.</DialogDescription>
+              </DialogHeader>
+              <div className="mt-2 flex flex-col gap-3">
             <EventRow href={`/events/${selectedEvent.slug}`} title={selectedEvent.title} startAt={selectedEvent.start} endAt={selectedEvent.end} venueName={selectedEvent.venue?.name ?? undefined} />
             <div className="flex flex-wrap gap-2">
               <SaveEventButton eventId={selectedEvent.id} initialSaved={savedSet.has(selectedEvent.id)} nextUrl="/calendar" isAuthenticated={isAuthenticated} />
               <Link href={`/events/${selectedEvent.slug}`} className="rounded border px-3 py-2 text-sm">View details</Link>
               <button type="button" className="rounded border px-3 py-2 text-sm" onClick={() => navigator.share?.({ title: selectedEvent.title, url: `${window.location.origin}/events/${selectedEvent.slug}` })}>Share</button>
             </div>
-          </div>
-        </div>
-      ) : null}
+              </div>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

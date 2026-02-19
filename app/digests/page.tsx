@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { digestSnapshotItemsSchema } from "@/lib/digest";
 import { getSessionUser } from "@/lib/auth";
+import { redirectToLogin } from "@/lib/auth-redirect";
 import { db } from "@/lib/db";
 import { EventRow } from "@/components/events/event-row";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
+import { EmptyState } from "@/components/ui/empty-state";
 
 function formatPeriodRange(periodKey: string, createdAt: Date) {
   const weekly = periodKey.match(/^(\d{4})-W(\d{2})$/);
@@ -24,7 +26,7 @@ function formatPeriodRange(periodKey: string, createdAt: Date) {
 
 export default async function DigestsPage() {
   const user = await getSessionUser();
-  if (!user) return <main className="p-6">Please <Link className="underline" href="/login">login</Link>.</main>;
+  if (!user) redirectToLogin("/digests");
 
   const items = await db.digestRun.findMany({
     where: { userId: user.id },
@@ -42,11 +44,7 @@ export default async function DigestsPage() {
       />
 
       {items.length === 0 ? (
-        <section className="rounded-xl border border-dashed border-border bg-card p-8 text-center">
-          <h2 className="text-lg font-semibold text-foreground">No digests yet</h2>
-          <p className="mt-2 text-sm text-muted-foreground">Create a saved search to start receiving curated updates.</p>
-          <Link href="/saved-searches" className="mt-4 inline-flex rounded bg-foreground px-4 py-2 text-sm font-medium text-background">Create a saved search</Link>
-        </section>
+        <EmptyState title="No digests yet" description="Create a saved search to start receiving curated updates." actions={[{ label: "Create a saved search", href: "/saved-searches" }]} />
       ) : null}
 
       <ul className="space-y-4">

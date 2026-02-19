@@ -15,3 +15,10 @@ export function validateCronRequest(headerSecret: string | null, meta: { route: 
   logInfo({ message: "cron_authorized", route: meta.route, requestId: meta.requestId, method: meta.method });
   return null;
 }
+
+
+export function extractCronSecret(headers: Headers) {
+  const authorization = headers.get("authorization");
+  if (authorization?.startsWith("Bearer ")) return authorization.slice(7).trim();
+  return headers.get("x-cron-secret");
+}

@@ -11,6 +11,7 @@ import { RATE_LIMITS, enforceRateLimit, isRateLimitError, principalRateLimitKey,
 import { z } from "zod";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const SLOW_ROUTE_THRESHOLD_MS = 800;
 const recommendationsEventsQuerySchema = z.object({

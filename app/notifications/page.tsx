@@ -7,6 +7,7 @@ import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { NotificationsEmptyState } from "@/components/notifications/notifications-empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export default async function NotificationsPage() {
   const user = await getSessionUser();
@@ -16,7 +17,7 @@ export default async function NotificationsPage() {
     return (
       <PageShell className="space-y-4">
         <PageHeader title="Notifications" subtitle="Updates from your follows, invites, and saved searches" />
-        <p>Set DATABASE_URL to view notifications locally.</p>
+        <EmptyState title="Notifications unavailable" description="Set DATABASE_URL to view notifications in local development." actions={[{ label: "Go to Following", href: "/following", variant: "secondary" }]} />
       </PageShell>
     );
   }
