@@ -4,8 +4,8 @@ export function SavedSearchesEmptyState() {
   return (
     <EmptyState
       title="Build your personal event radar"
-      description="Saved searches automatically check for new matches and send digest updates so you never miss the shows you care about."
-      actions={[{ label: "Create saved search", href: "/search" }]}
+      description="Create your first saved search. Weekly roundups are delivered automatically."
+      actions={[{ label: "Create your first saved search", href: "/search" }]}
     />
   );
 }

@@ -140,6 +140,9 @@ export function EventsClient({ isAuthenticated, fixtureItems, fallbackFixtureIte
   return (
     <section className="space-y-6">
       <EventsFiltersBar availableTags={allTags} />
+      {isAuthenticated && favoriteIds.size === 0 ? (
+        <p className="rounded-lg border border-dashed border-border px-3 py-2 text-sm text-muted-foreground">Tip: Save events to build your calendar.</p>
+      ) : null}
       <section className="space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">Trending now</h2>
         <div className="overflow-x-auto pb-2"><TrendingEvents /></div>

@@ -33,8 +33,8 @@ export function PersonalEventFeed({
     return (
       <EmptyState
         title="Start following to unlock your feed"
-        description="Follow a few artists and venues and we will surface the best upcoming events here."
-        actions={[{ label: "Discover artists", href: "/artists", variant: "secondary" }, { label: "Discover venues", href: "/venues", variant: "secondary" }]}
+        description="Follow a few to populate your feed."
+        actions={[{ label: "Follow artists", href: "/artists", variant: "secondary" }, { label: "Follow venues", href: "/venues", variant: "secondary" }]}
       />
     );
   }

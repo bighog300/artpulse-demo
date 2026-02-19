@@ -6,6 +6,7 @@ import { DataSourceEmptyState } from "@/components/ui/data-source-empty-state";
 import { useUiFixtures as getUiFixturesEnabled, uiFixtureEvents } from "@/lib/ui-fixtures";
 import { EventsClient } from "./events-client";
 import Link from "next/link";
+import { OnboardingGate } from "@/components/onboarding/onboarding-gate";
 
 export const revalidate = 30;
 const fixturesEnabled = getUiFixturesEnabled();
@@ -18,6 +19,7 @@ export default async function EventsPage() {
     return (
       <PageShell className="page-stack">
         <PageHeader title="Events" subtitle="Discover what’s on near you" actions={pageHeaderActions} />
+        <OnboardingGate page="events" isAuthenticated={Boolean(user)} />
         {fixturesEnabled ? (
           <EventsClient isAuthenticated={Boolean(user)} fixtureItems={uiFixtureEvents} fallbackFixtureItems={uiFixtureEvents} />
         ) : (
@@ -30,6 +32,7 @@ export default async function EventsPage() {
   return (
     <PageShell className="page-stack">
       <PageHeader title="Events" subtitle="Discover what’s on near you" actions={pageHeaderActions} />
+      <OnboardingGate page="events" isAuthenticated={Boolean(user)} />
       <EventsClient isAuthenticated={Boolean(user)} fallbackFixtureItems={fixturesEnabled ? uiFixtureEvents : undefined} />
     </PageShell>
   );
