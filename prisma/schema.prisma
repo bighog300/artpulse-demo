@@ -621,3 +621,21 @@ model AdminAuditLog {
   @@index([action, createdAt])
   @@index([targetType, createdAt])
 }
+
+model JobRun {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  startedAt  DateTime?
+  finishedAt DateTime?
+  name       String
+  status     String
+  trigger    String
+  actorEmail String?
+  message    String?
+  metadata   Json?
+
+  @@index([createdAt])
+  @@index([name, createdAt])
+  @@index([status, createdAt])
+  @@index([actorEmail, createdAt])
+}
