@@ -185,7 +185,7 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
 
       <Section title="Calendar view">
         {error ? <ErrorCard message={error} onRetry={() => void fetchEvents()} /> : null}
-        <div className="w-full overflow-x-hidden rounded-lg border bg-card p-2">
+        <div className="relative min-h-[600px] w-full overflow-x-hidden rounded-lg border bg-card p-2">
           <FullCalendar
             ref={calendarRef}
             plugins={[dayGridPlugin, timeGridPlugin, listPlugin]}
@@ -200,9 +200,12 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
             events={calendarEvents}
             eventClick={openEventPanel}
           />
+          {isLoading ? (
+            <div className="pointer-events-none absolute inset-2 z-10 space-y-2 rounded-md bg-background/70 p-2">
+              {Array.from({ length: 3 }).map((_, i) => <EventCardSkeleton key={`calendar-loading-${i}`} />)}
+            </div>
+          ) : null}
         </div>
-
-        {isLoading ? <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <EventCardSkeleton key={i} />)}</div> : null}
         {!isLoading && !error && filteredEvents.length === 0 ? <EmptyState title="No events match these filters" description="Try broadening your filters or moving to a different date range." actions={[{ label: "Go to Events", href: eventsHref }]} /> : null}
       </Section>
 
