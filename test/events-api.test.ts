@@ -1,0 +1,40 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { NextRequest } from "next/server";
+import { GET as getEvents } from "../app/api/events/route.ts";
+import { db } from "../lib/db.ts";
+
+test("GET /api/events accepts date-only range and limit=200", async () => {
+  const originalFindMany = db.event.findMany;
+  let capturedTake: number | undefined;
+  let capturedWhereStartAt: unknown;
+
+  db.event.findMany = (async (args) => {
+    capturedTake = args.take;
+    capturedWhereStartAt = (args.where as { AND?: Array<{ startAt?: unknown }> })?.AND?.find((entry) => entry.startAt)?.startAt;
+    return [];
+  }) as typeof db.event.findMany;
+
+  try {
+    const req = new NextRequest("http://localhost/api/events?from=2026-02-01&to=2026-03-15&limit=200");
+    const res = await getEvents(req);
+
+    assert.equal(res.status, 200);
+    assert.equal(capturedTake, 201);
+    assert.deepEqual(capturedWhereStartAt, {
+      gte: new Date("2026-02-01T00:00:00.000Z"),
+      lte: new Date("2026-03-15T23:59:59.999Z"),
+    });
+  } finally {
+    db.event.findMany = originalFindMany;
+  }
+});
+
+test("GET /api/events rejects invalid date input", async () => {
+  const req = new NextRequest("http://localhost/api/events?from=not-a-date&to=2026-03-15&limit=200");
+  const res = await getEvents(req);
+
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.equal(body.error.code, "invalid_request");
+});
