@@ -41,7 +41,11 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const filters = parseEventFilters(searchParams);
+  const filtersKey = searchParams?.toString() ?? "";
+  const stableSearchParams = useMemo(() => new URLSearchParams(filtersKey), [filtersKey]);
+  const filters = useMemo(() => parseEventFilters(stableSearchParams), [stableSearchParams]);
+  const tagsKey = useMemo(() => filters.tags.join(","), [filters.tags]);
+  const parsedTags = useMemo(() => (tagsKey ? tagsKey.split(",") : []), [tagsKey]);
   const scope = parseCalendarScope(searchParams?.get("scope"));
   const viewMode = searchParams?.get("view") === "agenda" ? "agenda" : "calendar";
 
@@ -102,9 +106,9 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
   }, [isAuthenticated, scope]);
 
   const replaceSearch = useCallback((updates: Record<string, string | null>) => {
-    const next = buildEventQueryString(searchParams, updates);
+    const next = buildEventQueryString(stableSearchParams, updates);
     router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
-  }, [pathname, router, searchParams]);
+  }, [pathname, router, stableSearchParams]);
 
   const fetchEvents = useCallback(async () => {
     if (fixtureItems || !range) return;
@@ -112,7 +116,7 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
     setError(null);
     const params = new URLSearchParams();
     if (filters.query) params.set("query", filters.query);
-    if (filters.tags.length) params.set("tags", filters.tags.join(","));
+    if (tagsKey) params.set("tags", tagsKey);
     if (filters.venue) params.set("venue", filters.venue);
     if (filters.artist) params.set("artist", filters.artist);
     if (filters.lat) params.set("lat", filters.lat);
@@ -138,7 +142,7 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
     } finally {
       setIsLoading(false);
     }
-  }, [fallbackFixtureItems, filters.artist, filters.from, filters.lat, filters.lng, filters.query, filters.radiusKm, filters.tags, filters.to, filters.venue, fixtureItems, range]);
+  }, [fallbackFixtureItems, filters.artist, filters.from, filters.lat, filters.lng, filters.query, filters.radiusKm, tagsKey, filters.to, filters.venue, fixtureItems, range]);
 
   useEffect(() => { void fetchEvents(); }, [fetchEvents]);
 
@@ -154,9 +158,9 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
     return events;
   }, [events, followSet.artistIds, followSet.venueIds, savedSet, scope]);
 
-  const activeTags = useMemo(() => filters.tags.map((tag) => tag.trim()).filter(Boolean), [filters.tags]);
+  const activeTags = useMemo(() => parsedTags.map((tag) => tag.trim()).filter(Boolean), [parsedTags]);
   const hasActiveFilters = Boolean(filters.query || activeTags.length || filters.from || filters.to);
-  const filtersQueryString = useMemo(() => buildEventQueryString(searchParams, { scope: null }), [searchParams]);
+  const filtersQueryString = useMemo(() => buildEventQueryString(stableSearchParams, { scope: null }), [stableSearchParams]);
   const eventsHref = filtersQueryString ? `/events?${filtersQueryString}` : "/events";
   const calendarEvents = useMemo(
     () => filteredEvents.map((event) => ({ id: event.id, title: event.title, start: event.start, end: event.end ?? undefined, url: `/events/${event.slug}` })),
