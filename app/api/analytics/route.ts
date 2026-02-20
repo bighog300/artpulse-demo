@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { trackServerEvent } from "@/lib/analytics/server";
+import { getRequestId } from "@/lib/request-id";
+import { captureMessage } from "@/lib/monitoring";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,14 +24,18 @@ function hasForbiddenProps(props?: Record<string, string | number | boolean>) {
 }
 
 export async function POST(req: Request) {
+  const route = "/api/analytics";
+  const requestId = getRequestId(req.headers);
   const contentLength = Number(req.headers.get("content-length") ?? "0");
   if (contentLength > MAX_BODY_BYTES) {
+    captureMessage("analytics_rejected", { level: "warn", route, requestId, userScope: false, reason: "payload_too_large" });
     return new NextResponse(null, { status: 413, headers: { "Cache-Control": "no-store" } });
   }
 
   const json = await req.json().catch(() => null);
   const parsed = analyticsSchema.safeParse(json);
   if (!parsed.success || hasForbiddenProps(parsed.data.props)) {
+    captureMessage("analytics_rejected", { level: "warn", route, requestId, userScope: false, reason: "invalid_payload", name: parsed.success ? parsed.data.name : "unknown" });
     return new NextResponse(null, { status: 400, headers: { "Cache-Control": "no-store" } });
   }
 

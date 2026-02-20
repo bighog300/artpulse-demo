@@ -1,5 +1,6 @@
 export type CronSummary = {
   cronName: string;
+  cronRunId: string;
   startedAt: string;
   finishedAt: string;
   durationMs: number;
@@ -19,6 +20,10 @@ function hashLockKey(value: string) {
     hash = ((hash << 5) - hash + value.charCodeAt(i)) | 0;
   }
   return Math.abs(hash || 1);
+}
+
+export function createCronRunId() {
+  return crypto.randomUUID();
 }
 
 export async function tryAcquireCronLock(store: unknown, lockName: string): Promise<{ acquired: boolean; release: () => Promise<void>; supported: boolean }> {

@@ -1,10 +1,13 @@
-import { captureException, trackMetric } from "@/lib/telemetry";
+import { trackMetric } from "@/lib/telemetry";
+import { captureException, withSpan } from "@/lib/monitoring";
+import { sendAlert } from "@/lib/alerts";
+import { markCronFailure, markCronSuccess } from "@/lib/ops-metrics";
 import { Prisma } from "@prisma/client";
 import { digestDedupeKey, digestSnapshotItemsSchema, isoWeekStamp } from "@/lib/digest";
 import { runSavedSearchEvents } from "@/lib/saved-searches";
 import { applyConservativeRanking, computeEngagementBoosts } from "@/lib/ranking";
 import { validateCronRequest } from "@/lib/cron-auth";
-import { logCronSummary, shouldDryRun, tryAcquireCronLock } from "@/lib/cron-runtime";
+import { createCronRunId, logCronSummary, shouldDryRun, tryAcquireCronLock } from "@/lib/cron-runtime";
 
 const DIGEST_LIMIT = 25;
 const DIGEST_MAX_DURATION_MS = 20_000;
@@ -29,14 +32,17 @@ export async function runWeeklyDigests(headerSecret: string | null, dryRunRaw: s
   const authFailureResponse = validateCronRequest(headerSecret, { route: "/api/cron/digests/weekly", ...meta });
   if (authFailureResponse) return authFailureResponse;
 
+  const route = "/api/cron/digests/weekly";
   const startedAt = new Date();
   const dryRun = shouldDryRun(dryRunRaw);
+  const cronRunId = createCronRunId();
   const lock = await tryAcquireCronLock(digestDb, "cron:digests:weekly");
   if (!lock.acquired) {
-    return Response.json({ ok: true, cronName: "digests_weekly", dryRun, skipped: "lock_not_acquired" }, { status: 202 });
+    return Response.json({ ok: true, cronName: "digests_weekly", cronRunId, dryRun, skipped: "lock_not_acquired" }, { status: 202 });
   }
 
   try {
+    return await withSpan("cron:digests_weekly", async () => {
     const now = new Date();
     const periodKey = isoWeekStamp(now);
     const threshold = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000);
@@ -120,6 +126,7 @@ export async function runWeeklyDigests(headerSecret: string | null, dryRunRaw: s
     const summary = {
       ok: true,
       cronName: "digests_weekly",
+      cronRunId,
       startedAt: startedAt.toISOString(),
       finishedAt: new Date().toISOString(),
       durationMs: Date.now() - startedAt.getTime(),
@@ -132,10 +139,19 @@ export async function runWeeklyDigests(headerSecret: string | null, dryRunRaw: s
       lock: lock.supported ? "acquired" : "unsupported",
     } as const;
     logCronSummary(summary);
+    if (summary.errorCount > 0) {
+      markCronFailure(summary.cronName, `errorCount=${summary.errorCount}`);
+      await sendAlert({ severity: "error", title: "Cron digest failures", body: `cron=${summary.cronName} cronRunId=${summary.cronRunId} durationMs=${summary.durationMs} errors=${summary.errorCount}`, tags: { cronName: summary.cronName, cronRunId: summary.cronRunId, errorCount: summary.errorCount, durationMs: summary.durationMs } });
+    } else {
+      markCronSuccess(summary.cronName, summary.finishedAt);
+    }
     return Response.json(summary);
+    }, { route, requestId: meta.requestId, cronRunId, userScope: false });
   } catch (error) {
-    captureException(error, { route: "/api/cron/digests/weekly" });
-    return Response.json({ error: { code: "internal_error", message: "Cron execution failed", details: undefined } }, { status: 500 });
+    captureException(error, { route: "/api/cron/digests/weekly", requestId: meta.requestId, cronRunId, userScope: false });
+    markCronFailure("digests_weekly", "internal_error");
+    await sendAlert({ severity: "error", title: "Cron execution failed", body: `cron=digests_weekly cronRunId=${cronRunId}` , tags: { cronName: "digests_weekly", cronRunId } });
+    return Response.json({ ok: false, cronName: "digests_weekly", cronRunId, error: { code: "internal_error", message: "Cron execution failed", details: undefined } }, { status: 500 });
   } finally {
     await lock.release();
   }

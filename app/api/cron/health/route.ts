@@ -1,40 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { extractCronSecret, validateCronRequest } from "@/lib/cron-auth";
-import { db } from "@/lib/db";
 import { getRequestId } from "@/lib/request-id";
+import { runOpsWatchdog } from "@/lib/ops-metrics";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-async function outboxBacklogCount() {
-  if (!process.env.DATABASE_URL) return "unknown" as const;
-  try {
-    const count = await db.notificationOutbox.count({ where: { status: "PENDING", errorMessage: null } });
-    return count;
-  } catch {
-    return "unknown" as const;
-  }
-}
-
 export async function GET(req: NextRequest) {
+  const requestId = getRequestId(req.headers);
   const authFailure = validateCronRequest(extractCronSecret(req.headers), {
     route: "/api/cron/health",
-    requestId: getRequestId(req.headers),
+    requestId,
     method: req.method,
   });
   if (authFailure) return authFailure;
 
+  const watchdog = await runOpsWatchdog();
   return NextResponse.json(
     {
       ok: true,
-      lastRun: {
-        outboxSend: "unknown",
-        digestsWeekly: "unknown",
-        retentionEngagement: "unknown",
-      },
+      requestId,
+      cron: watchdog.cron,
       backlog: {
-        outboxPending: await outboxBacklogCount(),
+        outboxPending: watchdog.backlog,
       },
+      stallThresholdHours: watchdog.stallThresholdHours,
     },
     { headers: { "Cache-Control": "no-store" } },
   );
