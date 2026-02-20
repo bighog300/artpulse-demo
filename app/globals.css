@@ -86,8 +86,13 @@
     @apply border-border;
   }
 
+  html {
+    overflow-y: scroll;
+  }
+
   body {
     @apply min-h-screen bg-background text-foreground antialiased;
+    overflow-x: hidden;
   }
 
   h1,
