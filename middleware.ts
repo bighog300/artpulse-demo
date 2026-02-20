@@ -2,6 +2,7 @@ import { getToken } from "next-auth/jwt";
 import { NextResponse, type NextRequest } from "next/server";
 import { getBetaConfig, isEmailAllowed } from "@/lib/beta/access";
 import { REQUEST_ID_HEADER } from "@/lib/request-id";
+import { isAdminEmail } from "@/lib/admin-email";
 
 const PUBLIC_BETA_PATHS = new Set(["/beta", "/login"]);
 
@@ -28,6 +29,35 @@ export async function middleware(req: NextRequest) {
 
     if (!isEmailAllowed(email, betaConfig)) {
       const url = new URL("/beta?reason=not_allowed", req.url);
+      return NextResponse.redirect(url, {
+        headers: {
+          [REQUEST_ID_HEADER]: requestId,
+        },
+      });
+    }
+  }
+
+  if (pathname === "/admin" || pathname.startsWith("/admin/") || pathname === "/api/admin" || pathname.startsWith("/api/admin/")) {
+    const token = await getToken({ req, secret: process.env.AUTH_SECRET });
+    const email = token?.email ?? null;
+
+    if (!email) {
+      if (pathname.startsWith("/api/admin")) {
+        return NextResponse.json({ error: "unauthorized" }, { status: 401, headers: { [REQUEST_ID_HEADER]: requestId } });
+      }
+      const url = new URL("/login", req.url);
+      return NextResponse.redirect(url, {
+        headers: {
+          [REQUEST_ID_HEADER]: requestId,
+        },
+      });
+    }
+
+    if (!isAdminEmail(email)) {
+      if (pathname.startsWith("/api/admin")) {
+        return NextResponse.json({ error: "forbidden" }, { status: 403, headers: { [REQUEST_ID_HEADER]: requestId } });
+      }
+      const url = new URL("/", req.url);
       return NextResponse.redirect(url, {
         headers: {
           [REQUEST_ID_HEADER]: requestId,

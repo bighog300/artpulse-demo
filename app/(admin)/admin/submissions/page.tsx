@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
-import SubmissionsModeration from "@/app/admin/_components/SubmissionsModeration";
+import SubmissionsModeration from "@/app/(admin)/admin/_components/SubmissionsModeration";
 
 export const dynamic = "force-dynamic";
 

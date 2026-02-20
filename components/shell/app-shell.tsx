@@ -4,13 +4,14 @@ import { AppShellNav } from "@/components/shell/app-shell-nav";
 
 type AppShellProps = {
   user: SessionUser | null;
+  isAdmin: boolean;
   children: ReactNode;
 };
 
-export function AppShell({ user, children }: AppShellProps) {
+export function AppShell({ user, isAdmin, children }: AppShellProps) {
   return (
     <>
-      <AppShellNav user={user} />
+      <AppShellNav user={user} isAdmin={isAdmin} />
       <main id="main" className="pb-20 md:pb-0">
         {children}
       </main>
