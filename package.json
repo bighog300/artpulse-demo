@@ -2,7 +2,7 @@
   "name": "artpulse-demo",
   "version": "0.1.0",
   "private": true,
-  "packageManager": "pnpm@10.?.?"
+  "packageManager": "pnpm@10.?.?",
   "engines": {
     "node": ">=20"
   },
