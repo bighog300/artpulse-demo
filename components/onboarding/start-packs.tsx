@@ -7,6 +7,7 @@ import { StartPackCard } from "@/components/onboarding/start-pack-card";
 import { StartPackSkeleton } from "@/components/onboarding/start-pack-skeleton";
 import { track } from "@/lib/analytics/client";
 import { START_PACKS, type StartPackDefinition } from "@/lib/onboarding/start-packs";
+import { getOnboardingSignals, type OnboardingSignals } from "@/lib/onboarding/signals";
 import { enqueueToast } from "@/lib/toast";
 
 type RecommendationItem = {
@@ -32,7 +33,7 @@ function pickCandidates(pack: StartPackDefinition, payload: RecommendationsPaylo
 
   const matches = source.filter((item) => {
     const haystack = `${item.name} ${item.reason ?? ""} ${item.subtitle ?? ""}`.toLowerCase();
-    return pack.keywords.some((keyword) => haystack.includes(keyword.toLowerCase()));
+    return (pack.keywords ?? []).some((keyword) => haystack.includes(keyword.toLowerCase()));
   });
 
   return (matches.length ? matches : source).slice(0, 12);
@@ -47,13 +48,37 @@ export function StartPacks({ page, isAuthenticated }: { page: string; isAuthenti
   const [followAllState, setFollowAllState] = useState<{ attempted: number; succeeded: number; failed: number } | null>(null);
   const [followAllRunning, setFollowAllRunning] = useState(false);
   const shownTrackedRef = useRef(false);
+  const rankedTrackedRef = useRef(false);
+  const becauseTrackedRef = useRef<Set<string>>(new Set());
   const abortControllersRef = useRef<Set<AbortController>>(new Set());
+  const [signals, setSignals] = useState<OnboardingSignals | null>(null);
+  const [sessionPackId, setSessionPackId] = useState<string | null>(null);
 
   useEffect(() => {
     if (shownTrackedRef.current) return;
     shownTrackedRef.current = true;
     track("start_pack_shown", { page });
   }, [page]);
+
+
+
+  useEffect(() => {
+    try {
+      const lastPack = window.localStorage.getItem("ap_last_pack_id");
+      if (lastPack) setSessionPackId(lastPack);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const next = await getOnboardingSignals();
+      if (!cancelled) setSignals(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!activePack) return;
@@ -86,6 +111,73 @@ export function StartPacks({ page, isAuthenticated }: { page: string; isAuthenti
     if (!activePack || !data) return [];
     return pickCandidates(activePack, data);
   }, [activePack, data]);
+
+  const rankedPacks = useMemo(() => {
+    const hasFollows = Boolean(signals && signals.followsCount > 0);
+    if (!hasFollows) {
+      if (sessionPackId) {
+        const continued = START_PACKS.find((pack) => pack.id === sessionPackId);
+        if (continued) return [continued, ...START_PACKS.filter((pack) => pack.id !== sessionPackId)].map((pack) => ({ pack, because: null as string | null, score: 0 }));
+      }
+      return START_PACKS.map((pack) => ({ pack, because: null as string | null, score: 0 }));
+    }
+
+    const followedTokens = [
+      ...(signals?.followedArtistSlugs ?? []),
+      ...(signals?.followedVenueSlugs ?? []),
+      ...(signals?.followedArtistNames ?? []),
+      ...(signals?.followedVenueNames ?? []),
+    ].join(" ").toLowerCase();
+
+    const scored = START_PACKS.map((pack) => {
+      const keywords = pack.keywords ?? [];
+      let score = keywords.reduce((acc, keyword) => acc + (followedTokens.includes(keyword.toLowerCase()) ? 2 : 0), 0);
+      score += (pack.boostIfFollowed ?? []).reduce((acc, rule) => {
+        const source = rule.type === "artist" ? signals?.followedArtistSlugs ?? [] : signals?.followedVenueSlugs ?? [];
+        if (rule.slug && source.includes(rule.slug)) return acc + 2;
+        if (rule.keyword && followedTokens.includes(rule.keyword.toLowerCase())) return acc + 1;
+        return acc;
+      }, 0);
+
+      const because = score > 0 ? (pack.explain?.(signals as OnboardingSignals) ?? (signals?.savedEventsCount ? "Because you saved events" : null)) : null;
+      return { pack, because, score };
+    });
+
+    const fallbackId = START_PACKS.find((pack) => pack.id === "rising-artists")?.id ?? START_PACKS[0]?.id;
+    scored.sort((a, b) => b.score - a.score || START_PACKS.findIndex((pack) => pack.id === a.pack.id) - START_PACKS.findIndex((pack) => pack.id === b.pack.id));
+
+    if (fallbackId) {
+      const index = scored.findIndex((entry) => entry.pack.id === fallbackId);
+      if (index > 2) {
+        const [fallback] = scored.splice(index, 1);
+        scored.splice(1, 0, fallback);
+      }
+    }
+
+    if (sessionPackId) {
+      const index = scored.findIndex((entry) => entry.pack.id === sessionPackId);
+      if (index > 0) {
+        const [continued] = scored.splice(index, 1);
+        scored.unshift(continued);
+      }
+    }
+
+    return scored;
+  }, [sessionPackId, signals]);
+
+  useEffect(() => {
+    if (rankedTrackedRef.current || !signals) return;
+    rankedTrackedRef.current = true;
+    track("start_pack_ranked", { boostedCount: rankedPacks.filter((entry) => entry.score > 0).length });
+  }, [rankedPacks, signals]);
+
+  useEffect(() => {
+    rankedPacks.forEach((entry) => {
+      if (!entry.because || becauseTrackedRef.current.has(entry.pack.id)) return;
+      becauseTrackedRef.current.add(entry.pack.id);
+      track("start_pack_because_shown", { packId: entry.pack.id, reasonKind: entry.because.toLowerCase().includes("venue") ? "venue" : entry.because.toLowerCase().includes("saved") ? "saved_event" : "artist" });
+    });
+  }, [rankedPacks]);
 
   const selectedCount = candidates.filter((candidate) => followedIds[candidate.id]).length;
 
@@ -164,11 +256,14 @@ export function StartPacks({ page, isAuthenticated }: { page: string; isAuthenti
         <p className="text-xs text-muted-foreground">Quick bundles to jump-start your follows in one flow.</p>
       </div>
       <div className="flex gap-2 overflow-x-auto pb-1">
-        {START_PACKS.map((pack) => (
+        {rankedPacks.map(({ pack, because }) => (
           <StartPackCard
             key={pack.id}
             pack={pack}
+            because={because}
             onOpen={(nextPack) => {
+              try { window.localStorage.setItem("ap_last_pack_id", nextPack.id); } catch {}
+
               setActivePack(nextPack);
               track("start_pack_opened", { packId: nextPack.id });
             }}

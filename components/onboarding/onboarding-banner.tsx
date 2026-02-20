@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { track } from "@/lib/analytics/client";
-import { setOnboardingDismissed, setOnboardingSeenAt } from "@/lib/onboarding/state";
+import { setBannerMinimized, setOnboardingDismissed, setOnboardingSeenAt } from "@/lib/onboarding/state";
 import { OnboardingProgress, type OnboardingStepStatus } from "@/components/onboarding/onboarding-progress";
 import { OnboardingSheet } from "@/components/onboarding/onboarding-sheet";
 
@@ -13,6 +13,7 @@ export function OnboardingBanner({
   completionMessage,
   hasLocation,
   isAuthenticated,
+  compact = false,
 }: {
   page: string;
   steps: OnboardingStepStatus[];
@@ -20,6 +21,7 @@ export function OnboardingBanner({
   completionMessage?: string | null;
   hasLocation: boolean;
   isAuthenticated: boolean;
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -33,11 +35,11 @@ export function OnboardingBanner({
   }
 
   return (
-    <aside className="space-y-3 rounded-lg border bg-zinc-50 p-4">
+    <aside className={`space-y-3 rounded-lg border bg-zinc-50 ${compact ? "p-3" : "p-4"}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold">Set up your feed</h2>
-          <p className="text-sm text-muted-foreground">Follow a few artists or venues, save a search, or save an event to activate your experience.</p>
+          <p className="text-sm text-muted-foreground">{compact ? "You're making progress — finish one more step to unlock personalized updates." : "Follow a few artists or venues, save a search, or save an event to activate your experience."}</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -45,6 +47,7 @@ export function OnboardingBanner({
             className="rounded border bg-background px-3 py-1 text-sm"
             onClick={() => {
               setOpen(true);
+              setBannerMinimized(true);
               track("onboarding_sheet_opened", { page });
             }}
           >

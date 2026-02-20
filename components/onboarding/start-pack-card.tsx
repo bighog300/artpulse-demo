@@ -2,7 +2,7 @@
 
 import type { StartPackDefinition } from "@/lib/onboarding/start-packs";
 
-export function StartPackCard({ pack, onOpen }: { pack: StartPackDefinition; onOpen: (pack: StartPackDefinition) => void }) {
+export function StartPackCard({ pack, onOpen, because }: { pack: StartPackDefinition; onOpen: (pack: StartPackDefinition) => void; because?: string | null }) {
   return (
     <button
       type="button"
@@ -11,6 +11,7 @@ export function StartPackCard({ pack, onOpen }: { pack: StartPackDefinition; onO
     >
       <p className="text-sm font-semibold">{pack.title}</p>
       <p className="mt-1 text-xs text-muted-foreground">{pack.description}</p>
+      {because ? <p className="mt-2 text-xs font-medium text-primary">{because}</p> : null}
       <p className="mt-2 text-xs text-muted-foreground">{pack.type === "mixed" ? "Artists + Venues" : pack.type === "artist" ? "Artists" : "Venues"}</p>
     </button>
   );
