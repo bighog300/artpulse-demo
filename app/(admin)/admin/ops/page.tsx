@@ -27,6 +27,7 @@ export default async function AdminOpsPage() {
         <pre className="text-xs bg-muted p-3 rounded">{JSON.stringify(ops ?? { note: "OPS_SECRET not configured or endpoint unauthorized" }, null, 2)}</pre>
       </section>
       <section className="space-x-3">
+        <Link href="/admin/ops/jobs" className="underline">Open Jobs Panel</Link>
         <Link href="/admin/ops/audit" className="underline">View Admin Audit Log</Link>
         <Link href="/api/cron/outbox/send?dryRun=1" className="underline">Run Outbox Dry Run</Link>
         <Link href="/api/cron/digests/weekly?dryRun=1" className="underline">Run Digest Dry Run</Link>

@@ -106,3 +106,13 @@ Recommended scripts:
 ## NextAuth production start requirement
 
 - `NEXTAUTH_SECRET` / `AUTH_SECRET` must be set for `pnpm start` in production mode.
+
+
+## 7. Admin Jobs Panel
+
+- Admin operators can trigger server-side jobs from `/admin/ops/jobs`.
+- Initial supported job names are:
+  - `health.ping`
+  - `db.vacuum-lite`
+- Job runs are persisted in the `JobRun` table and all admin reads/triggers are recorded in `AdminAuditLog`.
+- No additional environment variables are required; existing `CRON_SECRET` automation remains server-side only and is never exposed to the browser.
