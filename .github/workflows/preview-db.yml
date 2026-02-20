@@ -1,5 +1,9 @@
 name: Preview DB (Neon)
 
+concurrency:
+  group: preview-db-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   pull_request:
     types: [opened, synchronize, reopened, closed]
@@ -47,9 +51,40 @@ jobs:
 
       - name: Deploy migrations to preview DB
         env:
-          DATABASE_URL: ${{ steps.neon-urls.outputs.direct_url }}
-          DIRECT_URL: ${{ steps.neon-urls.outputs.direct_url }}
-        run: pnpm prisma migrate deploy
+          DATABASE_URL: ${{ steps.neon-urls.outputs.direct_url || secrets.DIRECT_URL }}
+          DIRECT_URL: ${{ steps.neon-urls.outputs.direct_url || secrets.DIRECT_URL }}
+        run: |
+          if [ -z "$DIRECT_URL" ]; then
+            echo "DIRECT_URL is empty. Ensure neon-urls output is available or set secrets.DIRECT_URL."
+            exit 1
+          fi
+
+          host="$(node -e 'console.log(new URL(process.env.DIRECT_URL).host)' 2>/dev/null || true)"
+          if [ -z "$host" ]; then
+            echo "DIRECT_URL is not a valid URL."
+            exit 1
+          fi
+          if [[ "$host" == *"-pooler"* ]]; then
+            echo "DIRECT_URL points to a Neon pooler host ($host). Use a direct/non-pooler endpoint for migrations."
+            exit 1
+          fi
+
+          max_attempts=5
+          for attempt in $(seq 1 "$max_attempts"); do
+            echo "Prisma migrate deploy attempt ${attempt}/${max_attempts}..."
+            if pnpm prisma migrate deploy; then
+              echo "Prisma migrate deploy succeeded."
+              exit 0
+            fi
+
+            if [ "$attempt" -lt "$max_attempts" ]; then
+              echo "Prisma migrate deploy failed (attempt ${attempt}/${max_attempts}). Retrying in 5s..."
+              sleep 5
+            fi
+          done
+
+          echo "Prisma migrate deploy failed after ${max_attempts} attempts. This can happen during Neon cold starts or temporary advisory-lock contention (P1002)."
+          exit 1
 
       - name: Drift detection gate
         env:
