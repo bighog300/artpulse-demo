@@ -13,8 +13,9 @@ import { enqueueToast } from "@/lib/toast";
 import { track } from "@/lib/analytics/client";
 import { getOnboardingSignals, type OnboardingSignals } from "@/lib/onboarding/signals";
 import { buildExplanation } from "@/lib/personalization/explanations";
-import { rankItems } from "@/lib/personalization/ranking";
+import { RANKING_VERSION, rankItems } from "@/lib/personalization/ranking";
 import { getPreferenceSnapshot } from "@/lib/personalization/preferences";
+import { recordFeedback } from "@/lib/personalization/feedback";
 
 type SavedSearch = { id: string; name: string; type: "NEARBY" | "EVENTS_FILTER"; frequency: "WEEKLY"; isEnabled: boolean; lastSentAt: string | null; createdAt?: string; paramsJson?: { q?: string; tags?: string[] } };
 type RunItem = { id: string; slug: string; title: string; startAt: string; endAt: string | null; venue: { name: string | null } | null };
@@ -84,6 +85,7 @@ export function SavedSearchesClient() {
     const savedSearchQueries = activeSearch?.paramsJson?.q ? [activeSearch.paramsJson.q] : [];
     const savedSearchTags = activeSearch?.paramsJson?.tags ?? [];
     const visible = previewItems.filter((item) => !hiddenPreviewIds.includes(item.id));
+    const seed = previewItems.length + new Date().getDate();
     return rankItems(visible.map((item) => ({
       ...item,
       title: item.title,
@@ -101,15 +103,19 @@ export function SavedSearchesClient() {
         hasLocation: signals.hasLocation,
       },
       preferences: getPreferenceSnapshot(),
+      seed,
     });
   }, [previewItems, hiddenPreviewIds, items, previewFor, signals]);
 
 
   useEffect(() => {
     if (!previewFor || !previewVisibleItems.length) return;
-    track("personalization_rank_applied", { rankingSource: "saved_search_preview", rankedCount: previewVisibleItems.length });
-    if (previewVisibleItems[0].topReason) track("personalization_top_reason", { rankingSource: "saved_search_preview", topReason: previewVisibleItems[0].topReason });
-    track("personalization_diversity_applied", { rankingSource: "saved_search_preview", diversityRules: "venue_top10<=2,tag_streak<=3,category_balance" });
+    track("personalization_rank_applied", { rankingSource: "saved_search_preview", rankedCount: previewVisibleItems.length, version: RANKING_VERSION });
+    track("personalization_mix_applied", { source: "saved_search_preview", version: RANKING_VERSION });
+    const explorationCount = previewVisibleItems.filter((entry) => entry.breakdown.some((part) => part.key === "exploration")).length;
+    if (explorationCount) track("personalization_exploration_inserted", { source: "saved_search_preview", count: explorationCount, rate: 0.2, version: RANKING_VERSION });
+    if (previewVisibleItems[0].topReason) track("personalization_top_reason", { rankingSource: "saved_search_preview", topReason: previewVisibleItems[0].topReason, version: RANKING_VERSION });
+    track("personalization_diversity_applied", { rankingSource: "saved_search_preview", diversityRules: "venue_top10<=2,tag_streak<=3,category_balance", version: RANKING_VERSION });
   }, [previewFor, previewVisibleItems]);
 
   const patchItem = async (id: string, updater: (item: SavedSearch) => SavedSearch, endpoint: string, body: unknown) => {
@@ -275,6 +281,7 @@ export function SavedSearchesClient() {
                       endAt={event.endAt}
                       venueName={event.venue?.name}
                       action={<ItemActionsMenu type="event" idOrSlug={event.id} source="saved_search_preview" explanation={explanation} onHidden={() => setHiddenPreviewIds((current) => [...current, event.id])} />}
+                      onOpen={() => recordFeedback({ type: "click", source: "saved_search_preview", item: { type: "event", idOrSlug: event.id, tags: ["saved-search"] } })}
                     />
                     {explanation ? <WhyThis source="saved_search_preview" explanation={explanation} /> : null}
                   </li>

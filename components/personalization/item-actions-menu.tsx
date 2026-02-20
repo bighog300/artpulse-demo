@@ -7,7 +7,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { track } from "@/lib/analytics/client";
 import type { Explanation } from "@/lib/personalization/explanations";
-import { hideItem, showLessLikeThis } from "@/lib/personalization/preferences";
+import { recordFeedback } from "@/lib/personalization/feedback";
+import { RANKING_VERSION } from "@/lib/personalization/ranking";
 
 type MenuType = "event" | "artist" | "venue";
 
@@ -34,17 +35,17 @@ export function ItemActionsMenu({
   if (!PERSONALIZED_SOURCES.includes(source)) return null;
 
   const handleHide = () => {
-    hideItem({ type, idOrSlug });
+    recordFeedback({ type: "hide", source, item: { type, idOrSlug, tags } });
     onHidden?.();
     setUndoAction("hide");
-    track("personalization_hide_clicked", { source, targetType: type, idOrSlug });
+    track("personalization_hide_clicked", { source, targetType: type, idOrSlug, version: RANKING_VERSION });
   };
 
   const handleShowLess = () => {
-    showLessLikeThis({ type, idOrSlug, tags });
+    recordFeedback({ type: "show_less", source, item: { type, idOrSlug, tags } });
     onHidden?.();
     setUndoAction("show_less");
-    track("personalization_show_less_clicked", { source, targetType: type, idOrSlug });
+    track("personalization_show_less_clicked", { source, targetType: type, idOrSlug, version: RANKING_VERSION });
   };
 
   return (
@@ -70,7 +71,7 @@ export function ItemActionsMenu({
             className="underline"
             onClick={() => {
               setUndoAction(null);
-              track("personalization_undo_clicked", { source, targetType: type, idOrSlug });
+              track("personalization_undo_clicked", { source, targetType: type, idOrSlug, version: RANKING_VERSION });
             }}
           >
             Undo

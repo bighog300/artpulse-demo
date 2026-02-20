@@ -73,6 +73,7 @@ export function RecommendedFollows({ page, source, isAuthenticated }: { page: st
   const items = useMemo(() => {
     const list = tab === "artists" ? data?.artists ?? [] : data?.venues ?? [];
     const visible = list.filter((item) => !hiddenIds.includes(item.id));
+    const seed = list.length + new Date().getDate();
     return rankItems(visible.map((item) => ({
       ...item,
       title: item.name,
@@ -85,6 +86,7 @@ export function RecommendedFollows({ page, source, isAuthenticated }: { page: st
         followedVenueSlugs: signals.followedVenueSlugs,
       },
       preferences: getPreferenceSnapshot(),
+      seed,
     });
   }, [data, tab, hiddenIds, signals]);
 

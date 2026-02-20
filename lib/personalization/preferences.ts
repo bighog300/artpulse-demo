@@ -11,7 +11,7 @@ export const PERSONALIZATION_KEYS = {
 const FEEDBACK_LIMIT = 50;
 
 type PreferenceItem = { type: PreferenceEntityType; idOrSlug: string };
-type FeedbackEvent = PreferenceItem & { action: "hide" | "show_less"; at: string };
+export type PreferenceFeedbackEvent = PreferenceItem & { action: "hide" | "show_less" | "click" | "save" | "follow"; at: string };
 
 type FilterableItem = {
   id?: string;
@@ -46,18 +46,18 @@ function writeArray(key: string, values: string[]) {
   }
 }
 
-function readFeedbackEvents(): FeedbackEvent[] {
+export function readFeedbackEvents(): PreferenceFeedbackEvent[] {
   try {
     const raw = storage()?.getItem(PERSONALIZATION_KEYS.feedbackEvents);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
-    return Array.isArray(parsed) ? parsed.filter((item): item is FeedbackEvent => Boolean(item && typeof item === "object")) : [];
+    return Array.isArray(parsed) ? parsed.filter((item): item is PreferenceFeedbackEvent => Boolean(item && typeof item === "object")) : [];
   } catch {
     return [];
   }
 }
 
-function writeFeedbackEvents(events: FeedbackEvent[]) {
+export function writeFeedbackEvents(events: PreferenceFeedbackEvent[]) {
   try {
     storage()?.setItem(PERSONALIZATION_KEYS.feedbackEvents, JSON.stringify(events.slice(0, FEEDBACK_LIMIT)));
   } catch {
@@ -65,30 +65,48 @@ function writeFeedbackEvents(events: FeedbackEvent[]) {
   }
 }
 
-function itemKey({ type, idOrSlug }: PreferenceItem) {
+export function itemKey({ type, idOrSlug }: PreferenceItem) {
   return `${type}:${idOrSlug.trim().toLowerCase()}`;
 }
 
-function addFeedback(action: FeedbackEvent["action"], item: PreferenceItem) {
-  const next: FeedbackEvent = { ...item, action, at: new Date().toISOString() };
+export function addFeedback(action: PreferenceFeedbackEvent["action"], item: PreferenceItem) {
+  const next: PreferenceFeedbackEvent = { ...item, action, at: new Date().toISOString() };
   writeFeedbackEvents([next, ...readFeedbackEvents()]);
 }
 
+export function prependUniqueValue(key: "hiddenItems" | "downrankTags" | "downrankVenues" | "downrankArtists", value: string) {
+  const map = {
+    hiddenItems: PERSONALIZATION_KEYS.hiddenItems,
+    downrankTags: PERSONALIZATION_KEYS.downrankTags,
+    downrankVenues: PERSONALIZATION_KEYS.downrankVenues,
+    downrankArtists: PERSONALIZATION_KEYS.downrankArtists,
+  } as const;
+  writeArray(map[key], [value, ...readArray(map[key])]);
+}
+
+export function prependUniqueValues(key: "downrankTags" | "downrankVenues" | "downrankArtists", values: string[]) {
+  const map = {
+    downrankTags: PERSONALIZATION_KEYS.downrankTags,
+    downrankVenues: PERSONALIZATION_KEYS.downrankVenues,
+    downrankArtists: PERSONALIZATION_KEYS.downrankArtists,
+  } as const;
+  writeArray(map[key], [...values, ...readArray(map[key])]);
+}
+
 export function hideItem(item: PreferenceItem) {
-  const hidden = readArray(PERSONALIZATION_KEYS.hiddenItems);
-  writeArray(PERSONALIZATION_KEYS.hiddenItems, [itemKey(item), ...hidden]);
+  prependUniqueValue("hiddenItems", itemKey(item));
   addFeedback("hide", item);
 }
 
 export function showLessLikeThis(item: PreferenceItem & { tags?: string[] }) {
   if (item.type === "artist") {
-    writeArray(PERSONALIZATION_KEYS.downrankArtists, [item.idOrSlug, ...readArray(PERSONALIZATION_KEYS.downrankArtists)]);
+    prependUniqueValue("downrankArtists", item.idOrSlug);
   }
   if (item.type === "venue") {
-    writeArray(PERSONALIZATION_KEYS.downrankVenues, [item.idOrSlug, ...readArray(PERSONALIZATION_KEYS.downrankVenues)]);
+    prependUniqueValue("downrankVenues", item.idOrSlug);
   }
   if (item.tags?.length) {
-    writeArray(PERSONALIZATION_KEYS.downrankTags, [...item.tags, ...readArray(PERSONALIZATION_KEYS.downrankTags)]);
+    prependUniqueValues("downrankTags", item.tags);
   }
   hideItem(item);
   addFeedback("show_less", item);

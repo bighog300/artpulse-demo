@@ -9,8 +9,9 @@ import { ErrorCard } from "@/components/ui/error-card";
 import { LoadingCard } from "@/components/ui/loading-card";
 import { track } from "@/lib/analytics/client";
 import { buildExplanation } from "@/lib/personalization/explanations";
-import { rankItems } from "@/lib/personalization/ranking";
+import { RANKING_VERSION, rankItems } from "@/lib/personalization/ranking";
 import { getPreferenceSnapshot } from "@/lib/personalization/preferences";
+import { recordFeedback } from "@/lib/personalization/feedback";
 import { getOnboardingSignals, type OnboardingSignals } from "@/lib/onboarding/signals";
 
 type ForYouResponse = {
@@ -69,6 +70,7 @@ export function ForYouClient() {
 
   const rankedItems = useMemo(() => {
     const visible = data.items.filter((item) => !hiddenIds.includes(item.event.id));
+    const seed = data.items.length + new Date().getDate();
     const ranked = rankItems(
       visible.map((item) => ({
         ...item,
@@ -90,6 +92,7 @@ export function ForYouClient() {
           recentViewTerms: visible.flatMap((item) => item.reasons).slice(0, 8),
         },
         preferences: getPreferenceSnapshot(),
+        seed,
       },
     );
 
@@ -99,9 +102,12 @@ return ranked;
 
   useEffect(() => {
     if (!rankedItems.length) return;
-    track("personalization_rank_applied", { rankingSource: "for_you", rankedCount: rankedItems.length });
-    if (rankedItems[0].topReason) track("personalization_top_reason", { rankingSource: "for_you", topReason: rankedItems[0].topReason });
-    track("personalization_diversity_applied", { rankingSource: "for_you", diversityRules: "venue_top10<=2,tag_streak<=3,category_balance" });
+    track("personalization_rank_applied", { rankingSource: "for_you", rankedCount: rankedItems.length, version: RANKING_VERSION });
+    track("personalization_mix_applied", { source: "for_you", version: RANKING_VERSION });
+    const explorationCount = rankedItems.filter((entry) => entry.breakdown.some((part) => part.key === "exploration")).length;
+    if (explorationCount) track("personalization_exploration_inserted", { source: "for_you", count: explorationCount, rate: 0.2, version: RANKING_VERSION });
+    if (rankedItems[0].topReason) track("personalization_top_reason", { rankingSource: "for_you", topReason: rankedItems[0].topReason, version: RANKING_VERSION });
+    track("personalization_diversity_applied", { rankingSource: "for_you", diversityRules: "venue_top10<=2,tag_streak<=3,category_balance", version: RANKING_VERSION });
   }, [rankedItems]);
 
   return (
@@ -153,6 +159,7 @@ return ranked;
                   venueSlug={item.event.venue?.slug}
                   badges={item.reasons.slice(0, 2)}
                   secondaryText={debugEnabled ? `Score: ${ranked.score} • ${ranked.breakdown.map((entry) => `${entry.key}:${entry.value}`).join(", ")}` : `Score: ${ranked.score}`}
+                  onOpen={() => recordFeedback({ type: "click", source: "for_you", item: { type: "event", idOrSlug: item.event.id, tags: item.reasons, venueSlug: item.event.venue?.slug } })}
                   action={<ItemActionsMenu type="event" idOrSlug={item.event.id} source="for_you" explanation={explanation} onHidden={() => setHiddenIds((current) => [...current, item.event.id])} />}
                 />
                 {explanation ? <WhyThis source="for_you" explanation={explanation} /> : null}

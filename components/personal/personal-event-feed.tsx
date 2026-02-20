@@ -9,8 +9,9 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { track } from "@/lib/analytics/client";
 import { buildExplanation } from "@/lib/personalization/explanations";
-import { rankItems } from "@/lib/personalization/ranking";
+import { RANKING_VERSION, rankItems } from "@/lib/personalization/ranking";
 import { getPreferenceSnapshot } from "@/lib/personalization/preferences";
+import { recordFeedback } from "@/lib/personalization/feedback";
 import { getOnboardingSignals, type OnboardingSignals } from "@/lib/onboarding/signals";
 
 type FeedItem = {
@@ -61,6 +62,7 @@ export function PersonalEventFeed({
 
   const rankedItems = useMemo(() => {
     const visible = items.filter((item) => !hiddenIds.includes(item.id));
+    const seed = items.length + new Date().getDate();
     return rankItems(
       visible.map((item) => ({
         ...item,
@@ -76,15 +78,19 @@ export function PersonalEventFeed({
           hasLocation: signals.hasLocation,
         },
         preferences: getPreferenceSnapshot(),
+        seed,
       },
     );
   }, [items, hiddenIds, signals]);
 
   useEffect(() => {
     if (!rankedItems.length) return;
-    track("personalization_rank_applied", { rankingSource: "following", rankedCount: rankedItems.length });
-    if (rankedItems[0].topReason) track("personalization_top_reason", { rankingSource: "following", topReason: rankedItems[0].topReason });
-    track("personalization_diversity_applied", { rankingSource: "following", diversityRules: "venue_top10<=2,tag_streak<=3,category_balance" });
+    track("personalization_rank_applied", { rankingSource: "following", rankedCount: rankedItems.length, version: RANKING_VERSION });
+    track("personalization_mix_applied", { source: "following", version: RANKING_VERSION });
+    const explorationCount = rankedItems.filter((entry) => entry.breakdown.some((part) => part.key === "exploration")).length;
+    if (explorationCount) track("personalization_exploration_inserted", { source: "following", count: explorationCount, rate: 0.2, version: RANKING_VERSION });
+    if (rankedItems[0].topReason) track("personalization_top_reason", { rankingSource: "following", topReason: rankedItems[0].topReason, version: RANKING_VERSION });
+    track("personalization_diversity_applied", { rankingSource: "following", diversityRules: "venue_top10<=2,tag_streak<=3,category_balance", version: RANKING_VERSION });
   }, [rankedItems]);
 
   if (hasNoFollows) {
@@ -141,6 +147,7 @@ export function PersonalEventFeed({
                   venueName={item.venue?.name ?? undefined}
                   secondaryText={debugEnabled ? `Score: ${ranked.score} • ${ranked.breakdown.map((entry) => `${entry.key}:${entry.value}`).join(", ")}` : undefined}
                   action={<ItemActionsMenu type="event" idOrSlug={item.id} source="following" explanation={explanation} onHidden={() => setHiddenIds((current) => [...current, item.id])} />}
+                  onOpen={() => recordFeedback({ type: "click", source: "following", item: { type: "event", idOrSlug: item.id, venueSlug: item.venue?.slug } })}
                 />
                 {explanation ? <WhyThis source="following" explanation={explanation} /> : null}
               </li>
