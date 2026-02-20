@@ -53,6 +53,13 @@ export type AnalyticsEventName =
   | "setup_checklist_shown"
   | "setup_checklist_item_clicked"
   | "setup_checklist_dismissed"
+  | "why_this_shown"
+  | "why_this_opened"
+  | "personalization_hide_clicked"
+  | "personalization_show_less_clicked"
+  | "personalization_undo_clicked"
+  | "preferences_panel_opened"
+  | "preferences_reset_clicked"
 ;
 
 export type AnalyticsProps = {
@@ -93,6 +100,9 @@ export type AnalyticsProps = {
   failed?: number;
   tipId?: string;
   itemId?: string;
+  kind?: string;
+  targetType?: "event" | "artist" | "venue" | string;
+  idOrSlug?: string;
 };
 
 export type AnalyticsPayload = {
