@@ -1,11 +1,14 @@
-import SimpleAdminForm from "@/app/(admin)/admin/_components/SimpleAdminForm";
+import AdminEntityForm from "@/app/(admin)/admin/_components/AdminEntityForm";
 
 export default function AdminNewVenue() {
   return (
-    <SimpleAdminForm
+    <AdminEntityForm
       title="New Venue"
       endpoint="/api/admin/venues"
       method="POST"
+      redirectPath="/admin/venues"
+      uploadTargetType="venue"
+      uploadTargetId="new"
       initial={{ name: "", slug: "", description: "", city: "", country: "", lat: "", lng: "", websiteUrl: "", instagramUrl: "", contactEmail: "", featuredImageUrl: "", featuredAssetId: "", isPublished: false }}
       fields={[
         { name: "name", label: "Name" },

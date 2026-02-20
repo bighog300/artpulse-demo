@@ -234,6 +234,7 @@ export const adminArtistCreateSchema = z.object({
   websiteUrl: httpUrlSchema.optional().nullable(),
   instagramUrl: httpUrlSchema.optional().nullable(),
   avatarImageUrl: httpUrlSchema.optional().nullable(),
+  featuredImageUrl: httpUrlSchema.optional().nullable(),
   featuredAssetId: z.string().uuid().optional().nullable(),
   isPublished: z.boolean().optional(),
 });
@@ -245,6 +246,7 @@ export const adminArtistPatchSchema = z.object({
   websiteUrl: httpUrlSchema.optional().nullable(),
   instagramUrl: httpUrlSchema.optional().nullable(),
   avatarImageUrl: httpUrlSchema.optional().nullable(),
+  featuredImageUrl: httpUrlSchema.optional().nullable(),
   featuredAssetId: z.string().uuid().optional().nullable(),
   isPublished: z.boolean().optional(),
 });

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import AdminImageUpload from "@/app/(admin)/admin/_components/AdminImageUpload";
+import { safeParseImagesJson } from "@/lib/images";
 
 type EventImage = { assetId?: string | null; url?: string | null; alt?: string | null; sortOrder: number };
 
@@ -27,7 +28,7 @@ type Props = {
 };
 
 function parseImages(text: string) {
-  return JSON.parse(text || "[]") as EventImage[];
+  return safeParseImagesJson(text) as EventImage[];
 }
 
 export default function EventAdminForm({ title, endpoint, method, eventId, initial }: Props) {
@@ -65,13 +66,7 @@ export default function EventAdminForm({ title, endpoint, method, eventId, initi
     e.preventDefault();
     setError(null);
 
-    let images: EventImage[] = [];
-    try {
-      images = parseImages(imagesText);
-    } catch {
-      setError("Images must be valid JSON array");
-      return;
-    }
+    const images = parseImages(imagesText);
 
     const payload = {
       ...form,
