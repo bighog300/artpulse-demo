@@ -158,6 +158,10 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
   const hasActiveFilters = Boolean(filters.query || activeTags.length || filters.from || filters.to);
   const filtersQueryString = useMemo(() => buildEventQueryString(searchParams, { scope: null }), [searchParams]);
   const eventsHref = filtersQueryString ? `/events?${filtersQueryString}` : "/events";
+  const calendarEvents = useMemo(
+    () => filteredEvents.map((event) => ({ id: event.id, title: event.title, start: event.start, end: event.end ?? undefined, url: `/events/${event.slug}` })),
+    [filteredEvents],
+  );
 
   function openEventPanel(clickInfo: EventClickArg) {
     clickInfo.jsEvent.preventDefault();
@@ -181,15 +185,19 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
 
       <Section title="Calendar view">
         {error ? <ErrorCard message={error} onRetry={() => void fetchEvents()} /> : null}
-        <div className="rounded-lg border bg-card p-2">
+        <div className="w-full overflow-x-hidden rounded-lg border bg-card p-2">
           <FullCalendar
             ref={calendarRef}
             plugins={[dayGridPlugin, timeGridPlugin, listPlugin]}
             initialView="dayGridMonth"
             headerToolbar={{ left: "prev,next", center: "title", right: "dayGridMonth,timeGridWeek,listWeek" }}
             height="auto"
-            datesSet={(info) => setRange({ from: info.startStr.slice(0, 10), to: info.endStr.slice(0, 10) })}
-            events={filteredEvents.map((event) => ({ id: event.id, title: event.title, start: event.start, end: event.end ?? undefined, url: `/events/${event.slug}` }))}
+            datesSet={(info) => {
+              const from = info.startStr.slice(0, 10);
+              const to = info.endStr.slice(0, 10);
+              setRange((prev) => (prev?.from === from && prev?.to === to ? prev : { from, to }));
+            }}
+            events={calendarEvents}
             eventClick={openEventPanel}
           />
         </div>
