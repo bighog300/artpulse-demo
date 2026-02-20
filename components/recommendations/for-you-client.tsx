@@ -7,8 +7,10 @@ import { WhyThis } from "@/components/personalization/why-this";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorCard } from "@/components/ui/error-card";
 import { LoadingCard } from "@/components/ui/loading-card";
+import { track } from "@/lib/analytics/client";
 import { buildExplanation } from "@/lib/personalization/explanations";
-import { applyDownrankSort, filterHidden } from "@/lib/personalization/preferences";
+import { rankItems } from "@/lib/personalization/ranking";
+import { getPreferenceSnapshot } from "@/lib/personalization/preferences";
 import { getOnboardingSignals, type OnboardingSignals } from "@/lib/onboarding/signals";
 
 type ForYouResponse = {
@@ -37,6 +39,8 @@ const emptySignals: OnboardingSignals = {
   hasLocation: false,
 };
 
+const debugEnabled = process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_PERSONALIZATION_DEBUG === "true";
+
 export function ForYouClient() {
   const [data, setData] = useState<ForYouResponse>({ windowDays: 7, items: [] });
   const [isLoading, setIsLoading] = useState(true);
@@ -63,11 +67,42 @@ export function ForYouClient() {
     void getOnboardingSignals().then((next) => setSignals(next));
   }, []);
 
-  const items = useMemo(() => {
+  const rankedItems = useMemo(() => {
     const visible = data.items.filter((item) => !hiddenIds.includes(item.event.id));
-    const filtered = filterHidden(visible.map((item) => ({ ...item, id: item.event.id, slug: item.event.slug, venueSlug: item.event.venue?.slug ?? undefined })), "event");
-    return applyDownrankSort(filtered);
-  }, [data.items, hiddenIds]);
+    const ranked = rankItems(
+      visible.map((item) => ({
+        ...item,
+        id: item.event.id,
+        slug: item.event.slug,
+        title: item.event.title,
+        venueSlug: item.event.venue?.slug,
+        hasLocation: Boolean(item.event.venue?.city),
+        sourceCategory: item.event.venue?.city ? "nearby" as const : "trending" as const,
+        tags: item.reasons,
+        entityType: "event" as const,
+      })),
+      {
+        source: "for_you",
+        signals: {
+          followedArtistSlugs: signals.followedArtistSlugs,
+          followedVenueSlugs: signals.followedVenueSlugs,
+          hasLocation: signals.hasLocation,
+          recentViewTerms: visible.flatMap((item) => item.reasons).slice(0, 8),
+        },
+        preferences: getPreferenceSnapshot(),
+      },
+    );
+
+return ranked;
+  }, [data.items, hiddenIds, signals]);
+
+
+  useEffect(() => {
+    if (!rankedItems.length) return;
+    track("personalization_rank_applied", { rankingSource: "for_you", rankedCount: rankedItems.length });
+    if (rankedItems[0].topReason) track("personalization_top_reason", { rankingSource: "for_you", topReason: rankedItems[0].topReason });
+    track("personalization_diversity_applied", { rankingSource: "for_you", diversityRules: "venue_top10<=2,tag_streak<=3,category_balance" });
+  }, [rankedItems]);
 
   return (
     <section className="space-y-3" aria-busy={isLoading}>
@@ -80,7 +115,7 @@ export function ForYouClient() {
           <LoadingCard lines={4} />
         </div>
       ) : null}
-      {!isLoading && !error && items.length === 0 ? (
+      {!isLoading && !error && rankedItems.length === 0 ? (
         <EmptyState
           title="Nothing to show—try clearing preferences"
           description="Follow a venue or artist, save a search, or set your location."
@@ -93,7 +128,8 @@ export function ForYouClient() {
       ) : null}
       {!isLoading && !error ? (
         <div className="space-y-3">
-          {items.map((item) => {
+          {rankedItems.map((ranked) => {
+            const item = ranked.item;
             const explanation = buildExplanation({
               item: {
                 id: item.event.id,
@@ -102,6 +138,7 @@ export function ForYouClient() {
                 source: "recommendations",
                 venueSlug: item.event.venue?.slug,
                 venueName: item.event.venue?.name,
+                topReason: ranked.topReason ?? undefined,
               },
               contextSignals: { ...signals, source: "recommendations", pathname: "/for-you" },
             });
@@ -115,7 +152,7 @@ export function ForYouClient() {
                   venueName={item.event.venue?.name}
                   venueSlug={item.event.venue?.slug}
                   badges={item.reasons.slice(0, 2)}
-                  secondaryText={`Score: ${item.score.toFixed(2)}`}
+                  secondaryText={debugEnabled ? `Score: ${ranked.score} • ${ranked.breakdown.map((entry) => `${entry.key}:${entry.value}`).join(", ")}` : `Score: ${ranked.score}`}
                   action={<ItemActionsMenu type="event" idOrSlug={item.event.id} source="for_you" explanation={explanation} onHidden={() => setHiddenIds((current) => [...current, item.event.id])} />}
                 />
                 {explanation ? <WhyThis source="for_you" explanation={explanation} /> : null}

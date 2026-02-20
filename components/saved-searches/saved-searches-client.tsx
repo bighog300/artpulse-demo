@@ -13,9 +13,10 @@ import { enqueueToast } from "@/lib/toast";
 import { track } from "@/lib/analytics/client";
 import { getOnboardingSignals, type OnboardingSignals } from "@/lib/onboarding/signals";
 import { buildExplanation } from "@/lib/personalization/explanations";
-import { applyDownrankSort, filterHidden } from "@/lib/personalization/preferences";
+import { rankItems } from "@/lib/personalization/ranking";
+import { getPreferenceSnapshot } from "@/lib/personalization/preferences";
 
-type SavedSearch = { id: string; name: string; type: "NEARBY" | "EVENTS_FILTER"; frequency: "WEEKLY"; isEnabled: boolean; lastSentAt: string | null; createdAt?: string };
+type SavedSearch = { id: string; name: string; type: "NEARBY" | "EVENTS_FILTER"; frequency: "WEEKLY"; isEnabled: boolean; lastSentAt: string | null; createdAt?: string; paramsJson?: { q?: string; tags?: string[] } };
 type RunItem = { id: string; slug: string; title: string; startAt: string; endAt: string | null; venue: { name: string | null } | null };
 
 
@@ -79,10 +80,37 @@ export function SavedSearchesClient() {
   }, [items]);
 
   const previewVisibleItems = useMemo(() => {
+    const activeSearch = items.find((item) => item.id === previewFor);
+    const savedSearchQueries = activeSearch?.paramsJson?.q ? [activeSearch.paramsJson.q] : [];
+    const savedSearchTags = activeSearch?.paramsJson?.tags ?? [];
     const visible = previewItems.filter((item) => !hiddenPreviewIds.includes(item.id));
-    const filtered = filterHidden(visible.map((item) => ({ ...item, id: item.id, slug: item.slug })), "event");
-    return applyDownrankSort(filtered);
-  }, [previewItems, hiddenPreviewIds]);
+    return rankItems(visible.map((item) => ({
+      ...item,
+      title: item.title,
+      entityType: "event" as const,
+      sourceCategory: "trending" as const,
+      tags: savedSearchTags,
+      hasLocation: Boolean(item.venue?.name),
+    })), {
+      source: "saved_search_preview",
+      signals: {
+        followedArtistSlugs: signals.followedArtistSlugs,
+        followedVenueSlugs: signals.followedVenueSlugs,
+        savedSearchQueries,
+        savedSearchTags,
+        hasLocation: signals.hasLocation,
+      },
+      preferences: getPreferenceSnapshot(),
+    });
+  }, [previewItems, hiddenPreviewIds, items, previewFor, signals]);
+
+
+  useEffect(() => {
+    if (!previewFor || !previewVisibleItems.length) return;
+    track("personalization_rank_applied", { rankingSource: "saved_search_preview", rankedCount: previewVisibleItems.length });
+    if (previewVisibleItems[0].topReason) track("personalization_top_reason", { rankingSource: "saved_search_preview", topReason: previewVisibleItems[0].topReason });
+    track("personalization_diversity_applied", { rankingSource: "saved_search_preview", diversityRules: "venue_top10<=2,tag_streak<=3,category_balance" });
+  }, [previewFor, previewVisibleItems]);
 
   const patchItem = async (id: string, updater: (item: SavedSearch) => SavedSearch, endpoint: string, body: unknown) => {
     const previous = items;
@@ -232,9 +260,10 @@ export function SavedSearchesClient() {
             {previewError && previewFor ? <ErrorCard message={previewError} onRetry={() => void openPreview(previewFor)} /> : null}
             {!previewLoading && !previewError && previewVisibleItems.length === 0 ? <p className="text-sm text-muted-foreground">No events match right now — your digest will send when new matches appear.</p> : null}
             <ul className="space-y-2">
-              {previewVisibleItems.map((event) => {
+              {previewVisibleItems.map((ranked) => {
+                const event = ranked.item;
                 const explanation = buildExplanation({
-                  item: { id: event.id, slug: event.slug, title: event.title, source: "saved_search_preview", tags: ["saved-search"] },
+                  item: { id: event.id, slug: event.slug, title: event.title, source: "saved_search_preview", tags: ["saved-search"], topReason: ranked.topReason ?? undefined },
                   contextSignals: { ...signals, source: "saved_search_preview", pathname: "/saved-searches" },
                 });
                 return (

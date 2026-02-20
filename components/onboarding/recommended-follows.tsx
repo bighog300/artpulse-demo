@@ -9,7 +9,8 @@ import { RecommendedFollowsSkeleton } from "@/components/onboarding/recommended-
 import { track } from "@/lib/analytics/client";
 import { getOnboardingSignals, type OnboardingSignals } from "@/lib/onboarding/signals";
 import { buildExplanation } from "@/lib/personalization/explanations";
-import { applyDownrankSort, filterHidden } from "@/lib/personalization/preferences";
+import { rankItems } from "@/lib/personalization/ranking";
+import { getPreferenceSnapshot } from "@/lib/personalization/preferences";
 
 type RecommendationItem = {
   id: string;
@@ -72,9 +73,20 @@ export function RecommendedFollows({ page, source, isAuthenticated }: { page: st
   const items = useMemo(() => {
     const list = tab === "artists" ? data?.artists ?? [] : data?.venues ?? [];
     const visible = list.filter((item) => !hiddenIds.includes(item.id));
-    const filtered = filterHidden(visible.map((item) => ({ ...item, id: item.id, slug: item.slug, type: tab === "artists" ? "artist" as const : "venue" as const })), tab === "artists" ? "artist" : "venue");
-    return applyDownrankSort(filtered);
-  }, [data, tab, hiddenIds]);
+    return rankItems(visible.map((item) => ({
+      ...item,
+      title: item.name,
+      entityType: tab === "artists" ? "artist" as const : "venue" as const,
+      sourceCategory: "trending" as const,
+    })), {
+      source: "recommendations",
+      signals: {
+        followedArtistSlugs: signals.followedArtistSlugs,
+        followedVenueSlugs: signals.followedVenueSlugs,
+      },
+      preferences: getPreferenceSnapshot(),
+    });
+  }, [data, tab, hiddenIds, signals]);
 
   useEffect(() => {
     if (loading || !data) return;
@@ -95,10 +107,11 @@ export function RecommendedFollows({ page, source, isAuthenticated }: { page: st
       </div>
 
       <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        {items.slice(0, 6).map((item) => {
+        {items.slice(0, 6).map((ranked) => {
+          const item = ranked.item;
           const href = tab === "artists" ? `/artists/${item.slug}` : `/venues/${item.slug}`;
           const explanation = buildExplanation({
-            item: { id: item.id, slug: item.slug, title: item.name, type: tab === "artists" ? "artist" : "venue", source: "recommendations" },
+            item: { id: item.id, slug: item.slug, title: item.name, type: tab === "artists" ? "artist" : "venue", source: "recommendations", topReason: ranked.topReason ?? undefined },
             contextSignals: { ...signals, source: "recommendations", pathname: "/following" },
           });
           return (
