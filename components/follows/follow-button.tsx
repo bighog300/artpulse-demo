@@ -6,6 +6,7 @@ import { trackEngagement } from "@/lib/engagement-client";
 import { track } from "@/lib/analytics/client";
 import { enqueueToast } from "@/lib/toast";
 import { recordFeedback } from "@/lib/personalization/feedback";
+import { recordOutcome, type PersonalizationSource } from "@/lib/personalization/measurement";
 
 type FollowButtonProps = {
   targetType: "ARTIST" | "VENUE";
@@ -15,6 +16,7 @@ type FollowButtonProps = {
   isAuthenticated: boolean;
   analyticsSlug?: string;
   onToggled?: (nextState: "followed" | "unfollowed") => void;
+  personalizationSourceHint?: PersonalizationSource;
 };
 
 type ToggleDeps = {
@@ -49,6 +51,7 @@ export function FollowButton({
   isAuthenticated,
   analyticsSlug,
   onToggled,
+  personalizationSourceHint,
 }: FollowButtonProps) {
   const [isFollowing, setIsFollowing] = useState(initialIsFollowing);
   const [followersCount, setFollowersCount] = useState(initialFollowersCount);
@@ -102,6 +105,7 @@ export function FollowButton({
             source: "following",
             item: { type: targetType === "ARTIST" ? "artist" : "venue", idOrSlug: analyticsSlug ?? targetId },
           });
+          recordOutcome({ action: "follow", itemType: targetType === "ARTIST" ? "artist" : "venue", itemKey: `${targetType === "ARTIST" ? "artist" : "venue"}:${analyticsSlug ?? targetId}`.toLowerCase(), sourceHint: personalizationSourceHint });
         }
         enqueueToast({ title: next ? "Following updated" : "Unfollowed" });
         onToggled?.(next ? "followed" : "unfollowed");

@@ -9,6 +9,7 @@ import { track } from "@/lib/analytics/client";
 import type { Explanation } from "@/lib/personalization/explanations";
 import { recordFeedback } from "@/lib/personalization/feedback";
 import { RANKING_VERSION } from "@/lib/personalization/ranking";
+import { recordOutcome, type PersonalizationSource } from "@/lib/personalization/measurement";
 
 type MenuType = "event" | "artist" | "venue";
 
@@ -21,6 +22,7 @@ export function ItemActionsMenu({
   tags,
   explanation,
   onHidden,
+  measurementSource,
 }: {
   type: MenuType;
   idOrSlug: string;
@@ -28,6 +30,7 @@ export function ItemActionsMenu({
   tags?: string[];
   explanation?: Explanation | null;
   onHidden?: () => void;
+  measurementSource?: PersonalizationSource;
 }) {
   const [undoAction, setUndoAction] = useState<"hide" | "show_less" | null>(null);
   const [whyOpen, setWhyOpen] = useState(false);
@@ -39,6 +42,7 @@ export function ItemActionsMenu({
     onHidden?.();
     setUndoAction("hide");
     track("personalization_hide_clicked", { source, targetType: type, idOrSlug, version: RANKING_VERSION });
+    recordOutcome({ action: "hide", itemType: type, itemKey: `${type}:${idOrSlug}`.toLowerCase(), sourceHint: measurementSource });
   };
 
   const handleShowLess = () => {
@@ -46,6 +50,7 @@ export function ItemActionsMenu({
     onHidden?.();
     setUndoAction("show_less");
     track("personalization_show_less_clicked", { source, targetType: type, idOrSlug, version: RANKING_VERSION });
+    recordOutcome({ action: "show_less", itemType: type, itemKey: `${type}:${idOrSlug}`.toLowerCase(), sourceHint: measurementSource });
   };
 
   return (
