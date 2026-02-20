@@ -15,6 +15,7 @@ import { buildDetailMetadata, buildEventJsonLd, getDetailUrl } from "@/lib/seo.p
 import { getSessionUser } from "@/lib/auth";
 import { PageShell } from "@/components/ui/page-shell";
 import { SectionHeader } from "@/components/ui/section-header";
+import { ContextualNudgeSlot } from "@/components/onboarding/contextual-nudge-slot";
 
 export const dynamic = "force-dynamic";
 
@@ -86,6 +87,16 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
             <h1 className="type-h2 text-white">{event.title}</h1>
             <p className="type-caption text-white/90">{formatEventDateRange(event.startAt, event.endAt)} · {event.venue?.name ?? "Venue TBA"}</p>
             <EventDetailActions eventId={event.id} eventSlug={event.slug} nextUrl={`/events/${slug}`} isAuthenticated={isAuthenticated} initialSaved={initialSaved} calendarLink={calendarLink} />
+            {isAuthenticated && (event.venue?.slug || event.eventArtists[0]?.artist.slug) ? (
+              <ContextualNudgeSlot
+                page="event_detail"
+                type="event_detail_follow"
+                nudgeId="nudge_event_detail_follow"
+                title="Stay in the loop"
+                body="Follow this venue or artist to personalize your following feed."
+                destination={event.venue?.slug ? `/venues/${event.venue.slug}` : `/artists/${event.eventArtists[0]?.artist.slug}`}
+              />
+            ) : null}
           </div>
         </div>
       </section>

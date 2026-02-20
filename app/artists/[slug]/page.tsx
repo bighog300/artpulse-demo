@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageShell } from "@/components/ui/page-shell";
 import { PageViewTracker } from "@/components/analytics/page-view-tracker";
 import { SectionHeader } from "@/components/ui/section-header";
+import { ContextualNudgeSlot } from "@/components/onboarding/contextual-nudge-slot";
 import { resolveImageUrl } from "@/lib/assets";
 import { getSessionUser } from "@/lib/auth";
 import { resolveArtistCoverUrl } from "@/lib/artists";
@@ -105,6 +106,8 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
         tags={artistTags}
         primaryAction={<FollowButton targetType="ARTIST" targetId={artist.id} initialIsFollowing={Boolean(existingFollow)} initialFollowersCount={followersCount} isAuthenticated={Boolean(user)} analyticsSlug={artist.slug} />}
       />
+
+            {Boolean(user) ? <ContextualNudgeSlot page="artist_detail" type="entity_save_search" nudgeId="nudge_entity_save_search" title="Turn this into alerts" body="Save a search like this to get weekly updates." destination={`/search?q=${encodeURIComponent(artist.name)}`} /> : null}
 
       <EntityTabs
         upcoming={(

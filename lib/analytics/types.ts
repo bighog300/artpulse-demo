@@ -39,6 +39,14 @@ export type AnalyticsEventName =
   | "start_pack_follow_all_clicked"
   | "start_pack_follow_result"
   | "start_pack_entity_follow_clicked"
+  | "start_pack_ranked"
+  | "start_pack_because_shown"
+  | "activation_nudge_shown"
+  | "activation_nudge_dismissed"
+  | "activation_nudge_clicked"
+  | "events_save_search_opened"
+  | "events_save_search_created"
+  | "events_save_search_preview_clicked"
   | "post_activation_tip_shown"
   | "post_activation_tip_dismissed"
   | "post_activation_tip_clicked"
@@ -73,10 +81,13 @@ export type AnalyticsProps = {
   page?: string;
   step?: "follow" | "saved_search" | "saved_event" | "location" | "done";
   destination?: string;
-  method?: "native" | "copy" | "follow" | "saved_search" | "saved_event" | "location" | "search_cta";
+  method?: "native" | "copy" | "follow" | "saved_search" | "saved_event" | "location" | "search_cta" | "events_filters";
   result?: "granted" | "denied" | "error";
   packId?: string;
   count?: number;
+  boostedCount?: number;
+  reasonKind?: "artist" | "venue" | "saved_event";
+  nudgeId?: string;
   attempted?: number;
   succeeded?: number;
   failed?: number;

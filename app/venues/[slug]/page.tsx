@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageShell } from "@/components/ui/page-shell";
 import { PageViewTracker } from "@/components/analytics/page-view-tracker";
 import { SectionHeader } from "@/components/ui/section-header";
+import { ContextualNudgeSlot } from "@/components/onboarding/contextual-nudge-slot";
 import { resolveImageUrl } from "@/lib/assets";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -101,6 +102,8 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
         primaryAction={<FollowButton targetType="VENUE" targetId={venue.id} initialIsFollowing={Boolean(existingFollow)} initialFollowersCount={followersCount} isAuthenticated={Boolean(user)} analyticsSlug={venue.slug} />}
         secondaryAction={mapHref ? <a className="inline-flex rounded-md border px-3 py-1 text-sm" href={mapHref} target="_blank" rel="noreferrer">Open in Maps</a> : undefined}
       />
+
+            {Boolean(user) ? <ContextualNudgeSlot page="venue_detail" type="entity_save_search" nudgeId="nudge_entity_save_search" title="Turn this into alerts" body="Save a search like this to get weekly updates." destination={`/search?q=${encodeURIComponent(venue.name)}`} /> : null}
 
       <EntityTabs
         upcoming={(

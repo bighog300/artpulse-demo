@@ -6,6 +6,7 @@ const COMPLETED_AT_KEY = "ap_onboarding_completed_at";
 const TIPS_SEEN_KEY = "ap_tips_seen";
 const TIPS_DISMISSED_KEY = "ap_tips_dismissed";
 const CHECKLIST_DISMISSED_KEY = "ap_setup_checklist_dismissed";
+const BANNER_MINIMIZED_KEY = "ap_banner_minimized";
 
 type StoredStep = "follow" | "saved_search" | "saved_event" | "location" | "done";
 
@@ -111,6 +112,15 @@ export function dismissChecklist() {
   writeBoolean(CHECKLIST_DISMISSED_KEY, true);
 }
 
+
+export function getBannerMinimized() {
+  return readBoolean(BANNER_MINIMIZED_KEY);
+}
+
+export function setBannerMinimized(value: boolean) {
+  writeBoolean(BANNER_MINIMIZED_KEY, value);
+}
+
 export function clearOnboardingState() {
   const storage = getStorage();
   if (!storage) return;
@@ -122,4 +132,5 @@ export function clearOnboardingState() {
   storage.removeItem(TIPS_SEEN_KEY);
   storage.removeItem(TIPS_DISMISSED_KEY);
   storage.removeItem(CHECKLIST_DISMISSED_KEY);
+  storage.removeItem(BANNER_MINIMIZED_KEY);
 }
