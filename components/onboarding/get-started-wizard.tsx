@@ -11,32 +11,32 @@ export function GetStartedWizardContent({ progress }: { progress: GetStartedProg
     return (
       <section className="rounded border bg-emerald-50 p-4">
         <h2 className="text-lg font-semibold">You’re all set 🎉</h2>
-        <p className="mt-1 text-sm text-zinc-700">Your personalization setup is complete.</p>
-        <Link href="/for-you" className="mt-3 inline-block rounded border bg-white px-3 py-1 text-sm">Go to For You</Link>
+        <p className="mt-1 text-sm text-muted-foreground">Your personalization setup is complete.</p>
+        <Link href="/for-you" className="mt-3 inline-block rounded border bg-card px-3 py-1 text-sm">Go to For You</Link>
       </section>
     );
   }
 
   return (
     <section className="space-y-3">
-      <p className="text-sm text-zinc-700">
+      <p className="text-sm text-muted-foreground">
         Progress: {progress.completedCount}/{progress.totalCount} completed · Step {progress.currentStepNumber}/{progress.totalCount}
       </p>
 
       {progress.steps.map((step, idx) => (
-        <article key={step.key} className="rounded border bg-white p-4">
+        <article key={step.key} className="rounded border bg-card p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-sm text-zinc-500">Step {idx + 1}</p>
+              <p className="text-sm text-muted-foreground">Step {idx + 1}</p>
               <h2 className="font-semibold">{step.title}</h2>
-              <p className="text-sm text-zinc-700">{step.description}</p>
+              <p className="text-sm text-muted-foreground">{step.description}</p>
             </div>
             <span className="rounded border px-2 py-1 text-xs">{step.done ? "Done" : "Not started"}</span>
           </div>
           {!step.done ? (
             <div className="mt-3 flex flex-wrap gap-2">
               {step.ctas.map((cta) => (
-                <Link key={cta.href} href={cta.href} className="rounded border px-3 py-1 text-sm hover:bg-zinc-50">{cta.label}</Link>
+                <Link key={cta.href} href={cta.href} className="rounded border px-3 py-1 text-sm hover:bg-muted/50">{cta.label}</Link>
               ))}
             </div>
           ) : null}

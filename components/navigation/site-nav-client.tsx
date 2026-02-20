@@ -23,9 +23,9 @@ const QUICK_ACTIONS = [
 
 function NotificationLink({ unread }: { unread: number }) {
   return (
-    <Link className="text-sm text-zinc-700 hover:text-zinc-900" href="/notifications">
+    <Link className="text-sm text-muted-foreground hover:text-foreground" href="/notifications">
       Notifications
-      {unread > 0 ? <span className="ml-1 rounded-full bg-black px-2 py-0.5 text-xs text-white">{unread}</span> : null}
+      {unread > 0 ? <span className="ml-1 rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">{unread}</span> : null}
     </Link>
   );
 }
@@ -42,7 +42,7 @@ function NavItemLink({ href, label, onClick, className = "" }: { href: string; l
   return (
     <Link
       key={href}
-      className={`text-sm ${isActive ? "font-medium text-zinc-900" : "text-zinc-700 hover:text-zinc-900"} ${className}`}
+      className={`text-sm ${isActive ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground"} ${className}`}
       href={href}
       aria-current={isActive ? "page" : undefined}
       onClick={onClick}
@@ -121,7 +121,7 @@ export function SiteNavClient({ isAuthenticated }: SiteNavClientProps) {
   const otherItems = items.filter((item) => item.href !== "/notifications" && item.href !== "/account");
 
   return (
-    <header className="border-b bg-white">
+    <header className="border-b bg-background/95 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
         <Link className="text-lg font-semibold" href="/">Artpulse</Link>
 
@@ -136,7 +136,7 @@ export function SiteNavClient({ isAuthenticated }: SiteNavClientProps) {
             <div className="relative" ref={quickActionsRef}>
               <button
                 type="button"
-                className="rounded border px-3 py-1.5 text-sm text-zinc-700 hover:text-zinc-900"
+                className="rounded border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
                 aria-haspopup="menu"
                 aria-expanded={isQuickActionsOpen}
                 aria-controls="quick-actions-menu"
@@ -145,18 +145,18 @@ export function SiteNavClient({ isAuthenticated }: SiteNavClientProps) {
                 Quick Actions
               </button>
               {isQuickActionsOpen ? (
-                <div id="quick-actions-menu" className="absolute right-0 top-10 z-20 w-72 rounded-md border bg-white p-2 shadow-lg" role="menu">
-                  <p className="px-2 pb-2 text-xs text-zinc-500">Tip: Follow a venue/artist to personalize For You.</p>
+                <div id="quick-actions-menu" className="absolute right-0 top-10 z-20 w-72 rounded-md border bg-card p-2 shadow-lg" role="menu">
+                  <p className="px-2 pb-2 text-xs text-muted-foreground">Tip: Follow a venue/artist to personalize For You.</p>
                   {QUICK_ACTIONS.map((action) => (
                     <Link
                       key={action.href + action.label}
-                      className="block rounded px-2 py-1.5 hover:bg-zinc-100"
+                      className="block rounded px-2 py-1.5 hover:bg-muted"
                       href={action.href}
                       role="menuitem"
                       onClick={() => setIsQuickActionsOpen(false)}
                     >
-                      <span className="block text-sm text-zinc-900">{action.label}</span>
-                      <span className="block text-xs text-zinc-500">{action.description}</span>
+                      <span className="block text-sm text-foreground">{action.label}</span>
+                      <span className="block text-xs text-muted-foreground">{action.description}</span>
                     </Link>
                   ))}
                 </div>
@@ -193,17 +193,17 @@ export function SiteNavClient({ isAuthenticated }: SiteNavClientProps) {
           ))}
           {isAuthenticated ? (
             <div className="mt-3 space-y-1 border-t pt-3">
-              <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Quick actions</p>
-              <p className="text-xs text-zinc-500">Tip: Follow a venue/artist to personalize For You.</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Quick actions</p>
+              <p className="text-xs text-muted-foreground">Tip: Follow a venue/artist to personalize For You.</p>
               {QUICK_ACTIONS.map((action) => (
                 <Link
                   key={`mobile-${action.href}-${action.label}`}
-                  className="block rounded px-1 py-1 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
+                  className="block rounded px-1 py-1 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
                   href={action.href}
                   onClick={() => setIsMobileOpen(false)}
                 >
                   <span className="block">{action.label}</span>
-                  <span className="block text-xs text-zinc-500">{action.description}</span>
+                  <span className="block text-xs text-muted-foreground">{action.description}</span>
                 </Link>
               ))}
             </div>

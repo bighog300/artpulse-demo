@@ -117,7 +117,7 @@ export function SaveSearchButton({ type, params }: { type: "NEARBY" | "EVENTS_FI
               type="button"
               onClick={() => void onSave()}
               disabled={!canSave || loadingPreview || saving}
-              className="rounded bg-black px-3 py-1 text-sm text-white disabled:opacity-60"
+              className="rounded bg-primary px-3 py-1 text-sm text-primary-foreground disabled:opacity-60"
             >
               {saving ? "Saving..." : "Save"}
             </button>

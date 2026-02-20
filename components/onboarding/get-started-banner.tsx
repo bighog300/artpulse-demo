@@ -16,13 +16,13 @@ export function GetStartedBanner() {
   if (dismissed || loading || !progress || progress.completedAll) return null;
 
   return (
-    <aside className="flex items-center justify-between gap-3 rounded border bg-zinc-50 p-3">
+    <aside className="flex items-center justify-between gap-3 rounded border bg-muted/50 p-3">
       <p className="text-sm">Finish setup ({progress.completedCount}/{progress.totalCount}) for better recommendations.</p>
       <div className="flex items-center gap-3">
         <Link href="/get-started" className="text-sm underline">Finish setup →</Link>
         <button
           type="button"
-          className="text-sm text-zinc-600 underline"
+          className="text-sm text-muted-foreground underline"
           onClick={() => {
             setDismissed(true);
             setGetStartedBannerDismissed(true);

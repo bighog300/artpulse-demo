@@ -10,7 +10,7 @@ export function WhyThis({ reasons }: WhyThisProps) {
   const panelId = useId();
 
   return (
-    <div className="mt-2 rounded border border-zinc-200">
+    <div className="mt-2 rounded border border-border">
       <button
         type="button"
         className="w-full px-3 py-2 text-left text-sm font-medium"
@@ -21,7 +21,7 @@ export function WhyThis({ reasons }: WhyThisProps) {
         Why am I seeing this?
       </button>
       {open ? (
-        <div id={panelId} className="border-t px-3 py-2 text-sm text-zinc-700">
+        <div id={panelId} className="border-t px-3 py-2 text-sm text-muted-foreground">
           <ul className="list-disc space-y-1 pl-5">
             {reasons.slice(0, 3).map((reason) => <li key={reason}>{reason}</li>)}
           </ul>

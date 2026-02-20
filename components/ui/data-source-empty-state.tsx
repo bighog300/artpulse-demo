@@ -10,7 +10,7 @@ export function DataSourceEmptyState({ isAdmin, showDevHint }: { isAdmin?: boole
         { label: "Environment docs", href: "/docs/ENVIRONMENTS.md", variant: "secondary" },
       ]}
     >
-      <div className="space-y-2 text-sm text-zinc-700">
+      <div className="space-y-2 text-sm text-muted-foreground">
         {showDevHint ? <p>Set DATABASE_URL to view live data locally during development.</p> : null}
         {isAdmin ? <p>Check Vercel env vars for Preview/Production.</p> : null}
       </div>

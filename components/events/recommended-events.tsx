@@ -55,10 +55,10 @@ export function RecommendedEvents({ excludeEventIds, enabled }: RecommendedEvent
   if (!enabled || items.length === 0) return null;
 
   return (
-    <section className="space-y-2 rounded-lg border bg-zinc-50 p-3">
+    <section className="space-y-2 rounded-lg border bg-muted/50 p-3">
       <div>
-        <h2 className="text-sm font-semibold text-zinc-900">Because you follow{reason ? ` ${reason}` : ""}</h2>
-        <p className="text-xs text-zinc-600">Deterministic recommendations from your follow graph and event tags.</p>
+        <h2 className="text-sm font-semibold text-foreground">Because you follow{reason ? ` ${reason}` : ""}</h2>
+        <p className="text-xs text-muted-foreground">Deterministic recommendations from your follow graph and event tags.</p>
       </div>
       <ul className="space-y-2">
         {items.map((event) => (

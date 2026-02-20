@@ -4,7 +4,7 @@ import type { ArtistSummary } from "@/lib/venue-associated-artists";
 
 export function VenueArtistCard({ artist }: { artist: ArtistSummary }) {
   return (
-    <Link href={`/artists/${artist.slug}`} className="group rounded border p-3 transition hover:border-zinc-400">
+    <Link href={`/artists/${artist.slug}`} className="group rounded border p-3 transition hover:border-border">
       {artist.coverUrl ? (
         <div className="relative mb-3 aspect-[4/3] w-full overflow-hidden rounded bg-muted">
           <Image

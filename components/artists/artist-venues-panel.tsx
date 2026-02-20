@@ -103,8 +103,8 @@ export function ArtistVenuesPanel({ initialVenues }: { initialVenues: VenueOptio
                   return (
                     <li key={item.id} className="rounded border p-2 text-sm">
                       <div className="font-medium">{item.venue.name}</div>
-                      <div className="mt-1 inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">{roleLabel(normalizedRole)}</div>
-                      {item.message ? <div className="text-zinc-600">{item.message}</div> : null}
+                      <div className="mt-1 inline-flex rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{roleLabel(normalizedRole)}</div>
+                      {item.message ? <div className="text-muted-foreground">{item.message}</div> : null}
                       {item.status === "PENDING" ? <button className="mt-1 rounded border px-2 py-1" onClick={() => cancelAssociation(item.id)}>Cancel</button> : null}
                     </li>
                   );
@@ -113,7 +113,7 @@ export function ArtistVenuesPanel({ initialVenues }: { initialVenues: VenueOptio
             </div>
           ))}
         </div>
-      ) : <p className="text-sm text-zinc-600">Load your association requests to manage status.</p>}
+      ) : <p className="text-sm text-muted-foreground">Load your association requests to manage status.</p>}
     </section>
   );
 }

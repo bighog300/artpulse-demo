@@ -31,7 +31,7 @@ export function ArtistHeader({
   return (
     <section className="rounded border p-4 md:p-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-start">
-        <div className="relative h-40 w-40 shrink-0 overflow-hidden rounded border bg-zinc-100">
+        <div className="relative h-40 w-40 shrink-0 overflow-hidden rounded border bg-muted">
           <Image
             src={imageUrl || PLACEHOLDER}
             alt={name}
@@ -44,9 +44,9 @@ export function ArtistHeader({
         <div className="min-w-0 flex-1 space-y-3">
           <h1 className="text-3xl font-semibold">{name}</h1>
           {bio ? (
-            <p className="text-sm text-zinc-700 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:3] overflow-hidden">{bio}</p>
+            <p className="text-sm text-muted-foreground [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:3] overflow-hidden">{bio}</p>
           ) : (
-            <p className="text-sm text-zinc-600">No artist statement yet.</p>
+            <p className="text-sm text-muted-foreground">No artist statement yet.</p>
           )}
 
           <div className="flex flex-wrap items-center gap-3">
@@ -59,7 +59,7 @@ export function ArtistHeader({
                 isAuthenticated={isAuthenticated}
               />
             ) : null}
-            <p className="text-xs text-zinc-500">{followerCount.toLocaleString()} followers</p>
+            <p className="text-xs text-muted-foreground">{followerCount.toLocaleString()} followers</p>
             {roleSlot}
           </div>
 
@@ -69,7 +69,7 @@ export function ArtistHeader({
                 <Link
                   key={tag}
                   href={`/events?tags=${encodeURIComponent(tag)}`}
-                  className="rounded-full border px-2 py-0.5 text-xs text-zinc-700 hover:bg-zinc-50"
+                  className="rounded-full border px-2 py-0.5 text-xs text-muted-foreground hover:bg-muted/50"
                 >
                   #{tag}
                 </Link>
