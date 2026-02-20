@@ -25,6 +25,7 @@ test("retention dryRun returns wouldDelete count", async () => {
   const body = await response.json();
   assert.equal(body.dryRun, true);
   assert.equal(body.wouldDelete, 42);
+  assert.equal(typeof body.cronRunId, "string");
 });
 
 test("retention delete path calls deleteMany with computed cutoff", async () => {

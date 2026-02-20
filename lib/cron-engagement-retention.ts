@@ -1,6 +1,9 @@
 import { engagementRetentionQuerySchema } from "@/lib/validators";
 import { validateCronRequest } from "@/lib/cron-auth";
-import { logCronSummary, shouldDryRun, tryAcquireCronLock } from "@/lib/cron-runtime";
+import { createCronRunId, logCronSummary, shouldDryRun, tryAcquireCronLock } from "@/lib/cron-runtime";
+import { captureException, withSpan } from "@/lib/monitoring";
+import { sendAlert } from "@/lib/alerts";
+import { markCronFailure, markCronSuccess } from "@/lib/ops-metrics";
 
 const RETENTION_MAX_DURATION_MS = 15_000;
 
@@ -18,11 +21,13 @@ export async function runEngagementRetentionCron(
   retentionDb: EngagementRetentionDb,
   meta: { requestId?: string; method?: string } = {},
 ) {
-  const authFailureResponse = validateCronRequest(headerSecret, { route: "/api/cron/retention/engagement", ...meta });
+  const route = "/api/cron/retention/engagement";
+  const authFailureResponse = validateCronRequest(headerSecret, { route, ...meta });
   if (authFailureResponse) return authFailureResponse;
 
   const startedAtMs = Date.now();
   const startedAtIso = new Date(startedAtMs).toISOString();
+  const cronRunId = createCronRunId();
   const normalizedQuery = { ...rawQuery };
   if (shouldDryRun(rawQuery.dryRun)) normalizedQuery.dryRun = "true";
 
@@ -33,52 +38,63 @@ export async function runEngagementRetentionCron(
 
   const lock = await tryAcquireCronLock(retentionDb, "cron:retention:engagement");
   if (!lock.acquired) {
-    return Response.json({ ok: true, cronName: "retention_engagement", dryRun: parsedQuery.data.dryRun, skipped: "lock_not_acquired" }, { status: 202 });
+    return Response.json({ ok: true, cronName: "retention_engagement", cronRunId, dryRun: parsedQuery.data.dryRun, skipped: "lock_not_acquired" }, { status: 202 });
   }
 
   const { keepDays, dryRun } = parsedQuery.data;
   const cutoff = new Date(Date.now() - keepDays * 24 * 60 * 60 * 1000);
 
   try {
-    if (Date.now() - startedAtMs > RETENTION_MAX_DURATION_MS) {
-      return Response.json({ ok: true, cronName: "retention_engagement", dryRun, timedOut: true, processedCount: 0, errorCount: 0 });
-    }
+    return await withSpan("cron:retention_engagement", async () => {
+      if (Date.now() - startedAtMs > RETENTION_MAX_DURATION_MS) {
+        return Response.json({ ok: true, cronName: "retention_engagement", cronRunId, dryRun, timedOut: true, processedCount: 0, errorCount: 0 });
+      }
 
-    if (dryRun) {
-      const wouldDelete = await retentionDb.engagementEvent.count({ where: { createdAt: { lt: cutoff } } });
+      if (dryRun) {
+        const wouldDelete = await retentionDb.engagementEvent.count({ where: { createdAt: { lt: cutoff } } });
+        const summary = {
+          ok: true,
+          cronName: "retention_engagement",
+          cronRunId,
+          startedAt: startedAtIso,
+          finishedAt: new Date().toISOString(),
+          durationMs: Date.now() - startedAtMs,
+          processedCount: wouldDelete,
+          errorCount: 0,
+          dryRun: true,
+          cutoff: cutoff.toISOString(),
+          wouldDelete,
+          lock: lock.supported ? "acquired" : "unsupported",
+        } as const;
+        logCronSummary(summary);
+        markCronSuccess(summary.cronName, summary.finishedAt);
+        return Response.json(summary);
+      }
+
+      const deleted = await retentionDb.engagementEvent.deleteMany({ where: { createdAt: { lt: cutoff } } });
       const summary = {
         ok: true,
         cronName: "retention_engagement",
+        cronRunId,
         startedAt: startedAtIso,
         finishedAt: new Date().toISOString(),
         durationMs: Date.now() - startedAtMs,
-        processedCount: wouldDelete,
+        processedCount: deleted.count,
         errorCount: 0,
-        dryRun: true,
+        dryRun: false,
         cutoff: cutoff.toISOString(),
-        wouldDelete,
+        deleted: deleted.count,
         lock: lock.supported ? "acquired" : "unsupported",
       } as const;
       logCronSummary(summary);
+      markCronSuccess(summary.cronName, summary.finishedAt);
       return Response.json(summary);
-    }
-
-    const deleted = await retentionDb.engagementEvent.deleteMany({ where: { createdAt: { lt: cutoff } } });
-    const summary = {
-      ok: true,
-      cronName: "retention_engagement",
-      startedAt: startedAtIso,
-      finishedAt: new Date().toISOString(),
-      durationMs: Date.now() - startedAtMs,
-      processedCount: deleted.count,
-      errorCount: 0,
-      dryRun: false,
-      cutoff: cutoff.toISOString(),
-      deleted: deleted.count,
-      lock: lock.supported ? "acquired" : "unsupported",
-    } as const;
-    logCronSummary(summary);
-    return Response.json(summary);
+    }, { route, requestId: meta.requestId, cronRunId, userScope: false });
+  } catch (error) {
+    captureException(error, { route, requestId: meta.requestId, cronRunId, userScope: false });
+    markCronFailure("retention_engagement", "internal_error");
+    await sendAlert({ severity: "error", title: "Cron execution failed", body: `cron=retention_engagement cronRunId=${cronRunId}`, tags: { cronName: "retention_engagement", cronRunId } });
+    return Response.json({ ok: false, cronName: "retention_engagement", cronRunId, error: { code: "internal_error", message: "Cron execution failed", details: undefined } }, { status: 500 });
   } finally {
     await lock.release();
   }

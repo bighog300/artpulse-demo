@@ -1,4 +1,4 @@
-import { captureException } from "@/lib/telemetry";
+import { captureException, withSpan } from "@/lib/monitoring";
 import { NotificationType, Prisma } from "@prisma/client";
 
 type OutboxRow = {
@@ -35,7 +35,7 @@ export type OutboxWorkerDb = {
 };
 
 export async function sendPendingNotificationsWithDb({ limit }: { limit: number }, db: OutboxWorkerDb) {
-  const pending = await db.notificationOutbox.findMany({
+  const pending = await withSpan("outbox:load_pending", async () => db.notificationOutbox.findMany({
     where: { status: "PENDING", errorMessage: null },
     orderBy: { createdAt: "asc" },
     take: limit,
@@ -46,7 +46,7 @@ export async function sendPendingNotificationsWithDb({ limit }: { limit: number 
       payload: true,
       dedupeKey: true,
     },
-  });
+  }));
 
   let sent = 0;
   let failed = 0;
@@ -67,6 +67,7 @@ export async function sendPendingNotificationsWithDb({ limit }: { limit: number 
     }
 
     try {
+      await withSpan("outbox:deliver", async () => {
       console.log(
         `[outbox] ${notification.type} to=${notification.toEmail} dedupe=${notification.dedupeKey} payload=${JSON.stringify(notification.payload)}`,
       );
@@ -85,6 +86,7 @@ export async function sendPendingNotificationsWithDb({ limit }: { limit: number 
       } else {
         skipped += 1;
       }
+      });
     } catch (error) {
       captureException(error, { worker: "outbox", outboxId: notification.id, dedupeKey: notification.dedupeKey });
       const message = error instanceof Error ? error.message : "Unknown send error";
