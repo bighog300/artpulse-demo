@@ -6,6 +6,7 @@ import { idParamSchema, parseBody, submissionDecisionSchema, zodDetails } from "
 import { submissionDecisionDedupeKey } from "@/lib/notification-keys";
 import { buildInAppFromTemplate, enqueueNotification } from "@/lib/notifications";
 import { RATE_LIMITS, enforceRateLimit, isRateLimitError, rateLimitErrorResponse } from "@/lib/rate-limit";
+import { logAdminAction } from "@/lib/admin-audit";
 
 export const runtime = "nodejs";
 
@@ -52,6 +53,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           decisionReason: null,
         },
       });
+      await logAdminAction({
+        actorEmail: user.email,
+        action: "admin.submission.approve",
+        targetType: "submission",
+        targetId: submission.id,
+        metadata: { submissionType: submission.type },
+        req,
+      });
+
+
       await enqueueNotification({
         type: "SUBMISSION_APPROVED",
         toEmail: submission.submitter.email,
@@ -81,6 +92,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         decisionReason: parsedBody.data.decisionReason ?? "Rejected by moderator",
       },
     });
+    await logAdminAction({
+      actorEmail: user.email,
+      action: "admin.submission.reject",
+      targetType: "submission",
+      targetId: submission.id,
+      metadata: { submissionType: submission.type, decisionReason: updated.decisionReason },
+      req,
+    });
+
     await enqueueNotification({
       type: "SUBMISSION_REJECTED",
       toEmail: submission.submitter.email,

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withAdminRoute } from "@/lib/admin-route";
+import { logAdminAction } from "@/lib/admin-audit";
 
 async function dbStatus() {
   try {
@@ -12,8 +13,15 @@ async function dbStatus() {
 }
 
 export async function GET() {
-  return withAdminRoute(async () => {
+  return withAdminRoute(async ({ actorEmail }) => {
     const status = await dbStatus();
+
+    await logAdminAction({
+      actorEmail,
+      action: "admin.health.read",
+      targetType: "system",
+      metadata: { db: status },
+    });
 
     return NextResponse.json({
       ok: true,
