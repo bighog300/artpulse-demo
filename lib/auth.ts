@@ -5,6 +5,7 @@ import type { VenueMembershipRole } from "@prisma/client";
 import { hasMinimumVenueRole } from "@/lib/ownership";
 import { logWarn } from "@/lib/logging";
 import { trackMetric } from "@/lib/telemetry";
+import { getBetaConfig, isEmailAllowed, normalizeEmail } from "@/lib/beta/access";
 
 export type SessionUser = { id: string; email: string; name: string | null; role: "USER" | "EDITOR" | "ADMIN" };
 
@@ -51,14 +52,21 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ user }) {
       if (!user.email) return false;
+      const betaConfig = getBetaConfig();
+      const normalizedEmail = normalizeEmail(user.email);
+
+      if (betaConfig.betaMode && !isEmailAllowed(normalizedEmail, betaConfig)) {
+        return false;
+      }
+
       await db.user.upsert({
-        where: { email: user.email.toLowerCase() },
+        where: { email: normalizedEmail },
         update: {
           name: user.name ?? undefined,
           imageUrl: user.image ?? undefined,
         },
         create: {
-          email: user.email.toLowerCase(),
+          email: normalizedEmail,
           name: user.name,
           imageUrl: user.image,
           role: "USER",

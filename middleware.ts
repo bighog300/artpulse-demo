@@ -1,10 +1,40 @@
+import { getToken } from "next-auth/jwt";
 import { NextResponse, type NextRequest } from "next/server";
+import { getBetaConfig, isEmailAllowed } from "@/lib/beta/access";
 import { REQUEST_ID_HEADER } from "@/lib/request-id";
 
-export function middleware(req: NextRequest) {
+const PUBLIC_BETA_PATHS = new Set(["/beta", "/login"]);
+
+export async function middleware(req: NextRequest) {
   const requestHeaders = new Headers(req.headers);
   const requestId = requestHeaders.get(REQUEST_ID_HEADER) || crypto.randomUUID();
   requestHeaders.set(REQUEST_ID_HEADER, requestId);
+
+  const pathname = req.nextUrl.pathname;
+  const betaConfig = getBetaConfig();
+
+  if (betaConfig.betaMode && !pathname.startsWith("/api") && !PUBLIC_BETA_PATHS.has(pathname)) {
+    const token = await getToken({ req, secret: process.env.AUTH_SECRET });
+    const email = token?.email;
+
+    if (!email) {
+      const url = new URL("/beta", req.url);
+      return NextResponse.redirect(url, {
+        headers: {
+          [REQUEST_ID_HEADER]: requestId,
+        },
+      });
+    }
+
+    if (!isEmailAllowed(email, betaConfig)) {
+      const url = new URL("/beta?reason=not_allowed", req.url);
+      return NextResponse.redirect(url, {
+        headers: {
+          [REQUEST_ID_HEADER]: requestId,
+        },
+      });
+    }
+  }
 
   const response = NextResponse.next({
     request: {
@@ -25,5 +55,7 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|api/auth|api/health|api/ops/metrics|api/cron|favicon.ico|robots.txt|sitemap.xml).*)",
+  ],
 };

@@ -93,3 +93,15 @@ If missing in production-like environments, auth boot will fail fast with a clea
 4. Optionally run `SEED_ENABLED=true pnpm db:seed` for initial sample/admin data.
 5. Verify `/api/health` and `/api/ready` return `{ ok: true }` after deployment.
 6. Run `pnpm check-env` in CI/production build pipelines to enforce env contract.
+
+## Private beta access control
+
+Set these env vars to enable private beta mode:
+
+- `BETA_MODE=1` to enable gating.
+- `BETA_ALLOWLIST=a@x.com,b@y.com` for exact email allowlist.
+- `BETA_ALLOW_DOMAINS=example.com,another.com` for domain allowlist.
+- `BETA_ADMIN_EMAILS=admin@x.com` to always permit admin operators.
+- `BETA_REQUESTS_ENABLED=1` to show the request-access form on `/beta`.
+
+When beta mode is enabled, non-allowlisted users are redirected to `/beta`, where they can request access and send feedback. Admins can review requests and feedback at `/admin/beta`. Allowlist values are environment-driven and require redeploy to take effect.

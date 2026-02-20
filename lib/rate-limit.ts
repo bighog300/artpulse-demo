@@ -181,5 +181,13 @@ export const RATE_LIMITS = {
     limit: Number(process.env.RATE_LIMIT_ADMIN_PERF_EXPLAIN_PER_MINUTE ?? 10),
     windowMs: Number(process.env.RATE_LIMIT_ADMIN_PERF_EXPLAIN_WINDOW_MS ?? 60_000),
   },
+  betaRequestAccess: {
+    limit: Number(process.env.RATE_LIMIT_BETA_REQUEST_ACCESS_PER_HOUR ?? 5),
+    windowMs: Number(process.env.RATE_LIMIT_BETA_REQUEST_ACCESS_WINDOW_MS ?? 3_600_000),
+  },
+  betaFeedback: {
+    limit: Number(process.env.RATE_LIMIT_BETA_FEEDBACK_PER_HOUR ?? 10),
+    windowMs: Number(process.env.RATE_LIMIT_BETA_FEEDBACK_WINDOW_MS ?? 3_600_000),
+  },
 
 } as const;
