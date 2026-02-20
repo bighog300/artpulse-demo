@@ -3,7 +3,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { resolveImageUrl } from "@/lib/assets";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { EventDetailActions } from "@/components/events/event-detail-actions";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
@@ -16,6 +15,7 @@ import { getSessionUser } from "@/lib/auth";
 import { PageShell } from "@/components/ui/page-shell";
 import { SectionHeader } from "@/components/ui/section-header";
 import { ContextualNudgeSlot } from "@/components/onboarding/contextual-nudge-slot";
+import { getEventImageUrl } from "@/lib/images";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   try {
     const event = await db.event.findFirst({ where: { slug, isPublished: true }, include: { images: { include: { asset: { select: { url: true } } }, orderBy: { sortOrder: "asc" } } } });
     if (!event) return buildDetailMetadata({ kind: "event", slug });
-    const imageUrl = resolveImageUrl(event.images[0]?.asset?.url, event.images[0]?.url);
+    const imageUrl = getEventImageUrl(event);
     return buildDetailMetadata({ kind: "event", slug, title: event.title, description: event.description, imageUrl });
   } catch {
     return buildDetailMetadata({ kind: "event", slug });
@@ -61,7 +61,7 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
 
   const isAuthenticated = Boolean(user);
   const initialSaved = user ? Boolean(await db.favorite.findUnique({ where: { userId_targetType_targetId: { userId: user.id, targetType: "EVENT", targetId: event.id } }, select: { id: true } })) : false;
-  const primaryImage = resolveImageUrl(event.images[0]?.asset?.url, event.images[0]?.url);
+  const primaryImage = getEventImageUrl(event);
   const detailUrl = getDetailUrl("event", slug);
   const jsonLd = buildEventJsonLd({
     title: event.title,
@@ -131,7 +131,7 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
                 title={similar.title}
                 startAt={similar.startAt}
                 venueName={similar.venue?.name}
-                imageUrl={resolveImageUrl(similar.images[0]?.asset?.url, similar.images[0]?.url ?? undefined)}
+                imageUrl={getEventImageUrl(similar)}
               />
             ))}
           </div>

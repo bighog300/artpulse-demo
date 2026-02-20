@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api";
-import { resolveImageUrl } from "@/lib/assets";
 import { eventsQuerySchema, paramsToObject, zodDetails } from "@/lib/validators";
 import { buildStartAtIdCursorPredicate, START_AT_ID_ORDER_BY } from "@/lib/cursor-predicate";
 import { getBoundingBox, isWithinRadiusKm } from "@/lib/geo";
@@ -11,13 +10,15 @@ import { getRequestId } from "@/lib/request-id";
 import { captureException } from "@/lib/telemetry";
 import { collectGeoFilteredPage } from "@/lib/events-geo-pagination";
 import { RATE_LIMITS, enforceRateLimit, isRateLimitError, principalRateLimitKey, rateLimitErrorResponse } from "@/lib/rate-limit";
+import { getEventImageUrl } from "@/lib/images";
 
 type EventWithJoin = {
   id: string;
   lat: number | null;
   lng: number | null;
+  featuredImageUrl?: string | null;
   venue?: { lat: number | null; lng: number | null } | null;
-  images?: Array<{ url: string; asset?: { url: string } | null }>;
+  images?: Array<{ url?: string | null; alt?: string | null; sortOrder?: number | null; isPrimary?: boolean | null; asset?: { url?: string | null } | null }>;
   eventTags?: Array<{ tag: { name: string; slug: string } }>;
   eventArtists?: Array<{ artistId: string }>;
   startAt: Date;
@@ -94,7 +95,7 @@ export async function GET(req: NextRequest) {
         include: {
           eventArtists: { select: { artistId: true } },
           venue: { select: { id: true, name: true, slug: true, city: true, lat: true, lng: true } },
-          images: { take: 1, orderBy: { sortOrder: "asc" }, include: { asset: { select: { url: true } } } },
+          images: { orderBy: { sortOrder: "asc" }, include: { asset: { select: { url: true } } } },
           eventTags: { include: { tag: { select: { name: true, slug: true } } } },
         },
       })) as EventWithJoin[];
@@ -144,12 +145,16 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({
-      items: page.map((e) => ({
-        ...e,
-        primaryImageUrl: resolveImageUrl(e.images?.[0]?.asset?.url, e.images?.[0]?.url),
-        tags: (e.eventTags ?? []).map((et) => ({ name: et.tag.name, slug: et.tag.slug })),
-        artistIds: (e.eventArtists ?? []).map((eventArtist) => eventArtist.artistId),
-      })),
+      items: page.map((e) => {
+        const imageUrl = getEventImageUrl(e);
+        return {
+          ...e,
+          featuredImageUrl: imageUrl,
+          primaryImageUrl: imageUrl,
+          tags: (e.eventTags ?? []).map((et) => ({ name: et.tag.name, slug: et.tag.slug })),
+          artistIds: (e.eventArtists ?? []).map((eventArtist) => eventArtist.artistId),
+        };
+      }),
       nextCursor: hasMore && page.length > 0 ? encodeCursor(page[page.length - 1]) : null,
     });
   } catch (error) {

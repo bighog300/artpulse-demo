@@ -38,13 +38,13 @@ export function EventCard({ title, startAt, endAt, venueName, imageUrl, href, ba
         className="block focus-visible:rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         onClick={onOpen}
       >
-        <div className="relative aspect-[16/10] overflow-hidden">
+        <div className="relative aspect-[16/9] w-full overflow-hidden bg-muted">
           {imageUrl ? (
             <Image
               src={imageUrl}
               alt=""
               fill
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              sizes="(max-width: 768px) 100vw, 33vw"
               className="object-cover ui-trans motion-safe:group-hover:scale-[1.02] motion-safe:group-focus-visible:scale-[1.02]"
             />
           ) : (

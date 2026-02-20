@@ -38,3 +38,43 @@ test("GET /api/events rejects invalid date input", async () => {
   const body = await res.json();
   assert.equal(body.error.code, "invalid_request");
 });
+
+test("GET /api/events includes image fields for cards", async () => {
+  const originalFindMany = db.event.findMany;
+
+  db.event.findMany = (async () => ([{
+    id: "evt_1",
+    slug: "test-event",
+    title: "Test Event",
+    description: null,
+    startAt: new Date("2026-02-01T20:00:00.000Z"),
+    endAt: null,
+    timezone: "UTC",
+    venueId: null,
+    lat: null,
+    lng: null,
+    isPublished: true,
+    publishedAt: null,
+    createdAt: new Date("2026-02-01T00:00:00.000Z"),
+    updatedAt: new Date("2026-02-01T00:00:00.000Z"),
+    featuredImageUrl: "https://example.com/featured.jpg",
+    venue: null,
+    images: [{ url: "https://example.com/gallery.jpg", isPrimary: false, sortOrder: 1, asset: null }],
+    eventTags: [],
+    eventArtists: [],
+  } as any])) as typeof db.event.findMany;
+
+  try {
+    const req = new NextRequest("http://localhost/api/events?limit=1");
+    const res = await getEvents(req);
+
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.items.length, 1);
+    assert.equal(body.items[0].featuredImageUrl, "https://example.com/featured.jpg");
+    assert.equal(body.items[0].primaryImageUrl, "https://example.com/featured.jpg");
+    assert.equal(Array.isArray(body.items[0].images), true);
+  } finally {
+    db.event.findMany = originalFindMany;
+  }
+});

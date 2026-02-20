@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import SimpleAdminForm from "@/app/(admin)/admin/_components/SimpleAdminForm";
+import AdminEntityForm from "@/app/(admin)/admin/_components/AdminEntityForm";
 import { db } from "@/lib/db";
 
 export default async function AdminVenue({ params }: { params: Promise<{ id: string }> }) {
@@ -8,10 +8,13 @@ export default async function AdminVenue({ params }: { params: Promise<{ id: str
   if (!venue) notFound();
 
   return (
-    <SimpleAdminForm
+    <AdminEntityForm
       title="Edit Venue"
       endpoint={`/api/admin/venues/${id}`}
       method="PATCH"
+      redirectPath="/admin/venues"
+      uploadTargetType="venue"
+      uploadTargetId={id}
       initial={venue}
       fields={[
         { name: "name", label: "Name" },
