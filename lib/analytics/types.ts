@@ -60,6 +60,9 @@ export type AnalyticsEventName =
   | "personalization_undo_clicked"
   | "preferences_panel_opened"
   | "preferences_reset_clicked"
+  | "personalization_rank_applied"
+  | "personalization_top_reason"
+  | "personalization_diversity_applied"
 ;
 
 export type AnalyticsProps = {
@@ -103,6 +106,10 @@ export type AnalyticsProps = {
   kind?: string;
   targetType?: "event" | "artist" | "venue" | string;
   idOrSlug?: string;
+  rankingSource?: string;
+  rankedCount?: number;
+  topReason?: string;
+  diversityRules?: string;
 };
 
 export type AnalyticsPayload = {

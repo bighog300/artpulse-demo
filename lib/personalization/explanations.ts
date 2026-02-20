@@ -6,6 +6,18 @@ export type ExplanationKind =
   | "because_nearby"
   | "because_similar_to_saved";
 
+type TopScoreReason =
+  | "followed_venue"
+  | "followed_artist"
+  | "saved_search_query"
+  | "saved_search_tag"
+  | "recent_view_match"
+  | "nearby"
+  | "for_you_baseline"
+  | "downranked_venue"
+  | "downranked_artist"
+  | "downranked_tag";
+
 export type Explanation = {
   label: string;
   detail?: string;
@@ -24,6 +36,7 @@ type ExplanationItem = {
   venueSlug?: string | null;
   venueName?: string | null;
   type?: "event" | "artist" | "venue";
+  topReason?: TopScoreReason;
 };
 
 type ContextSignals = {
@@ -48,6 +61,43 @@ function includesNormalized(values: string[] | undefined, candidate?: string | n
 }
 
 export function buildExplanation({ item, contextSignals }: { item: ExplanationItem; contextSignals: ContextSignals }): Explanation | null {
+  const topReason = item.topReason as TopScoreReason | undefined;
+  if (topReason === "followed_artist") {
+    return {
+      kind: "because_following",
+      label: `Because you follow ${item.artistNames?.[0] ?? item.artistSlugs?.[0] ?? item.title ?? "this artist"}`,
+      detail: "This ranked highest because it matches artists you follow.",
+    };
+  }
+  if (topReason === "followed_venue") {
+    return {
+      kind: "because_following",
+      label: `Because you follow ${item.venueName ?? item.venueSlug ?? item.title ?? "this venue"}`,
+      detail: "This ranked highest because it matches venues you follow.",
+    };
+  }
+  if (topReason === "saved_search_query" || topReason === "saved_search_tag") {
+    return {
+      kind: "because_saved_search",
+      label: "Because of your saved search",
+      detail: "This ranked highest because it matched your saved search query or tags.",
+    };
+  }
+  if (topReason === "recent_view_match") {
+    return {
+      kind: "because_recent_view",
+      label: "Because of your recent activity",
+      detail: "This ranked highest because it resembles what you viewed recently.",
+    };
+  }
+  if (topReason === "nearby") {
+    return {
+      kind: "because_nearby",
+      label: "Near you",
+      detail: "This ranked highest because it is near your location settings.",
+    };
+  }
+
   const followedArtistSlugs = contextSignals.followedArtistSlugs ?? [];
   const followedVenueSlugs = contextSignals.followedVenueSlugs ?? [];
   const followedArtistNames = contextSignals.followedArtistNames ?? [];
