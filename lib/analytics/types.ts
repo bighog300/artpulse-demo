@@ -113,6 +113,7 @@ export type AnalyticsProps = {
   targetType?: "event" | "artist" | "venue" | string;
   idOrSlug?: string;
   rankingSource?: string;
+  rankingVersion?: "v2" | "v3";
   rankedCount?: number;
   topReason?: string;
   diversityRules?: string;

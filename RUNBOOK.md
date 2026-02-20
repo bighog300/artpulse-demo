@@ -1,34 +1,49 @@
-# Runbook — Artpulse
+# Runbook — Artpulse Launch Hardening
 
-## Local setup
+## Environment variables
+### Production
+- `AUTH_SECRET`
+- `DATABASE_URL`
+- `DIRECT_URL` (if used)
+- `CRON_SECRET` (required for cron + `/api/cron/health`)
+- `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` (maps)
 
+### Local
+- Minimal local build: `AUTH_SECRET=dev-secret pnpm build`
+- Local checks can run without full production env.
+
+## Vercel cron plan limits
+On Vercel Hobby, cron must be daily. This repo uses daily schedules in `vercel.json`.
+
+## Smoke test locally
 ```bash
 pnpm install
-pnpm prisma:generate
-pnpm prisma:migrate   # dev migrations
-pnpm prisma:deploy    # deploy migrations
-pnpm db:seed          # seed baseline data/admin
-pnpm dev
+pnpm test
+AUTH_SECRET=dev-secret pnpm build
+./scripts/smoke.sh
 ```
 
-## Smoke test checklist
-- Home loads and shows events
-- Search returns results
-- Event detail SSR renders
-- Calendar loads
-- Login works
-- Favourites work
-- Admin pages protected by role
-- API health endpoint responds with `{ ok: true }` at `/api/health`
+## Health checks
+- App health: `GET /api/health`
+- Cron health (protected):
+  ```bash
+  curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/health
+  ```
 
-## Troubleshooting
-- OAuthCallback: redirect URI mismatch
-- Prisma connection: check `DATABASE_URL`
-- Admin 403: ensure user role is EDITOR/ADMIN
+## Cron verification
+Dry-run each cron route safely:
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" "http://localhost:3000/api/cron/outbox/send?dryRun=1"
+curl -H "Authorization: Bearer $CRON_SECRET" "http://localhost:3000/api/cron/digests/weekly?dryRun=1"
+curl -H "Authorization: Bearer $CRON_SECRET" "http://localhost:3000/api/cron/retention/engagement?dryRun=1"
+```
 
-## Admin seed env vars
+## Maps + geolocation
+- Visit `/nearby`.
+- Confirm geolocation permission is available for same-origin.
+- Confirm map tiles/workers load (no CSP block for `blob:` worker).
 
-When running `pnpm db:seed`, set these to create/update the initial admin user:
-
-- `ARTPULSE_ADMIN_EMAIL`
-- `ARTPULSE_ADMIN_NAME`
+## Personalization measurement (non-prod)
+- Verify `personalization_exposure` and `personalization_outcome` emit `version: v3_1` and ranking version.
+- Verify exposure dedupe + per-view cap behavior.
+- Verify deterministic sampling is full-rate in dev and reduced in production.

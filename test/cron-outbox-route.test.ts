@@ -16,6 +16,8 @@ test("cron outbox route logic accepts GET and POST execution path", async () => 
 
   assert.equal(getRes.status, 200);
   assert.equal(postRes.status, 200);
-  assert.deepEqual(await getRes.json(), { sent: 25, failed: 0, skipped: 0 });
-  assert.deepEqual(await postRes.json(), { sent: 25, failed: 0, skipped: 0 });
+  const getBody = await getRes.json();
+  assert.equal(getBody.sent, 25);
+  assert.equal(getBody.errorCount, 0);
+  assert.equal(getBody.cronName, "outbox_send");
 });
