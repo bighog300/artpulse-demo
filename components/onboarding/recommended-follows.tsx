@@ -3,8 +3,13 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { FollowButton } from "@/components/follows/follow-button";
+import { ItemActionsMenu } from "@/components/personalization/item-actions-menu";
+import { WhyThis } from "@/components/personalization/why-this";
 import { RecommendedFollowsSkeleton } from "@/components/onboarding/recommended-follows-skeleton";
 import { track } from "@/lib/analytics/client";
+import { getOnboardingSignals, type OnboardingSignals } from "@/lib/onboarding/signals";
+import { buildExplanation } from "@/lib/personalization/explanations";
+import { applyDownrankSort, filterHidden } from "@/lib/personalization/preferences";
 
 type RecommendationItem = {
   id: string;
@@ -21,12 +26,26 @@ type RecommendationsPayload = {
   venues: RecommendationItem[];
 };
 
+const emptySignals: OnboardingSignals = {
+  followsCount: 0,
+  followedArtistSlugs: [],
+  followedVenueSlugs: [],
+  followedArtistNames: [],
+  followedVenueNames: [],
+  savedEventsCount: 0,
+  savedSearchesCount: 0,
+  hasLocation: false,
+};
+
 export function RecommendedFollows({ page, source, isAuthenticated }: { page: string; source: string; isAuthenticated: boolean }) {
   const [tab, setTab] = useState<"artists" | "venues">("artists");
   const [data, setData] = useState<RecommendationsPayload | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hiddenIds, setHiddenIds] = useState<string[]>([]);
+  const [signals, setSignals] = useState<OnboardingSignals>(emptySignals);
 
   useEffect(() => {
+    void getOnboardingSignals().then((next) => setSignals(next));
     let cancelled = false;
     (async () => {
       setLoading(true);
@@ -50,7 +69,12 @@ export function RecommendedFollows({ page, source, isAuthenticated }: { page: st
     };
   }, []);
 
-  const items = useMemo(() => (tab === "artists" ? data?.artists ?? [] : data?.venues ?? []), [data, tab]);
+  const items = useMemo(() => {
+    const list = tab === "artists" ? data?.artists ?? [] : data?.venues ?? [];
+    const visible = list.filter((item) => !hiddenIds.includes(item.id));
+    const filtered = filterHidden(visible.map((item) => ({ ...item, id: item.id, slug: item.slug, type: tab === "artists" ? "artist" as const : "venue" as const })), tab === "artists" ? "artist" : "venue");
+    return applyDownrankSort(filtered);
+  }, [data, tab, hiddenIds]);
 
   useEffect(() => {
     if (loading || !data) return;
@@ -73,6 +97,10 @@ export function RecommendedFollows({ page, source, isAuthenticated }: { page: st
       <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {items.slice(0, 6).map((item) => {
           const href = tab === "artists" ? `/artists/${item.slug}` : `/venues/${item.slug}`;
+          const explanation = buildExplanation({
+            item: { id: item.id, slug: item.slug, title: item.name, type: tab === "artists" ? "artist" : "venue", source: "recommendations" },
+            contextSignals: { ...signals, source: "recommendations", pathname: "/following" },
+          });
           return (
             <li key={item.id} className="rounded-lg border p-2">
               <div className="flex items-center justify-between gap-2">
@@ -83,16 +111,20 @@ export function RecommendedFollows({ page, source, isAuthenticated }: { page: st
                     <p className="text-xs text-muted-foreground">{item.subtitle || item.reason || "Recommended"}</p>
                   </div>
                 </div>
-                <FollowButton
-                  targetType={tab === "artists" ? "ARTIST" : "VENUE"}
-                  targetId={item.id}
-                  initialIsFollowing={false}
-                  initialFollowersCount={item.followersCount ?? 0}
-                  isAuthenticated={isAuthenticated}
-                  analyticsSlug={item.slug}
-                  onToggled={(nextState) => track("recommended_follow_clicked", { type: tab === "artists" ? "artist" : "venue", slug: item.slug, nextState, source })}
-                />
+                <div className="flex items-center gap-1">
+                  <FollowButton
+                    targetType={tab === "artists" ? "ARTIST" : "VENUE"}
+                    targetId={item.id}
+                    initialIsFollowing={false}
+                    initialFollowersCount={item.followersCount ?? 0}
+                    isAuthenticated={isAuthenticated}
+                    analyticsSlug={item.slug}
+                    onToggled={(nextState) => track("recommended_follow_clicked", { type: tab === "artists" ? "artist" : "venue", slug: item.slug, nextState, source })}
+                  />
+                  <ItemActionsMenu type={tab === "artists" ? "artist" : "venue"} idOrSlug={item.slug} source="recommendations" explanation={explanation} onHidden={() => setHiddenIds((current) => [...current, item.id])} />
+                </div>
               </div>
+              {explanation ? <div className="mt-2"><WhyThis source="recommendations" explanation={explanation} /></div> : null}
             </li>
           );
         })}

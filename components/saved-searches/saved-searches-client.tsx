@@ -3,15 +3,32 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { EventRow } from "@/components/events/event-row";
+import { ItemActionsMenu } from "@/components/personalization/item-actions-menu";
+import { WhyThis } from "@/components/personalization/why-this";
 import { SavedSearchesEmptyState } from "@/components/saved-searches/saved-searches-empty-state";
 import { ErrorCard } from "@/components/ui/error-card";
 import { LoadingCard } from "@/components/ui/loading-card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { enqueueToast } from "@/lib/toast";
 import { track } from "@/lib/analytics/client";
+import { getOnboardingSignals, type OnboardingSignals } from "@/lib/onboarding/signals";
+import { buildExplanation } from "@/lib/personalization/explanations";
+import { applyDownrankSort, filterHidden } from "@/lib/personalization/preferences";
 
 type SavedSearch = { id: string; name: string; type: "NEARBY" | "EVENTS_FILTER"; frequency: "WEEKLY"; isEnabled: boolean; lastSentAt: string | null; createdAt?: string };
 type RunItem = { id: string; slug: string; title: string; startAt: string; endAt: string | null; venue: { name: string | null } | null };
+
+
+const emptySignals: OnboardingSignals = {
+  followsCount: 0,
+  followedArtistSlugs: [],
+  followedVenueSlugs: [],
+  followedArtistNames: [],
+  followedVenueNames: [],
+  savedSearchesCount: 0,
+  savedEventsCount: 0,
+  hasLocation: false,
+};
 
 function humanTypeLabel(type: SavedSearch["type"]) {
   return type === "NEARBY" ? "Nearby events" : "Search filters";
@@ -29,6 +46,8 @@ export function SavedSearchesClient() {
   const [previewItems, setPreviewItems] = useState<RunItem[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [hiddenPreviewIds, setHiddenPreviewIds] = useState<string[]>([]);
+  const [signals, setSignals] = useState<OnboardingSignals>(emptySignals);
 
   const load = async () => {
     setIsLoading(true);
@@ -48,6 +67,7 @@ export function SavedSearchesClient() {
   useEffect(() => {
     track("saved_searches_viewed");
     void load();
+    void getOnboardingSignals().then((next) => setSignals(next));
   }, []);
 
   const sortedItems = useMemo(() => {
@@ -57,6 +77,12 @@ export function SavedSearchesClient() {
       return bDate - aDate;
     });
   }, [items]);
+
+  const previewVisibleItems = useMemo(() => {
+    const visible = previewItems.filter((item) => !hiddenPreviewIds.includes(item.id));
+    const filtered = filterHidden(visible.map((item) => ({ ...item, id: item.id, slug: item.slug })), "event");
+    return applyDownrankSort(filtered);
+  }, [previewItems, hiddenPreviewIds]);
 
   const patchItem = async (id: string, updater: (item: SavedSearch) => SavedSearch, endpoint: string, body: unknown) => {
     const previous = items;
@@ -204,11 +230,27 @@ export function SavedSearchesClient() {
           <div className="mt-4 space-y-2">
             {previewLoading ? <LoadingCard lines={2} /> : null}
             {previewError && previewFor ? <ErrorCard message={previewError} onRetry={() => void openPreview(previewFor)} /> : null}
-            {!previewLoading && !previewError && previewItems.length === 0 ? <p className="text-sm text-muted-foreground">No events match right now — your digest will send when new matches appear.</p> : null}
+            {!previewLoading && !previewError && previewVisibleItems.length === 0 ? <p className="text-sm text-muted-foreground">No events match right now — your digest will send when new matches appear.</p> : null}
             <ul className="space-y-2">
-              {previewItems.map((event) => (
-                <li key={event.id}><EventRow href={`/events/${event.slug}`} title={event.title} startAt={event.startAt} endAt={event.endAt} venueName={event.venue?.name} /></li>
-              ))}
+              {previewVisibleItems.map((event) => {
+                const explanation = buildExplanation({
+                  item: { id: event.id, slug: event.slug, title: event.title, source: "saved_search_preview", tags: ["saved-search"] },
+                  contextSignals: { ...signals, source: "saved_search_preview", pathname: "/saved-searches" },
+                });
+                return (
+                  <li key={event.id} className="space-y-1">
+                    <EventRow
+                      href={`/events/${event.slug}`}
+                      title={event.title}
+                      startAt={event.startAt}
+                      endAt={event.endAt}
+                      venueName={event.venue?.name}
+                      action={<ItemActionsMenu type="event" idOrSlug={event.id} source="saved_search_preview" explanation={explanation} onHidden={() => setHiddenPreviewIds((current) => [...current, event.id])} />}
+                    />
+                    {explanation ? <WhyThis source="saved_search_preview" explanation={explanation} /> : null}
+                  </li>
+                );
+              })}
             </ul>
           </div>
           <div className="mt-4 flex justify-end">
