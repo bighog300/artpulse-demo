@@ -1,19 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { assertExplainSafe } from "../lib/perf/explain.ts";
 import { createPerfSnapshotWithDeps, explainRequestSchema } from "../lib/perf/service.ts";
-
-test("runExplain guard rejects semicolons", () => {
-  assert.throws(() => assertExplainSafe('SELECT 1;'), /semicolon_not_allowed/);
-});
-
-test("runExplain guard rejects write keywords", () => {
-  assert.throws(() => assertExplainSafe('SELECT 1 FROM "User" WHERE id IN (SELECT id FROM x) DELETE'), /write_not_allowed/);
-});
-
-test("runExplain guard rejects comments", () => {
-  assert.throws(() => assertExplainSafe("SELECT 1 -- nope"), /comments_not_allowed/);
-});
 
 test("reject unknown query name", () => {
   const parsed = explainRequestSchema.safeParse({ name: "not_whitelisted", params: {} });
@@ -79,7 +66,7 @@ test("runExplain is gated behind PERF_EXPLAIN_ENABLED", async () => {
   const { runExplain } = await import("../lib/perf/explain.ts");
   const previous = process.env.PERF_EXPLAIN_ENABLED;
   process.env.PERF_EXPLAIN_ENABLED = "false";
-  await assert.rejects(() => runExplain("SELECT 1", []), /explain_disabled/);
+  await assert.rejects(() => runExplain("events_list", {}), /explain_disabled/);
   process.env.PERF_EXPLAIN_ENABLED = previous;
 });
 
@@ -92,7 +79,7 @@ test("runExplain is deny-by-default in production", async () => {
   process.env.PERF_EXPLAIN_ENABLED = "true";
   process.env.PERF_EXPLAIN_ALLOW_PROD = "false";
 
-  await assert.rejects(() => runExplain("SELECT 1", []), /explain_disabled/);
+  await assert.rejects(() => runExplain("events_list", {}), /explain_disabled/);
 
   process.env.NODE_ENV = prevNodeEnv;
   process.env.PERF_EXPLAIN_ENABLED = prevEnabled;

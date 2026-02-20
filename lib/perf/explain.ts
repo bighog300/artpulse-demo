@@ -1,34 +1,24 @@
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
+import { explainQueryBuilders, type ExplainQueryName } from "@/lib/perf/queries";
 
-const MAX_SQL_LENGTH = 4000;
-const writePattern = /\b(insert|update|delete|alter|drop|truncate|create)\b/i;
-const statementStartPattern = /^(select|with)\b/i;
-const commentPattern = /(--|\/\*)/;
 const QUERY_TIMEOUT_MS = 8_000;
 
-export function assertExplainSafe(sql: string) {
-  const trimmed = sql.trim();
-  if (!trimmed) throw new Error("invalid_sql");
-  if (trimmed.length > MAX_SQL_LENGTH) throw new Error("sql_too_long");
-  if (trimmed.includes(";")) throw new Error("semicolon_not_allowed");
-  if (!statementStartPattern.test(trimmed)) throw new Error("only_select_allowed");
-  if (commentPattern.test(trimmed)) throw new Error("comments_not_allowed");
-  if (writePattern.test(trimmed)) throw new Error("write_not_allowed");
-}
-
-export async function runExplain(sql: string, params: unknown[]): Promise<string> {
+export async function runExplain(queryName: ExplainQueryName, queryParams: Record<string, unknown>): Promise<string> {
   if (process.env.PERF_EXPLAIN_ENABLED !== "true") throw new Error("explain_disabled");
   if (process.env.NODE_ENV === "production" && process.env.PERF_EXPLAIN_ALLOW_PROD !== "true") throw new Error("explain_disabled");
-  assertExplainSafe(sql);
 
+  const buildQuery = explainQueryBuilders[queryName];
+  if (!buildQuery) throw new Error("unknown_query");
+
+  const target = buildQuery(queryParams);
   const allowAnalyze = process.env.PERF_ALLOW_ANALYZE === "true";
   const explainPrefix = allowAnalyze
     ? Prisma.sql`EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) `
     : Prisma.sql`EXPLAIN (FORMAT TEXT) `;
 
-  const query = Prisma.sql`${explainPrefix}${Prisma.raw(sql)}`;
-  const runQuery = db.$queryRawUnsafe(query.sql, ...query.values, ...params) as Promise<Array<Record<string, unknown>>>;
+  const query = Prisma.sql`${explainPrefix}${target.query}`;
+  const runQuery = db.$queryRaw(query) as Promise<Array<Record<string, unknown>>>;
   const rows = await Promise.race([
     runQuery,
     new Promise<Array<Record<string, unknown>>>((_, reject) => {

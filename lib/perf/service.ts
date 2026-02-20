@@ -19,7 +19,7 @@ export const listSnapshotsSchema = z.object({
 export async function createPerfSnapshotWithDeps(
   deps: {
     requireAdminUser: () => Promise<{ id: string }>;
-    explain: (sql: string, params: unknown[]) => Promise<string>;
+    explain: (queryName: ExplainQueryName, queryParams: Record<string, unknown>) => Promise<string>;
     createSnapshot: (input: { name: ExplainQueryName; createdByUserId: string; paramsJson: Prisma.InputJsonValue; explainText: string; durationMs: number }) => Promise<Pick<PerfSnapshot, "id">>;
   },
   input: z.infer<typeof explainRequestSchema>,
@@ -27,7 +27,7 @@ export async function createPerfSnapshotWithDeps(
   const user = await deps.requireAdminUser();
   const target = buildExplainTarget(input.name, input.params ?? {});
   const startedAt = performance.now();
-  const explainText = await deps.explain(target.sql, target.params);
+  const explainText = await deps.explain(input.name, input.params ?? {});
   const durationMs = Math.round(performance.now() - startedAt);
   const snapshot = await deps.createSnapshot({
     name: input.name,
