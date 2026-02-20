@@ -119,7 +119,7 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
         about={<EntityAboutCard description={venue.description} websiteUrl={venue.websiteUrl} address={address || null} mapHref={mapHref} />}
       />
 
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
     </PageShell>
   );
 }

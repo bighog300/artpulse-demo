@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 const paginationParamsSchema = z.object({
@@ -49,39 +50,38 @@ export const explainQueryNames = [
 ] as const;
 export type ExplainQueryName = (typeof explainQueryNames)[number];
 
-type ExplainBuildResult = { sql: string; params: unknown[]; sanitizedParams: Record<string, unknown> };
+export type ExplainBuildResult = { query: Prisma.Sql; sanitizedParams: Record<string, unknown> };
 
-export function buildExplainTarget(name: ExplainQueryName, inputParams: unknown): ExplainBuildResult {
-  switch (name) {
-    case "events_list": {
-      const parsed = paginationParamsSchema.parse(inputParams ?? {});
-      return {
-        sql: `SELECT e.id
+type ExplainBuilder = (inputParams: unknown) => ExplainBuildResult;
+
+export const explainQueryBuilders: Record<ExplainQueryName, ExplainBuilder> = {
+  events_list: (inputParams) => {
+    const parsed = paginationParamsSchema.parse(inputParams ?? {});
+    return {
+      query: Prisma.sql`SELECT e.id
 FROM "Event" e
 WHERE e."isPublished" = true
 ORDER BY e."startAt" ASC, e.id ASC
-LIMIT $1`,
-        params: [parsed.limit],
-        sanitizedParams: parsed,
-      };
-    }
-    case "events_query": {
-      const parsed = eventFiltersParamsSchema.parse(inputParams ?? {});
-      return {
-        sql: `SELECT e.id
+LIMIT ${parsed.limit}`,
+      sanitizedParams: parsed,
+    };
+  },
+  events_query: (inputParams) => {
+    const parsed = eventFiltersParamsSchema.parse(inputParams ?? {});
+    return {
+      query: Prisma.sql`SELECT e.id
 FROM "Event" e
 WHERE e."isPublished" = true
-  AND (e.title ILIKE ('%' || $1 || '%') OR e.description ILIKE ('%' || $1 || '%'))
+  AND (e.title ILIKE ('%' || ${parsed.query} || '%') OR e.description ILIKE ('%' || ${parsed.query} || '%'))
 ORDER BY e."startAt" ASC, e.id ASC
-LIMIT $2`,
-        params: [parsed.query, parsed.limit],
-        sanitizedParams: { queryLength: parsed.query.length, limit: parsed.limit },
-      };
-    }
-    case "events_tags": {
-      const parsed = eventFiltersParamsSchema.parse(inputParams ?? {});
-      return {
-        sql: `SELECT e.id
+LIMIT ${parsed.limit}`,
+      sanitizedParams: { queryLength: parsed.query.length, limit: parsed.limit },
+    };
+  },
+  events_tags: (inputParams) => {
+    const parsed = eventFiltersParamsSchema.parse(inputParams ?? {});
+    return {
+      query: Prisma.sql`SELECT e.id
 FROM "Event" e
 WHERE e."isPublished" = true
   AND EXISTS (
@@ -89,166 +89,158 @@ WHERE e."isPublished" = true
     FROM "EventTag" et
     INNER JOIN "Tag" t ON t.id = et."tagId"
     WHERE et."eventId" = e.id
-      AND t.slug = ANY($1::text[])
+      AND t.slug = ANY(${parsed.tags}::text[])
   )
 ORDER BY e."startAt" ASC, e.id ASC
-LIMIT $2`,
-        params: [parsed.tags, parsed.limit],
-        sanitizedParams: { tagCount: parsed.tags.length, limit: parsed.limit },
-      };
-    }
-    case "events_date_range": {
-      const parsed = eventFiltersParamsSchema.parse(inputParams ?? {});
-      return {
-        sql: `SELECT e.id
+LIMIT ${parsed.limit}`,
+      sanitizedParams: { tagCount: parsed.tags.length, limit: parsed.limit },
+    };
+  },
+  events_date_range: (inputParams) => {
+    const parsed = eventFiltersParamsSchema.parse(inputParams ?? {});
+    return {
+      query: Prisma.sql`SELECT e.id
 FROM "Event" e
 WHERE e."isPublished" = true
-  AND e."startAt" >= NOW() + ($1::int * INTERVAL '1 day')
-  AND e."startAt" <= NOW() + ($2::int * INTERVAL '1 day')
+  AND e."startAt" >= NOW() + (${parsed.fromDays}::int * INTERVAL '1 day')
+  AND e."startAt" <= NOW() + (${parsed.toDays}::int * INTERVAL '1 day')
 ORDER BY e."startAt" ASC, e.id ASC
-LIMIT $3`,
-        params: [parsed.fromDays, parsed.toDays, parsed.limit],
-        sanitizedParams: { fromDays: parsed.fromDays, toDays: parsed.toDays, limit: parsed.limit },
-      };
-    }
-    case "events_geo_bbox": {
-      const parsed = eventFiltersParamsSchema.parse(inputParams ?? {});
-      return {
-        sql: `SELECT e.id
+LIMIT ${parsed.limit}`,
+      sanitizedParams: { fromDays: parsed.fromDays, toDays: parsed.toDays, limit: parsed.limit },
+    };
+  },
+  events_geo_bbox: (inputParams) => {
+    const parsed = eventFiltersParamsSchema.parse(inputParams ?? {});
+    return {
+      query: Prisma.sql`SELECT e.id
 FROM "Event" e
 LEFT JOIN "Venue" v ON v.id = e."venueId"
 WHERE e."isPublished" = true
   AND (
-    (e.lat BETWEEN $1 AND $2 AND e.lng BETWEEN $3 AND $4)
+    (e.lat BETWEEN ${parsed.minLat} AND ${parsed.maxLat} AND e.lng BETWEEN ${parsed.minLng} AND ${parsed.maxLng})
     OR
-    (v.lat BETWEEN $1 AND $2 AND v.lng BETWEEN $3 AND $4)
+    (v.lat BETWEEN ${parsed.minLat} AND ${parsed.maxLat} AND v.lng BETWEEN ${parsed.minLng} AND ${parsed.maxLng})
   )
 ORDER BY e."startAt" ASC, e.id ASC
-LIMIT $5`,
-        params: [parsed.minLat, parsed.maxLat, parsed.minLng, parsed.maxLng, parsed.limit],
-        sanitizedParams: { limit: parsed.limit },
-      };
-    }
-    case "trending_groupby": {
-      const parsed = daysLimitParamsSchema.parse(inputParams ?? {});
-      return {
-        sql: `SELECT f."targetId", COUNT(*)::int AS count
+LIMIT ${parsed.limit}`,
+      sanitizedParams: { limit: parsed.limit },
+    };
+  },
+  trending_groupby: (inputParams) => {
+    const parsed = daysLimitParamsSchema.parse(inputParams ?? {});
+    return {
+      query: Prisma.sql`SELECT f."targetId", COUNT(*)::int AS count
 FROM "Favorite" f
 WHERE f."targetType" = 'EVENT'
-  AND f."createdAt" >= NOW() - ($1::int * INTERVAL '1 day')
+  AND f."createdAt" >= NOW() - (${parsed.days}::int * INTERVAL '1 day')
 GROUP BY f."targetId"
 ORDER BY count DESC
-LIMIT $2`,
-        params: [parsed.days, parsed.limit],
-        sanitizedParams: parsed,
-      };
-    }
-    case "trending_event_lookup": {
-      const parsed = daysLimitParamsSchema.parse(inputParams ?? {});
-      return {
-        sql: `SELECT e.id
+LIMIT ${parsed.limit}`,
+      sanitizedParams: parsed,
+    };
+  },
+  trending_event_lookup: (inputParams) => {
+    const parsed = daysLimitParamsSchema.parse(inputParams ?? {});
+    return {
+      query: Prisma.sql`SELECT e.id
 FROM "Event" e
 WHERE e."isPublished" = true
   AND e."startAt" >= NOW()
 ORDER BY e."startAt" ASC, e.id ASC
-LIMIT $1`,
-        params: [parsed.limit],
-        sanitizedParams: { limit: parsed.limit },
-      };
-    }
-    case "recommendations_seed": {
-      const parsed = paginationParamsSchema.parse(inputParams ?? {});
-      return {
-        sql: `SELECT e.id
+LIMIT ${parsed.limit}`,
+      sanitizedParams: { limit: parsed.limit },
+    };
+  },
+  recommendations_seed: (inputParams) => {
+    const parsed = paginationParamsSchema.parse(inputParams ?? {});
+    const maxLimit = Math.max(parsed.limit, 30);
+    const venueIds = ["00000000-0000-0000-0000-000000000001"];
+    const artistIds = ["00000000-0000-0000-0000-000000000002"];
+
+    return {
+      query: Prisma.sql`SELECT e.id
 FROM "Event" e
 WHERE e."isPublished" = true
   AND e."startAt" >= NOW()
   AND (
-    e."venueId" = ANY($1::uuid[])
+    e."venueId" = ANY(${venueIds}::uuid[])
     OR EXISTS (
       SELECT 1
       FROM "EventArtist" ea
       WHERE ea."eventId" = e.id
-        AND ea."artistId" = ANY($2::uuid[])
+        AND ea."artistId" = ANY(${artistIds}::uuid[])
     )
   )
 ORDER BY e."startAt" ASC
-LIMIT $3`,
-        params: [
-          ["00000000-0000-0000-0000-000000000001"],
-          ["00000000-0000-0000-0000-000000000002"],
-          Math.max(parsed.limit, 30),
-        ],
-        sanitizedParams: { venueIds: 1, artistIds: 1, limit: Math.max(parsed.limit, 30) },
-      };
-    }
-    case "venue_upcoming": {
-      const parsed = paginationParamsSchema.parse(inputParams ?? {});
-      return {
-        sql: `SELECT e.id
+LIMIT ${maxLimit}`,
+      sanitizedParams: { venueIds: 1, artistIds: 1, limit: maxLimit },
+    };
+  },
+  venue_upcoming: (inputParams) => {
+    const parsed = paginationParamsSchema.parse(inputParams ?? {});
+    return {
+      query: Prisma.sql`SELECT e.id
 FROM "Event" e
-WHERE e."venueId" = $1::uuid
+WHERE e."venueId" = ${"00000000-0000-0000-0000-000000000010"}::uuid
   AND e."isPublished" = true
   AND e."startAt" >= NOW()
 ORDER BY e."startAt" ASC, e.id ASC
-LIMIT $2`,
-        params: ["00000000-0000-0000-0000-000000000010", parsed.limit],
-        sanitizedParams: { limit: parsed.limit },
-      };
-    }
-    case "artist_upcoming": {
-      const parsed = paginationParamsSchema.parse(inputParams ?? {});
-      return {
-        sql: `SELECT ea."eventId"
+LIMIT ${parsed.limit}`,
+      sanitizedParams: { limit: parsed.limit },
+    };
+  },
+  artist_upcoming: (inputParams) => {
+    const parsed = paginationParamsSchema.parse(inputParams ?? {});
+    return {
+      query: Prisma.sql`SELECT ea."eventId"
 FROM "EventArtist" ea
 INNER JOIN "Event" e ON e.id = ea."eventId"
-WHERE ea."artistId" = $1::uuid
+WHERE ea."artistId" = ${"00000000-0000-0000-0000-000000000011"}::uuid
   AND e."isPublished" = true
   AND e."startAt" >= NOW()
 ORDER BY e."startAt" ASC
-LIMIT $2`,
-        params: ["00000000-0000-0000-0000-000000000011", parsed.limit],
-        sanitizedParams: { limit: parsed.limit },
-      };
-    }
-    case "artist_past": {
-      const parsed = paginationParamsSchema.parse(inputParams ?? {});
-      return {
-        sql: `SELECT ea."eventId"
+LIMIT ${parsed.limit}`,
+      sanitizedParams: { limit: parsed.limit },
+    };
+  },
+  artist_past: (inputParams) => {
+    const parsed = paginationParamsSchema.parse(inputParams ?? {});
+    return {
+      query: Prisma.sql`SELECT ea."eventId"
 FROM "EventArtist" ea
 INNER JOIN "Event" e ON e.id = ea."eventId"
-WHERE ea."artistId" = $1::uuid
+WHERE ea."artistId" = ${"00000000-0000-0000-0000-000000000011"}::uuid
   AND e."isPublished" = true
   AND e."startAt" < NOW()
 ORDER BY e."startAt" DESC
-LIMIT $2`,
-        params: ["00000000-0000-0000-0000-000000000011", parsed.limit],
-        sanitizedParams: { limit: parsed.limit },
-      };
-    }
-    case "admin_submissions": {
-      const parsed = adminSubmissionsParamsSchema.parse(inputParams ?? {});
-      return {
-        sql: `SELECT s.id
+LIMIT ${parsed.limit}`,
+      sanitizedParams: { limit: parsed.limit },
+    };
+  },
+  admin_submissions: (inputParams) => {
+    const parsed = adminSubmissionsParamsSchema.parse(inputParams ?? {});
+    return {
+      query: Prisma.sql`SELECT s.id
 FROM "Submission" s
-WHERE s.status = $1
-  AND ($2::uuid IS NULL OR s.id > $2::uuid)
+WHERE s.status = ${parsed.status}
+  AND (${parsed.cursor ?? null}::uuid IS NULL OR s.id > ${parsed.cursor ?? null}::uuid)
 ORDER BY s."submittedAt" ASC, s.id ASC
-LIMIT $3`,
-        params: [parsed.status, parsed.cursor ?? null, parsed.limit],
-        sanitizedParams: parsed,
-      };
-    }
-    case "follow_counts": {
-      const parsed = followCountsParamsSchema.parse(inputParams ?? {});
-      return {
-        sql: `SELECT COUNT(*)::int AS count
+LIMIT ${parsed.limit}`,
+      sanitizedParams: parsed,
+    };
+  },
+  follow_counts: (inputParams) => {
+    const parsed = followCountsParamsSchema.parse(inputParams ?? {});
+    return {
+      query: Prisma.sql`SELECT COUNT(*)::int AS count
 FROM "Follow" f
-WHERE f."targetType" = $1
-  AND f."targetId" = $2`,
-        params: [parsed.targetType, parsed.targetId],
-        sanitizedParams: parsed,
-      };
-    }
-  }
+WHERE f."targetType" = ${parsed.targetType}
+  AND f."targetId" = ${parsed.targetId}`,
+      sanitizedParams: parsed,
+    };
+  },
+};
+
+export function buildExplainTarget(name: ExplainQueryName, inputParams: unknown): ExplainBuildResult {
+  return explainQueryBuilders[name](inputParams);
 }

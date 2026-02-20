@@ -123,7 +123,7 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
         about={<EntityAboutCard description={artist.bio} websiteUrl={artist.websiteUrl} instagramUrl={artist.instagramUrl} tags={artistTags} />}
       />
 
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
     </PageShell>
   );
 }

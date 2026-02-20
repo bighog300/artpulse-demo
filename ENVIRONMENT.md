@@ -49,6 +49,7 @@ Optional:
 - `BLOB_READ_WRITE_TOKEN` (required for Blob image uploads)
 - `RATE_LIMIT_VENUE_IMAGES_WRITE_PER_MINUTE` (defaults to `60`)
 - `RATE_LIMIT_VENUE_IMAGES_WRITE_WINDOW_MS` (defaults to `60000`)
+- `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` (strongly recommended in production — without these, rate limiting is in-memory and not shared across instances)
 
 ---
 

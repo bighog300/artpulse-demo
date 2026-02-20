@@ -1,5 +1,5 @@
 import type { VenueInvite, VenueMembership } from "@prisma/client";
-import { evaluateInviteAcceptance } from "./invite-acceptance.js";
+import { evaluateInviteAcceptance } from "./invite-acceptance";
 
 type Deps = {
   findInviteByToken: (token: string) => Promise<VenueInvite | null>;

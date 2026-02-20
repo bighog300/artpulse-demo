@@ -138,7 +138,7 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
         </section>
       ) : null}
 
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
     </PageShell>
   );
 }
