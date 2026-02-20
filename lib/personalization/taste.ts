@@ -1,11 +1,12 @@
+import { DEFAULT_CAPS, DEFAULT_DECAY, DEFAULT_WEIGHTS } from "@/lib/personalization/tuning";
 export const TASTE_STORAGE_KEY = "ap_taste_v3";
 const MODEL_VERSION = 1;
-const WEIGHT_MIN = -3;
-const WEIGHT_MAX = 3;
-const DECAY_FACTOR = 0.98;
-const MAX_TAGS = 200;
-const MAX_VENUES = 200;
-const MAX_ARTISTS = 200;
+const WEIGHT_MIN = DEFAULT_WEIGHTS.tasteWeightMin;
+const WEIGHT_MAX = DEFAULT_WEIGHTS.tasteWeightMax;
+const DECAY_FACTOR = DEFAULT_DECAY;
+const MAX_TAGS = DEFAULT_CAPS;
+const MAX_VENUES = DEFAULT_CAPS;
+const MAX_ARTISTS = DEFAULT_CAPS;
 
 export type TasteModel = {
   version: number;
@@ -196,18 +197,18 @@ function getDowKey(date: Date): keyof TasteModel["dowWeights"] {
 
 export function applyTasteUpdate(model: TasteModel, feedbackEvent: TasteFeedbackEvent): TasteModel {
   const deltaByType: Record<TasteFeedbackType, number> = {
-    click: 0.1,
-    save: 0.35,
-    follow: 0.5,
-    show_less: -0.6,
-    hide: -0.8,
+    click: DEFAULT_WEIGHTS.tasteDeltaClick,
+    save: DEFAULT_WEIGHTS.tasteDeltaSave,
+    follow: DEFAULT_WEIGHTS.tasteDeltaFollow,
+    show_less: DEFAULT_WEIGHTS.tasteDeltaShowLess,
+    hide: DEFAULT_WEIGHTS.tasteDeltaHide,
   };
 
   const timeDeltaByType: Partial<Record<TasteFeedbackType, number>> = {
-    click: 0.05,
-    save: 0.05,
-    show_less: -0.05,
-    hide: -0.05,
+    click: DEFAULT_WEIGHTS.tasteTimeDeltaClick,
+    save: DEFAULT_WEIGHTS.tasteTimeDeltaSave,
+    show_less: DEFAULT_WEIGHTS.tasteTimeDeltaShowLess,
+    hide: DEFAULT_WEIGHTS.tasteTimeDeltaHide,
   };
 
   const delta = deltaByType[feedbackEvent.type] ?? 0;

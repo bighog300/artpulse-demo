@@ -12,6 +12,7 @@ import { buildExplanation } from "@/lib/personalization/explanations";
 import { RANKING_VERSION, rankItems } from "@/lib/personalization/ranking";
 import { getPreferenceSnapshot } from "@/lib/personalization/preferences";
 import { recordFeedback } from "@/lib/personalization/feedback";
+import { recordExposureBatch, recordOutcome } from "@/lib/personalization/measurement";
 import { getOnboardingSignals, type OnboardingSignals } from "@/lib/onboarding/signals";
 
 type ForYouResponse = {
@@ -103,6 +104,16 @@ return ranked;
   useEffect(() => {
     if (!rankedItems.length) return;
     track("personalization_rank_applied", { rankingSource: "for_you", rankedCount: rankedItems.length, version: RANKING_VERSION });
+    recordExposureBatch({
+      source: "for_you",
+      items: rankedItems.map((ranked, index) => ({
+        itemType: "event",
+        itemKey: `event:${ranked.item.event.slug ?? ranked.item.event.id}`.toLowerCase(),
+        position: index,
+        topReasonKind: ranked.topReason ?? "unknown",
+        isExploration: ranked.breakdown.some((part) => part.key === "exploration"),
+      })),
+    });
     track("personalization_mix_applied", { source: "for_you", version: RANKING_VERSION });
     const explorationCount = rankedItems.filter((entry) => entry.breakdown.some((part) => part.key === "exploration")).length;
     if (explorationCount) track("personalization_exploration_inserted", { source: "for_you", count: explorationCount, rate: 0.2, version: RANKING_VERSION });
@@ -159,8 +170,11 @@ return ranked;
                   venueSlug={item.event.venue?.slug}
                   badges={item.reasons.slice(0, 2)}
                   secondaryText={debugEnabled ? `Score: ${ranked.score} • ${ranked.breakdown.map((entry) => `${entry.key}:${entry.value}`).join(", ")}` : `Score: ${ranked.score}`}
-                  onOpen={() => recordFeedback({ type: "click", source: "for_you", item: { type: "event", idOrSlug: item.event.id, tags: item.reasons, venueSlug: item.event.venue?.slug } })}
-                  action={<ItemActionsMenu type="event" idOrSlug={item.event.id} source="for_you" explanation={explanation} onHidden={() => setHiddenIds((current) => [...current, item.event.id])} />}
+                  onOpen={() => {
+                    recordFeedback({ type: "click", source: "for_you", item: { type: "event", idOrSlug: item.event.id, tags: item.reasons, venueSlug: item.event.venue?.slug } });
+                    recordOutcome({ action: "click", itemType: "event", itemKey: `event:${item.event.slug ?? item.event.id}`.toLowerCase(), sourceHint: "for_you" });
+                  }}
+                  action={<ItemActionsMenu type="event" idOrSlug={item.event.slug} source="for_you" measurementSource="for_you" explanation={explanation} onHidden={() => setHiddenIds((current) => [...current, item.event.id])} />}
                 />
                 {explanation ? <WhyThis source="for_you" explanation={explanation} /> : null}
               </article>

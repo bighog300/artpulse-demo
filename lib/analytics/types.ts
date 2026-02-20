@@ -66,6 +66,9 @@ export type AnalyticsEventName =
   | "personalization_model_updated"
   | "personalization_exploration_inserted"
   | "personalization_mix_applied"
+  | "personalization_exposure"
+  | "personalization_outcome"
+  | "personalization_session_metrics"
 ;
 
 export type AnalyticsProps = {
@@ -115,6 +118,18 @@ export type AnalyticsProps = {
   diversityRules?: string;
   version?: string;
   rate?: number;
+  action?: "click" | "save" | "follow" | "hide" | "show_less";
+  position?: number;
+  scoreBucket?: "top" | "mid" | "low";
+  topReasonKind?: string;
+  isExploration?: boolean;
+  clicksCount?: number;
+  savesCount?: number;
+  followsCount?: number;
+  ctr?: number;
+  saveRate?: number;
+  followRate?: number;
+  explorationCtr?: number;
 };
 
 export type AnalyticsPayload = {

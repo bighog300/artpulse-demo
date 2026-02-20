@@ -6,6 +6,7 @@ import { track } from "@/lib/analytics/client";
 import { enqueueToast } from "@/lib/toast";
 import { buildLoginRedirectUrl } from "@/lib/auth-redirect";
 import { recordFeedback } from "@/lib/personalization/feedback";
+import { recordOutcome } from "@/lib/personalization/measurement";
 
 type SaveEventButtonProps = {
   eventId: string;
@@ -70,6 +71,7 @@ export function SaveEventButton({ eventId, initialSaved, nextUrl, isAuthenticate
       });
       if (nextSaved) {
         recordFeedback({ type: "save", source: "events", item: { type: "event", idOrSlug: eventId } });
+        recordOutcome({ action: "save", itemType: "event", itemKey: `event:${analytics?.eventSlug ?? eventId}`.toLowerCase() });
       }
       enqueueToast({ title: nextSaved ? "Saved" : "Removed from saved" });
       if (nextSaved) setShowSavedHint(true);

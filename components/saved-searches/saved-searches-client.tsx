@@ -16,6 +16,7 @@ import { buildExplanation } from "@/lib/personalization/explanations";
 import { RANKING_VERSION, rankItems } from "@/lib/personalization/ranking";
 import { getPreferenceSnapshot } from "@/lib/personalization/preferences";
 import { recordFeedback } from "@/lib/personalization/feedback";
+import { recordExposureBatch, recordOutcome } from "@/lib/personalization/measurement";
 
 type SavedSearch = { id: string; name: string; type: "NEARBY" | "EVENTS_FILTER"; frequency: "WEEKLY"; isEnabled: boolean; lastSentAt: string | null; createdAt?: string; paramsJson?: { q?: string; tags?: string[] } };
 type RunItem = { id: string; slug: string; title: string; startAt: string; endAt: string | null; venue: { name: string | null } | null };
@@ -110,6 +111,16 @@ export function SavedSearchesClient() {
 
   useEffect(() => {
     if (!previewFor || !previewVisibleItems.length) return;
+    recordExposureBatch({
+      source: "saved_search_preview",
+      items: previewVisibleItems.map((ranked, index) => ({
+        itemType: "event",
+        itemKey: `event:${ranked.item.slug ?? ranked.item.id}`.toLowerCase(),
+        position: index,
+        topReasonKind: ranked.topReason ?? "unknown",
+        isExploration: ranked.breakdown.some((part) => part.key === "exploration"),
+      })),
+    });
     track("personalization_rank_applied", { rankingSource: "saved_search_preview", rankedCount: previewVisibleItems.length, version: RANKING_VERSION });
     track("personalization_mix_applied", { source: "saved_search_preview", version: RANKING_VERSION });
     const explorationCount = previewVisibleItems.filter((entry) => entry.breakdown.some((part) => part.key === "exploration")).length;
@@ -280,8 +291,11 @@ export function SavedSearchesClient() {
                       startAt={event.startAt}
                       endAt={event.endAt}
                       venueName={event.venue?.name}
-                      action={<ItemActionsMenu type="event" idOrSlug={event.id} source="saved_search_preview" explanation={explanation} onHidden={() => setHiddenPreviewIds((current) => [...current, event.id])} />}
-                      onOpen={() => recordFeedback({ type: "click", source: "saved_search_preview", item: { type: "event", idOrSlug: event.id, tags: ["saved-search"] } })}
+                      action={<ItemActionsMenu type="event" idOrSlug={event.slug} source="saved_search_preview" measurementSource="saved_search_preview" explanation={explanation} onHidden={() => setHiddenPreviewIds((current) => [...current, event.id])} />}
+                      onOpen={() => {
+                        recordFeedback({ type: "click", source: "saved_search_preview", item: { type: "event", idOrSlug: event.id, tags: ["saved-search"] } });
+                        recordOutcome({ action: "click", itemType: "event", itemKey: `event:${event.slug ?? event.id}`.toLowerCase(), sourceHint: "saved_search_preview" });
+                      }}
                     />
                     {explanation ? <WhyThis source="saved_search_preview" explanation={explanation} /> : null}
                   </li>

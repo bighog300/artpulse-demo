@@ -12,6 +12,7 @@ import { buildExplanation } from "@/lib/personalization/explanations";
 import { RANKING_VERSION, rankItems } from "@/lib/personalization/ranking";
 import { getPreferenceSnapshot } from "@/lib/personalization/preferences";
 import { recordFeedback } from "@/lib/personalization/feedback";
+import { recordExposureBatch, recordOutcome } from "@/lib/personalization/measurement";
 import { getOnboardingSignals, type OnboardingSignals } from "@/lib/onboarding/signals";
 
 type FeedItem = {
@@ -85,6 +86,16 @@ export function PersonalEventFeed({
 
   useEffect(() => {
     if (!rankedItems.length) return;
+    recordExposureBatch({
+      source: "following",
+      items: rankedItems.map((ranked, index) => ({
+        itemType: "event",
+        itemKey: `event:${ranked.item.slug ?? ranked.item.id}`.toLowerCase(),
+        position: index,
+        topReasonKind: ranked.topReason ?? "unknown",
+        isExploration: ranked.breakdown.some((part) => part.key === "exploration"),
+      })),
+    });
     track("personalization_rank_applied", { rankingSource: "following", rankedCount: rankedItems.length, version: RANKING_VERSION });
     track("personalization_mix_applied", { source: "following", version: RANKING_VERSION });
     const explorationCount = rankedItems.filter((entry) => entry.breakdown.some((part) => part.key === "exploration")).length;
@@ -146,8 +157,11 @@ export function PersonalEventFeed({
                   endAt={item.endAt}
                   venueName={item.venue?.name ?? undefined}
                   secondaryText={debugEnabled ? `Score: ${ranked.score} • ${ranked.breakdown.map((entry) => `${entry.key}:${entry.value}`).join(", ")}` : undefined}
-                  action={<ItemActionsMenu type="event" idOrSlug={item.id} source="following" explanation={explanation} onHidden={() => setHiddenIds((current) => [...current, item.id])} />}
-                  onOpen={() => recordFeedback({ type: "click", source: "following", item: { type: "event", idOrSlug: item.id, venueSlug: item.venue?.slug } })}
+                  action={<ItemActionsMenu type="event" idOrSlug={item.slug} source="following" measurementSource="following" explanation={explanation} onHidden={() => setHiddenIds((current) => [...current, item.id])} />}
+                  onOpen={() => {
+                    recordFeedback({ type: "click", source: "following", item: { type: "event", idOrSlug: item.id, venueSlug: item.venue?.slug } });
+                    recordOutcome({ action: "click", itemType: "event", itemKey: `event:${item.slug ?? item.id}`.toLowerCase(), sourceHint: "following" });
+                  }}
                 />
                 {explanation ? <WhyThis source="following" explanation={explanation} /> : null}
               </li>

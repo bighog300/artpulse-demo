@@ -11,6 +11,7 @@ import { getOnboardingSignals, type OnboardingSignals } from "@/lib/onboarding/s
 import { buildExplanation } from "@/lib/personalization/explanations";
 import { rankItems } from "@/lib/personalization/ranking";
 import { getPreferenceSnapshot } from "@/lib/personalization/preferences";
+import { recordExposureBatch, recordOutcome } from "@/lib/personalization/measurement";
 
 type RecommendationItem = {
   id: string;
@@ -90,6 +91,21 @@ export function RecommendedFollows({ page, source, isAuthenticated }: { page: st
     });
   }, [data, tab, hiddenIds, signals]);
 
+
+
+  useEffect(() => {
+    if (!items.length) return;
+    recordExposureBatch({
+      source: "recommended_follows",
+      items: items.map((ranked, index) => ({
+        itemType: tab === "artists" ? "artist" : "venue",
+        itemKey: `${tab === "artists" ? "artist" : "venue"}:${ranked.item.slug ?? ranked.item.id}`.toLowerCase(),
+        position: index,
+        topReasonKind: ranked.topReason ?? "unknown",
+        isExploration: ranked.breakdown.some((part) => part.key === "exploration"),
+      })),
+    });
+  }, [items, tab]);
   useEffect(() => {
     if (loading || !data) return;
     track("recommended_follows_shown", { page, type: tab === "artists" ? "artist" : "venue" });
@@ -122,7 +138,7 @@ export function RecommendedFollows({ page, source, isAuthenticated }: { page: st
                 <div className="flex items-center gap-2">
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-xs">{item.name.slice(0, 1)}</div>
                   <div>
-                    <Link href={href} className="text-sm font-medium underline">{item.name}</Link>
+                    <Link href={href} className="text-sm font-medium underline" onClick={() => recordOutcome({ action: "click", itemType: tab === "artists" ? "artist" : "venue", itemKey: `${tab === "artists" ? "artist" : "venue"}:${item.slug ?? item.id}`.toLowerCase(), sourceHint: "recommended_follows" })}>{item.name}</Link>
                     <p className="text-xs text-muted-foreground">{item.subtitle || item.reason || "Recommended"}</p>
                   </div>
                 </div>
@@ -134,9 +150,15 @@ export function RecommendedFollows({ page, source, isAuthenticated }: { page: st
                     initialFollowersCount={item.followersCount ?? 0}
                     isAuthenticated={isAuthenticated}
                     analyticsSlug={item.slug}
-                    onToggled={(nextState) => track("recommended_follow_clicked", { type: tab === "artists" ? "artist" : "venue", slug: item.slug, nextState, source })}
+                    personalizationSourceHint="recommended_follows"
+                    onToggled={(nextState) => {
+                      track("recommended_follow_clicked", { type: tab === "artists" ? "artist" : "venue", slug: item.slug, nextState, source });
+                      if (nextState === "followed") {
+                        recordOutcome({ action: "follow", itemType: tab === "artists" ? "artist" : "venue", itemKey: `${tab === "artists" ? "artist" : "venue"}:${item.slug ?? item.id}`.toLowerCase(), sourceHint: "recommended_follows" });
+                      }
+                    }}
                   />
-                  <ItemActionsMenu type={tab === "artists" ? "artist" : "venue"} idOrSlug={item.slug} source="recommendations" explanation={explanation} onHidden={() => setHiddenIds((current) => [...current, item.id])} />
+                  <ItemActionsMenu type={tab === "artists" ? "artist" : "venue"} idOrSlug={item.slug} source="recommendations" explanation={explanation} onHidden={() => setHiddenIds((current) => [...current, item.id])} measurementSource="recommended_follows" />
                 </div>
               </div>
               {explanation ? <div className="mt-2"><WhyThis source="recommendations" explanation={explanation} /></div> : null}
