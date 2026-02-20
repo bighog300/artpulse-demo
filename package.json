@@ -23,7 +23,8 @@
     "prisma:check-migration-order": "node scripts/check-migration-order.mjs",
     "check-env": "node scripts/check-env.mjs",
     "perf:smoke": "node scripts/perf-smoke.mjs",
-    "vercel:build": "AUTH_SECRET=dev-secret next build"
+    "vercel:build": "node scripts/check-env.mjs && AUTH_SECRET=${AUTH_SECRET:-dev-secret} next build",
+    "vercel:install": "pnpm install --frozen-lockfile"
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.20",

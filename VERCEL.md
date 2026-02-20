@@ -1,29 +1,24 @@
 # Vercel Deployment — Artpulse
 
-This document describes how to deploy Artpulse from GitHub to Vercel.
-
-## Build settings
-- Framework preset: Next.js
-- Install: `pnpm install`
-- Build: `pnpm build`
+## Deterministic build configuration
+- Install command: `pnpm run vercel:install`
+- Build command: `pnpm run vercel:build`
+- `vercel:build` runs `scripts/check-env.mjs` before `next build` so deploys fail early when required environment is missing.
 
 ## Environment variables
-See `ENVIRONMENT.md`. Optional: `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` enables the `/nearby` map view.
+### Required in deploy contexts (`VERCEL=1` or `CI=true`)
+- `AUTH_SECRET`
+- `DATABASE_URL`
 
-## Database
-- Provision Postgres (Vercel Postgres recommended)
-- Set `DATABASE_URL`
+### Conditionally required when feature is enabled
+- `DIRECT_URL` (if direct Prisma connection is used)
+- `CRON_SECRET` (if cron routes are enabled)
+- `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` (if maps are enabled)
 
-## Prisma on Vercel
-- `postinstall`: `prisma generate`
-- Run migrations: `prisma migrate deploy` (recommended during build)
+## Vercel cron limits (Hobby)
+Vercel Hobby only supports daily cron jobs. This repo schedules all cron jobs once daily to remain deploy-safe on Hobby:
+- `/api/cron/outbox/send` → `5 2 * * *`
+- `/api/cron/digests/weekly` → `20 2 * * *`
+- `/api/cron/retention/engagement` → `35 2 * * *`
 
-## Common pitfalls
-- OAuthCallback error: fix Google redirect URI to `https://<domain>/api/auth/callback/google`
-- Prisma edge runtime: ensure Prisma routes run on Node runtime, not Edge
-
-## Vercel Blob setup
-- Create a Blob store in the Vercel dashboard.
-- Attach the store to this project so Vercel injects `BLOB_READ_WRITE_TOKEN` at runtime.
-- Local development: set `BLOB_READ_WRITE_TOKEN` in `.env.local`.
-- Upload API route (`POST /api/uploads/image`) runs on Node.js runtime and keeps this token server-side only.
+If you need higher frequency, upgrade plan and adjust schedules intentionally.

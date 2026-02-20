@@ -61,6 +61,23 @@ type Metrics = {
 const memStore = new Map<string, string>();
 const exposureViewCounter = new Map<string, number>();
 
+const EXPOSURE_SAMPLE_RATE_PROD = 0.25;
+
+function daySessionBucket(sessionId: string, dayKey: string) {
+  const value = `${sessionId}:${dayKey}`;
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = ((hash << 5) - hash + value.charCodeAt(i)) | 0;
+  }
+  return (Math.abs(hash) % 10_000) / 10_000;
+}
+
+function shouldSampleExposure(sessionId: string, dayKey: string) {
+  if (process.env.NODE_ENV !== "production") return true;
+  return daySessionBucket(sessionId, dayKey) <= EXPOSURE_SAMPLE_RATE_PROD;
+}
+
+
 function storage() {
   try {
     if (typeof window !== "undefined" && window.localStorage) return window.localStorage;
@@ -200,6 +217,8 @@ export function recordExposureBatch({
   const existing = safeParseArray<Exposure>(s.getItem(EXPOSURES_KEY));
   const dayKey = today(now);
 
+  if (!shouldSampleExposure(sessionId, dayKey)) return;
+
   const next = items
     .slice(0, remaining)
     .map((item, idx) => {
@@ -234,6 +253,7 @@ export function recordExposureBatch({
   next.slice(0, limits.maxExposurePerView).forEach((item) => {
     track("personalization_exposure", {
       source: item.source,
+      rankingVersion: process.env.NEXT_PUBLIC_PERSONALIZATION_VERSION === "v2" ? "v2" : "v3",
       version: item.version,
       position: item.position,
       scoreBucket: item.scoreBucket,
@@ -287,6 +307,7 @@ export function recordOutcome({ action, itemType, itemKey, sourceHint }: { actio
 
   track("personalization_outcome", {
     source: attributedExposure?.source,
+    rankingVersion: process.env.NEXT_PUBLIC_PERSONALIZATION_VERSION === "v2" ? "v2" : "v3",
     version: attributedExposure?.version ?? PERSONALIZATION_VERSION,
     action,
     targetType: itemType,

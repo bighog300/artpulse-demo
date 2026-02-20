@@ -5,6 +5,7 @@ import type { AnalyticsEventName, AnalyticsPayload, AnalyticsProps, AnalyticsPro
 const SESSION_KEY = "ap_sid";
 const MAX_KEYS = 20;
 const MAX_STRING_LENGTH = 120;
+const FORBIDDEN_PROP_KEYS = [/query/i, /lat/i, /lng/i, /email/i, /name/i, /user/i, /address/i];
 
 class ConsoleProvider implements AnalyticsProvider {
   send(event: AnalyticsPayload) {
@@ -37,7 +38,7 @@ const provider = createProvider();
 function sanitizeProps(props?: AnalyticsProps): AnalyticsProps | undefined {
   if (!props) return undefined;
   const entries = Object.entries(props)
-    .filter(([, value]) => value !== undefined && value !== null)
+    .filter(([key, value]) => value !== undefined && value !== null && !FORBIDDEN_PROP_KEYS.some((pattern) => pattern.test(key)))
     .slice(0, MAX_KEYS)
     .map(([key, value]) => {
       if (typeof value === "string") return [key, value.slice(0, MAX_STRING_LENGTH)] as const;

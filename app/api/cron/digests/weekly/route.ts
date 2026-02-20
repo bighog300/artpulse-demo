@@ -7,9 +7,19 @@ import { getRequestId } from "@/lib/request-id";
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
-  return runWeeklyDigests(extractCronSecret(req.headers), db as never, { requestId: getRequestId(req.headers), method: req.method });
+  return runWeeklyDigests(
+    extractCronSecret(req.headers),
+    req.nextUrl.searchParams.get("dryRun"),
+    db as never,
+    { requestId: getRequestId(req.headers), method: req.method },
+  );
 }
 
 export async function POST(req: NextRequest) {
-  return runWeeklyDigests(extractCronSecret(req.headers), db as never, { requestId: getRequestId(req.headers), method: req.method });
+  return runWeeklyDigests(
+    extractCronSecret(req.headers),
+    req.nextUrl.searchParams.get("dryRun"),
+    db as never,
+    { requestId: getRequestId(req.headers), method: req.method },
+  );
 }

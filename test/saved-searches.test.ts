@@ -27,10 +27,10 @@ test("digest dedupe key stable by iso week", () => {
 
 test("cron secret enforcement returns 401/500", async () => {
   delete process.env.CRON_SECRET;
-  const misconfigured = await runWeeklyDigests("x", { savedSearch: {} as never, digestRun: {} as never, notification: {} as never, event: {} as never });
+  const misconfigured = await runWeeklyDigests("x", null, { savedSearch: {} as never, digestRun: {} as never, notification: {} as never, event: {} as never });
   assert.equal(misconfigured.status, 500);
   process.env.CRON_SECRET = "secret";
-  const unauthorized = await runWeeklyDigests("bad", { savedSearch: {} as never, digestRun: {} as never, notification: {} as never, event: {} as never });
+  const unauthorized = await runWeeklyDigests("bad", null, { savedSearch: {} as never, digestRun: {} as never, notification: {} as never, event: {} as never });
   assert.equal(unauthorized.status, 401);
 });
 
@@ -66,8 +66,8 @@ test("digest worker upserts digest run idempotently, href points to digest page,
     },
   };
 
-  const res1 = await runWeeklyDigests("secret", db as never);
-  const res2 = await runWeeklyDigests("secret", db as never);
+  const res1 = await runWeeklyDigests("secret", null, db as never);
+  const res2 = await runWeeklyDigests("secret", null, db as never);
   assert.equal(res1.status, 200);
   assert.equal(res2.status, 200);
   assert.equal(digestRunCalls, 2);

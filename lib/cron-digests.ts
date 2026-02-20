@@ -4,6 +4,10 @@ import { digestDedupeKey, digestSnapshotItemsSchema, isoWeekStamp } from "@/lib/
 import { runSavedSearchEvents } from "@/lib/saved-searches";
 import { applyConservativeRanking, computeEngagementBoosts } from "@/lib/ranking";
 import { validateCronRequest } from "@/lib/cron-auth";
+import { logCronSummary, shouldDryRun, tryAcquireCronLock } from "@/lib/cron-runtime";
+
+const DIGEST_LIMIT = 25;
+const DIGEST_MAX_DURATION_MS = 20_000;
 
 export type DigestDb = {
   savedSearch: {
@@ -18,81 +22,121 @@ export type DigestDb = {
     findMany: (args: Prisma.EngagementEventFindManyArgs) => Promise<Array<{ targetId: string }>>;
   };
   event: { findMany: (args: Prisma.EventFindManyArgs) => Promise<Array<{ id: string; title: string; slug: string; startAt: Date; lat: number | null; lng: number | null; venueId: string | null; venue: { name: string; slug: string; city: string | null; lat: number | null; lng: number | null } | null; eventTags: Array<{ tag: { name: string; slug: string } }>; eventArtists: Array<{ artistId: string }> }>> };
+  $queryRaw?: (query: TemplateStringsArray, ...values: unknown[]) => Promise<unknown>;
 };
 
-export async function runWeeklyDigests(headerSecret: string | null, digestDb: DigestDb, meta: { requestId?: string; method?: string } = {}) {
+export async function runWeeklyDigests(headerSecret: string | null, dryRunRaw: string | null | undefined, digestDb: DigestDb, meta: { requestId?: string; method?: string } = {}) {
   const authFailureResponse = validateCronRequest(headerSecret, { route: "/api/cron/digests/weekly", ...meta });
   if (authFailureResponse) return authFailureResponse;
 
-  try {
-  const now = new Date();
-  const periodKey = isoWeekStamp(now);
-  const threshold = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000);
-  const savedSearches = await digestDb.savedSearch.findMany({
-    where: { isEnabled: true, frequency: "WEEKLY", OR: [{ lastSentAt: null }, { lastSentAt: { lt: threshold } }] },
-    take: 25,
-    orderBy: [{ lastSentAt: "asc" }, { createdAt: "asc" }],
-  });
-
-  let processed = 0;
-  let sent = 0;
-  let skipped = 0;
-
-  for (const search of savedSearches) {
-    processed += 1;
-    const events = await runSavedSearchEvents({ eventDb: digestDb, type: search.type, paramsJson: search.paramsJson, limit: 10 });
-    const boosts = digestDb.engagementEvent ? await computeEngagementBoosts(digestDb as never, search.userId, events) : new Map<string, number>();
-    const page = applyConservativeRanking(events, boosts).slice(0, 10);
-    if (!page.length) {
-      skipped += 1;
-      continue;
-    }
-
-    const snapshotItems = digestSnapshotItemsSchema.parse(page.map((event) => ({
-      id: event.id,
-      slug: event.slug,
-      title: event.title,
-      startAt: event.startAt.toISOString(),
-      venueName: event.venue?.name ?? null,
-    })));
-
-    const digestRun = await digestDb.digestRun.upsert({
-      where: { savedSearchId_periodKey: { savedSearchId: search.id, periodKey } },
-      update: {
-        itemCount: snapshotItems.length,
-        itemsJson: snapshotItems,
-      },
-      create: {
-        savedSearchId: search.id,
-        userId: search.userId,
-        periodKey,
-        itemCount: snapshotItems.length,
-        itemsJson: snapshotItems,
-      },
-      select: { id: true },
-    });
-
-    const dedupeKey = digestDedupeKey(search.id, now);
-    await digestDb.notification.upsert({
-      where: { dedupeKey },
-      update: {},
-      create: {
-        userId: search.userId,
-        type: "DIGEST_READY",
-        title: "Your weekly Artpulse digest",
-        body: `${page.length} upcoming events match '${search.name}'`,
-        href: `/digests/${digestRun.id}`,
-        dedupeKey,
-      },
-    });
-    await digestDb.savedSearch.update({ where: { id: search.id }, data: { lastSentAt: now } });
-    sent += 1;
+  const startedAt = new Date();
+  const dryRun = shouldDryRun(dryRunRaw);
+  const lock = await tryAcquireCronLock(digestDb, "cron:digests:weekly");
+  if (!lock.acquired) {
+    return Response.json({ ok: true, cronName: "digests_weekly", dryRun, skipped: "lock_not_acquired" }, { status: 202 });
   }
 
-  trackMetric("cron.digest.processed", processed, { sent, skipped });
-  return Response.json({ processed, sent, skipped });
+  try {
+    const now = new Date();
+    const periodKey = isoWeekStamp(now);
+    const threshold = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000);
+    const savedSearches = await digestDb.savedSearch.findMany({
+      where: { isEnabled: true, frequency: "WEEKLY", OR: [{ lastSentAt: null }, { lastSentAt: { lt: threshold } }] },
+      take: DIGEST_LIMIT,
+      orderBy: [{ lastSentAt: "asc" }, { createdAt: "asc" }],
+    });
+
+    let processed = 0;
+    let sent = 0;
+    let skipped = 0;
+    let errorCount = 0;
+
+    for (const search of savedSearches) {
+      if (Date.now() - startedAt.getTime() >= DIGEST_MAX_DURATION_MS) {
+        skipped += 1;
+        continue;
+      }
+
+      processed += 1;
+      try {
+        const events = await runSavedSearchEvents({ eventDb: digestDb, type: search.type, paramsJson: search.paramsJson, limit: 10 });
+        const boosts = digestDb.engagementEvent ? await computeEngagementBoosts(digestDb as never, search.userId, events) : new Map<string, number>();
+        const page = applyConservativeRanking(events, boosts).slice(0, 10);
+        if (!page.length) {
+          skipped += 1;
+          continue;
+        }
+
+        if (dryRun) {
+          sent += 1;
+          continue;
+        }
+
+        const snapshotItems = digestSnapshotItemsSchema.parse(page.map((event) => ({
+          id: event.id,
+          slug: event.slug,
+          title: event.title,
+          startAt: event.startAt.toISOString(),
+          venueName: event.venue?.name ?? null,
+        })));
+
+        const digestRun = await digestDb.digestRun.upsert({
+          where: { savedSearchId_periodKey: { savedSearchId: search.id, periodKey } },
+          update: {
+            itemCount: snapshotItems.length,
+            itemsJson: snapshotItems,
+          },
+          create: {
+            savedSearchId: search.id,
+            userId: search.userId,
+            periodKey,
+            itemCount: snapshotItems.length,
+            itemsJson: snapshotItems,
+          },
+          select: { id: true },
+        });
+
+        const dedupeKey = digestDedupeKey(search.id, now);
+        await digestDb.notification.upsert({
+          where: { dedupeKey },
+          update: {},
+          create: {
+            userId: search.userId,
+            type: "DIGEST_READY",
+            title: "Your weekly Artpulse digest",
+            body: `${page.length} upcoming events match '${search.name}'`,
+            href: `/digests/${digestRun.id}`,
+            dedupeKey,
+          },
+        });
+        await digestDb.savedSearch.update({ where: { id: search.id }, data: { lastSentAt: now } });
+        sent += 1;
+      } catch {
+        errorCount += 1;
+      }
+    }
+
+    trackMetric("cron.digest.processed", processed, { sent, skipped, dryRun, errorCount });
+    const summary = {
+      ok: true,
+      cronName: "digests_weekly",
+      startedAt: startedAt.toISOString(),
+      finishedAt: new Date().toISOString(),
+      durationMs: Date.now() - startedAt.getTime(),
+      processedCount: processed,
+      errorCount,
+      dryRun,
+      sent,
+      skipped,
+      limit: DIGEST_LIMIT,
+      lock: lock.supported ? "acquired" : "unsupported",
+    } as const;
+    logCronSummary(summary);
+    return Response.json(summary);
   } catch (error) {
     captureException(error, { route: "/api/cron/digests/weekly" });
     return Response.json({ error: { code: "internal_error", message: "Cron execution failed", details: undefined } }, { status: 500 });
+  } finally {
+    await lock.release();
   }
 }
