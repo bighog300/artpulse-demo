@@ -9,9 +9,10 @@ type EventRowProps = {
   endAt?: string | Date | null;
   venueName?: string | null;
   action?: ReactNode;
+  onOpen?: () => void;
 };
 
-export function EventRow({ href, title, startAt, endAt, venueName, action }: EventRowProps) {
+export function EventRow({ href, title, startAt, endAt, venueName, action, onOpen }: EventRowProps) {
   const dayMonth = formatEventDayMonth(startAt);
   return (
     <div className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 shadow-sm ui-hover-lift ui-press">
@@ -19,7 +20,7 @@ export function EventRow({ href, title, startAt, endAt, venueName, action }: Eve
         <p>{dayMonth.day}</p>
         <p>{dayMonth.month}</p>
       </div>
-      <Link href={href} className="min-w-0 flex-1 focus-visible:rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" aria-label={`Open event ${title}`}>
+      <Link href={href} className="min-w-0 flex-1 focus-visible:rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" aria-label={`Open event ${title}`} onClick={onOpen}>
         <p className="line-clamp-1 text-sm font-semibold text-foreground">{title}</p>
         <p className="type-caption line-clamp-1">{formatEventDateRange(startAt, endAt)}</p>
       </Link>

@@ -19,9 +19,10 @@ type EventCardProps = {
   action?: ReactNode;
   distanceLabel?: string;
   className?: string;
+  onOpen?: () => void;
 };
 
-export function EventCard({ title, startAt, endAt, venueName, imageUrl, href, badges, tags, secondaryText, action, distanceLabel, className }: EventCardProps) {
+export function EventCard({ title, startAt, endAt, venueName, imageUrl, href, badges, tags, secondaryText, action, distanceLabel, className, onOpen }: EventCardProps) {
   const start = typeof startAt === "string" ? new Date(startAt) : startAt;
   const end = endAt ? (typeof endAt === "string" ? new Date(endAt) : endAt) : undefined;
   const hasValidStart = !Number.isNaN(start.getTime());
@@ -35,6 +36,7 @@ export function EventCard({ title, startAt, endAt, venueName, imageUrl, href, ba
         href={href}
         aria-label={`Open event ${title}`}
         className="block focus-visible:rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        onClick={onOpen}
       >
         <div className="relative aspect-[16/10] overflow-hidden">
           {imageUrl ? (

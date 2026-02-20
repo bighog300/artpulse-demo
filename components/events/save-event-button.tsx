@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { track } from "@/lib/analytics/client";
 import { enqueueToast } from "@/lib/toast";
 import { buildLoginRedirectUrl } from "@/lib/auth-redirect";
+import { recordFeedback } from "@/lib/personalization/feedback";
 
 type SaveEventButtonProps = {
   eventId: string;
@@ -67,6 +68,9 @@ export function SaveEventButton({ eventId, initialSaved, nextUrl, isAuthenticate
         ui: analytics?.ui,
         nextState: nextSaved ? "saved" : "unsaved",
       });
+      if (nextSaved) {
+        recordFeedback({ type: "save", source: "events", item: { type: "event", idOrSlug: eventId } });
+      }
       enqueueToast({ title: nextSaved ? "Saved" : "Removed from saved" });
       if (nextSaved) setShowSavedHint(true);
     } catch {

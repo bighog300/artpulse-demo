@@ -63,6 +63,9 @@ export type AnalyticsEventName =
   | "personalization_rank_applied"
   | "personalization_top_reason"
   | "personalization_diversity_applied"
+  | "personalization_model_updated"
+  | "personalization_exploration_inserted"
+  | "personalization_mix_applied"
 ;
 
 export type AnalyticsProps = {
@@ -110,6 +113,8 @@ export type AnalyticsProps = {
   rankedCount?: number;
   topReason?: string;
   diversityRules?: string;
+  version?: string;
+  rate?: number;
 };
 
 export type AnalyticsPayload = {

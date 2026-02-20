@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { trackEngagement } from "@/lib/engagement-client";
 import { track } from "@/lib/analytics/client";
 import { enqueueToast } from "@/lib/toast";
+import { recordFeedback } from "@/lib/personalization/feedback";
 
 type FollowButtonProps = {
   targetType: "ARTIST" | "VENUE";
@@ -95,6 +96,13 @@ export function FollowButton({
           slug: analyticsSlug,
           nextState: next ? "followed" : "unfollowed",
         });
+        if (next) {
+          recordFeedback({
+            type: "follow",
+            source: "following",
+            item: { type: targetType === "ARTIST" ? "artist" : "venue", idOrSlug: analyticsSlug ?? targetId },
+          });
+        }
         enqueueToast({ title: next ? "Following updated" : "Unfollowed" });
         onToggled?.(next ? "followed" : "unfollowed");
         if (typeof window !== "undefined") {
