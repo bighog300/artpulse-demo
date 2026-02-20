@@ -15,6 +15,7 @@ export default async function AdminEditEvent({ params }: { params: Promise<{ id:
       title="Edit Event"
       endpoint={`/api/admin/events/${id}`}
       method="PATCH"
+      eventId={event.id}
       initial={{
         title: event.title,
         slug: event.slug,

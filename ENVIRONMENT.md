@@ -93,7 +93,7 @@ Recommended scripts:
 
 ## 6. Blob Notes
 
-- Venue gallery uploads use Vercel Blob server-validated client uploads.
+- Venue gallery uploads and admin event image uploads use Vercel Blob server-validated client uploads.
 - Keep `BLOB_READ_WRITE_TOKEN` server-side only; never expose it in `NEXT_PUBLIC_*` variables.
 - Local development supports uploads when `BLOB_READ_WRITE_TOKEN` is set.
 

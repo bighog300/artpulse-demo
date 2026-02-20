@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import AdminImageUpload from "@/app/(admin)/admin/_components/AdminImageUpload";
 
 type EventImage = { assetId?: string | null; url?: string | null; alt?: string | null; sortOrder: number };
 
@@ -9,6 +10,7 @@ type Props = {
   title: string;
   endpoint: string;
   method: "POST" | "PATCH";
+  eventId?: string;
   initial: {
     title?: string;
     slug?: string;
@@ -24,13 +26,40 @@ type Props = {
   };
 };
 
-export default function EventAdminForm({ title, endpoint, method, initial }: Props) {
+function parseImages(text: string) {
+  return JSON.parse(text || "[]") as EventImage[];
+}
+
+export default function EventAdminForm({ title, endpoint, method, eventId, initial }: Props) {
   const router = useRouter();
   const [form, setForm] = useState({ ...initial });
   const [tagSlugsText, setTagSlugsText] = useState((initial.tagSlugs || []).join(","));
   const [artistSlugsText, setArtistSlugsText] = useState((initial.artistSlugs || []).join(","));
   const [imagesText, setImagesText] = useState(JSON.stringify(initial.images || [], null, 2));
+  const [pendingUploadUrl, setPendingUploadUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  function appendUploadedImage(url: string) {
+    try {
+      const parsed = parseImages(imagesText);
+      const next = [...parsed, { url, alt: "", sortOrder: parsed.length }];
+      setImagesText(JSON.stringify(next, null, 2));
+      setPendingUploadUrl(null);
+    } catch {
+      setError("Images JSON must be valid before appending upload URL");
+    }
+  }
+
+  function setUploadedAsFeatured(url: string) {
+    try {
+      const parsed = parseImages(imagesText).filter((image) => image.url !== url);
+      const next = [{ url, alt: "", sortOrder: 0 }, ...parsed].map((image, index) => ({ ...image, sortOrder: index }));
+      setImagesText(JSON.stringify(next, null, 2));
+      setPendingUploadUrl(null);
+    } catch {
+      setError("Images JSON must be valid before setting featured image");
+    }
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -38,7 +67,7 @@ export default function EventAdminForm({ title, endpoint, method, initial }: Pro
 
     let images: EventImage[] = [];
     try {
-      images = JSON.parse(imagesText || "[]");
+      images = parseImages(imagesText);
     } catch {
       setError("Images must be valid JSON array");
       return;
@@ -82,6 +111,13 @@ export default function EventAdminForm({ title, endpoint, method, initial }: Pro
             <input className="border p-2 rounded w-full" type={type || "text"} value={String(form[key as keyof typeof form] ?? "")} onChange={(e) => setForm((prev) => ({ ...prev, [key]: e.target.value || null }))} />
           </label>
         ))}
+        <AdminImageUpload targetType="event" targetId={eventId ?? "new"} role="gallery" onUploaded={(url) => setPendingUploadUrl(url)} />
+        {pendingUploadUrl ? (
+          <div className="flex gap-2 text-sm">
+            <button type="button" className="rounded border px-2 py-1" onClick={() => setUploadedAsFeatured(pendingUploadUrl)}>Set as featured</button>
+            <button type="button" className="rounded border px-2 py-1" onClick={() => appendUploadedImage(pendingUploadUrl)}>Add to gallery JSON</button>
+          </div>
+        ) : null}
         <label className="block">
           <span className="text-sm">Description</span>
           <textarea className="border p-2 rounded w-full" value={String(form.description ?? "")} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value || null }))} />
