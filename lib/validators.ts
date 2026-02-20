@@ -7,11 +7,15 @@ export const httpUrlSchema = z.url().refine((value) => value.startsWith("http://
 });
 
 const isoDatetimeSchema = z.iso.datetime({ offset: true }).or(z.iso.datetime({ local: true }));
+const isoDateSchema = z.iso.date();
+
+const fromQueryDateSchema = isoDatetimeSchema.or(isoDateSchema.transform((value) => `${value}T00:00:00Z`));
+const toQueryDateSchema = isoDatetimeSchema.or(isoDateSchema.transform((value) => `${value}T23:59:59.999Z`));
 
 export const eventsQuerySchema = z.object({
   query: z.string().trim().min(1).max(120).optional(),
-  from: isoDatetimeSchema.optional(),
-  to: isoDatetimeSchema.optional(),
+  from: fromQueryDateSchema.optional(),
+  to: toQueryDateSchema.optional(),
   lat: z.coerce.number().min(-90).max(90).optional(),
   lng: z.coerce.number().min(-180).max(180).optional(),
   radiusKm: z.coerce.number().positive().max(500).optional(),
@@ -19,7 +23,7 @@ export const eventsQuerySchema = z.object({
   artist: slugSchema.optional(),
   tags: z.string().optional().refine((value) => !value || value.split(",").map((tag) => tag.trim()).filter(Boolean).length <= 20, "tags must include at most 20 values"),
   cursor: z.string().max(512).optional(),
-  limit: z.coerce.number().int().min(1).max(50).default(20),
+  limit: z.coerce.number().int().min(1).max(200).default(20),
 });
 
 export const searchQuerySchema = z.object({ query: z.string().trim().min(1).optional() });
