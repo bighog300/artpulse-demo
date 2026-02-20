@@ -19,7 +19,7 @@ export function SectionHeader({ title, subtitle, href, linkLabel = 'See all', ac
       <div className="flex items-center gap-3">
         {actions}
         {href ? (
-          <Link href={href} className="type-caption font-medium transition-colors hover:text-foreground">
+          <Link href={href} className="text-sm font-medium text-primary transition-colors hover:text-primary/80 hover:underline">
             {linkLabel}
           </Link>
         ) : null}

@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss';
+import defaultTheme from 'tailwindcss/defaultTheme';
 
 const config: Config = {
   content: [
@@ -49,6 +50,9 @@ const config: Config = {
         lg: 'var(--radius-lg)',
         xl: 'var(--radius-xl)',
         '2xl': 'var(--radius-2xl)',
+      },
+      fontFamily: {
+        sans: ['var(--font-sans)', ...defaultTheme.fontFamily.sans],
       },
       boxShadow: {
         sm: 'var(--shadow-sm)',

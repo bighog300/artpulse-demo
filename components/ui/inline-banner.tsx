@@ -5,5 +5,9 @@ type InlineBannerProps = {
 };
 
 export function InlineBanner({ children }: InlineBannerProps) {
-  return <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700">{children}</div>;
+  return (
+    <div className="rounded-lg border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
+      {children}
+    </div>
+  );
 }

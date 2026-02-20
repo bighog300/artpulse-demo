@@ -62,7 +62,7 @@ export function DiscoveryFilterBar({ assoc, role, assocCounts, roleCounts }: Dis
                 type="button"
                 role="tab"
                 aria-selected={isActive}
-                className={`rounded-full border px-3 py-1 text-sm transition ${isActive ? "bg-black text-white border-black" : "bg-white text-zinc-800"}`}
+                className={`rounded-full border px-3 py-1 text-sm transition ${isActive ? "bg-primary text-primary-foreground border-primary" : "bg-background text-foreground"}`}
                 onClick={() => setFilters(option.value, option.value === "verified" ? role : undefined)}
               >
                 {withCount(option.label, count)}
@@ -80,7 +80,7 @@ export function DiscoveryFilterBar({ assoc, role, assocCounts, roleCounts }: Dis
               type="button"
               role="tab"
               aria-selected={!role}
-              className={`rounded-full border px-3 py-1 text-sm transition ${!role ? "bg-black text-white border-black" : "bg-white text-zinc-800"}`}
+              className={`rounded-full border px-3 py-1 text-sm transition ${!role ? "bg-primary text-primary-foreground border-primary" : "bg-background text-foreground"}`}
               onClick={() => setFilters("verified", undefined)}
             >
               {withCount("All roles", roleCounts?.all ?? assocCounts?.verified)}
@@ -94,7 +94,7 @@ export function DiscoveryFilterBar({ assoc, role, assocCounts, roleCounts }: Dis
                   type="button"
                   role="tab"
                   aria-selected={isActive}
-                  className={`rounded-full border px-3 py-1 text-sm transition ${isActive ? "bg-black text-white border-black" : "bg-white text-zinc-800"}`}
+                  className={`rounded-full border px-3 py-1 text-sm transition ${isActive ? "bg-primary text-primary-foreground border-primary" : "bg-background text-foreground"}`}
                   onClick={() => setFilters("verified", roleKey)}
                 >
                   {withCount(roleLabel(roleKey), roleCounts?.[roleKey])}

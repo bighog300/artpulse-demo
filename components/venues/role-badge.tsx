@@ -6,7 +6,7 @@ const roleStyles: Record<VenueRoleBadge, string> = {
   ADMIN: "bg-emerald-100 text-emerald-800 border-emerald-200",
   OWNER: "bg-emerald-100 text-emerald-800 border-emerald-200",
   EDITOR: "bg-blue-100 text-blue-800 border-blue-200",
-  MEMBER: "bg-zinc-100 text-zinc-700 border-zinc-200",
+  MEMBER: "bg-muted text-muted-foreground border-border",
 };
 
 const roleLabels: Record<VenueRoleBadge, string> = {

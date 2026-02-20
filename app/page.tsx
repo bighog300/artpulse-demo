@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { getSessionUser } from "@/lib/auth";
 import { GetStartedEntryPoint } from "@/components/onboarding/get-started-entry-point";
+import { PageShell } from "@/components/ui/page-shell";
+import { Card } from "@/components/ui/card";
 
 const publicTiles = [
-  { title: "Browse events", description: "See what’s coming up across exhibitions, openings, and talks.", href: "/events" },
+  { title: "Browse events", description: "See what's coming up across exhibitions, openings, and talks.", href: "/events" },
   { title: "Find nearby", description: "Discover events around your current city or map area.", href: "/nearby" },
   { title: "Search", description: "Filter by keyword, city, venue, artist, and date.", href: "/search" },
 ];
@@ -21,22 +23,30 @@ export default async function Home() {
   const tiles = user ? authedTiles : publicTiles;
 
   return (
-    <main className="mx-auto max-w-6xl space-y-6 p-6">
-      <div className="space-y-2">
-        <h1 className="text-3xl font-semibold">Artpulse</h1>
-        <p className="text-zinc-700">Discover art events and keep up with the scenes you care about.</p>
+    <PageShell className="page-stack">
+      <div className="section-stack">
+        <h1 className="type-h1">Artpulse</h1>
+        <p className="type-caption">Discover art events and keep up with the scenes you care about.</p>
       </div>
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <section className="card-grid">
         {tiles.map((tile) => (
-          <Link key={tile.href} href={tile.href} className="rounded-lg border bg-white p-5 transition hover:bg-zinc-50">
-            <h2 className="text-lg font-semibold">{tile.title}</h2>
-            <p className="mt-2 text-sm text-zinc-700">{tile.description}</p>
+          <Link key={tile.href} href={tile.href} className="block">
+            <Card className="h-full p-5 transition ui-hover-lift ui-press">
+              <h2 className="type-h3">{tile.title}</h2>
+              <p className="mt-2 type-caption">{tile.description}</p>
+            </Card>
           </Link>
         ))}
       </section>
 
-      {!user ? <Link className="inline-block rounded border px-4 py-2 text-sm" href="/login">Sign in</Link> : <GetStartedEntryPoint />}
-    </main>
+      {!user ? (
+        <Link className="inline-flex items-center rounded-md border border-border px-4 py-2 text-sm text-foreground transition hover:bg-muted" href="/login">
+          Sign in
+        </Link>
+      ) : (
+        <GetStartedEntryPoint />
+      )}
+    </PageShell>
   );
 }

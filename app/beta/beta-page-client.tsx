@@ -63,7 +63,7 @@ export function BetaPageClient({ initialEmail = "", requestsEnabled }: Props) {
               <textarea className="min-h-24 w-full rounded-md border px-3 py-2 text-sm" maxLength={1000} value={requestNote} onChange={(event) => setRequestNote(event.target.value)} />
             </label>
             <Button type="submit">Request access</Button>
-            <p aria-live="polite" className="text-sm text-zinc-700">{requestResult}</p>
+            <p aria-live="polite" className="text-sm text-muted-foreground">{requestResult}</p>
           </form>
         </section>
       ) : null}
@@ -80,7 +80,7 @@ export function BetaPageClient({ initialEmail = "", requestsEnabled }: Props) {
             <textarea required className="min-h-24 w-full rounded-md border px-3 py-2 text-sm" maxLength={2000} value={feedbackMessage} onChange={(event) => setFeedbackMessage(event.target.value)} />
           </label>
           <Button type="submit">Send feedback</Button>
-          <p aria-live="polite" className="text-sm text-zinc-700">{feedbackResult}</p>
+          <p aria-live="polite" className="text-sm text-muted-foreground">{feedbackResult}</p>
         </form>
       </section>
     </div>

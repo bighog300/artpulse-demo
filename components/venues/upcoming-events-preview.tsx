@@ -23,22 +23,22 @@ export function UpcomingEventsPreview({ items, viewAllHref }: UpcomingEventsPrev
       </div>
 
       {items.length === 0 ? (
-        <p className="rounded border border-dashed p-4 text-sm text-zinc-600">No upcoming events yet.</p>
+        <p className="rounded border border-dashed border-border p-4 text-sm text-muted-foreground">No upcoming events yet.</p>
       ) : (
         <ul className="space-y-3">
           {items.map((event) => {
             const dateText = new Date(event.startAtIso).toLocaleDateString();
             return (
               <li key={event.id} className="flex gap-3 rounded border p-3">
-                <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded bg-zinc-100">
+                <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded bg-muted">
                   {event.imageUrl ? (
                     <Image src={event.imageUrl} alt={event.title} fill sizes="64px" className="object-cover" />
                   ) : (
-                    <div className="flex h-full items-center justify-center text-[10px] text-zinc-500">No image</div>
+                    <div className="flex h-full items-center justify-center text-[10px] text-muted-foreground">No image</div>
                   )}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs uppercase tracking-wide text-zinc-500">{dateText}</p>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">{dateText}</p>
                   <Link href={`/events/${event.slug}`} className="line-clamp-2 font-medium hover:underline">{event.title}</Link>
                 </div>
               </li>

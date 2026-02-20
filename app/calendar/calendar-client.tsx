@@ -181,7 +181,7 @@ export function CalendarClient({ isAuthenticated, fixtureItems, fallbackFixtureI
 
       <Section title="Calendar view">
         {error ? <ErrorCard message={error} onRetry={() => void fetchEvents()} /> : null}
-        <div className="rounded-lg border bg-white p-2">
+        <div className="rounded-lg border bg-card p-2">
           <FullCalendar
             ref={calendarRef}
             plugins={[dayGridPlugin, timeGridPlugin, listPlugin]}

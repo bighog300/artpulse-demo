@@ -128,7 +128,7 @@ export function NotificationsClient({ initialItems, initialNextCursor }: Notific
       <div className="space-y-4">
         {groups.map((group) => (
           <section key={group.key} className="space-y-2">
-            <h2 className="text-sm font-semibold text-zinc-700">{group.label}</h2>
+            <h2 className="text-sm font-semibold text-muted-foreground">{group.label}</h2>
             <ul className="space-y-2">
               {group.items.map((item) => (
                 <li key={item.id} className={`rounded-lg border p-3 ${item.status === "UNREAD" ? "border-foreground bg-muted/40" : "border-border"}`}>

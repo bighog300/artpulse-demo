@@ -24,7 +24,7 @@ export function AdminBetaClient({ initialRequests, feedback }: { initialRequests
         <h1 className="text-2xl font-semibold">Beta requests</h1>
         <table className="w-full border text-sm">
           <thead>
-            <tr className="bg-zinc-100 text-left">
+            <tr className="bg-muted text-left">
               <th className="p-2">Email</th>
               <th className="p-2">Note</th>
               <th className="p-2">Created</th>
@@ -51,7 +51,7 @@ export function AdminBetaClient({ initialRequests, feedback }: { initialRequests
         <h2 className="text-2xl font-semibold">Recent feedback</h2>
         <table className="w-full border text-sm">
           <thead>
-            <tr className="bg-zinc-100 text-left">
+            <tr className="bg-muted text-left">
               <th className="p-2">Email</th>
               <th className="p-2">Page</th>
               <th className="p-2">Message</th>
@@ -71,7 +71,7 @@ export function AdminBetaClient({ initialRequests, feedback }: { initialRequests
         </table>
       </section>
 
-      <p className="text-sm text-zinc-700">When approving users, add their email to BETA_ALLOWLIST and redeploy.</p>
+      <p className="text-sm text-muted-foreground">When approving users, add their email to BETA_ALLOWLIST and redeploy.</p>
     </main>
   );
 }

@@ -54,12 +54,12 @@ export function EventFilterChips({ filters, onRemove, onClearAll }: EventFilterC
   return (
     <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-1">
       {activeFilters.map((chip) => (
-        <span key={chip.key} className="inline-flex shrink-0 items-center gap-2 rounded-full border bg-zinc-50 px-3 py-1 text-xs text-zinc-700">
+        <span key={chip.key} className="inline-flex shrink-0 items-center gap-2 rounded-full border bg-muted/50 px-3 py-1 text-xs text-muted-foreground">
           {chip.label}
           <button
             type="button"
             onClick={chip.onRemove}
-            className="rounded px-1 leading-none hover:bg-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
+            className="rounded px-1 leading-none hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label={`Remove ${chip.label}`}
           >
             ×
@@ -69,7 +69,7 @@ export function EventFilterChips({ filters, onRemove, onClearAll }: EventFilterC
       <button
         type="button"
         onClick={onClearAll}
-        className="shrink-0 text-xs underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
+        className="shrink-0 text-xs underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         Clear all
       </button>

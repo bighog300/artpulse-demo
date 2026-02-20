@@ -38,7 +38,7 @@ export function SearchClient({ filters }: { filters: SearchFilters }) {
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        <p className="text-xs font-medium uppercase tracking-wide text-zinc-600">Active filters</p>
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Active filters</p>
         {chips.map((chip) => (
           <button
             key={chip.key}
