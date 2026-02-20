@@ -10,6 +10,7 @@ const ADMIN_LINKS = [
   { href: "/admin/perf", label: "Performance" },
   { href: "/admin/analytics", label: "Analytics" },
   { href: "/admin/beta", label: "Beta" },
+  { href: "/admin/ops/audit", label: "Audit Log" },
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {

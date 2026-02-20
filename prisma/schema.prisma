@@ -604,3 +604,20 @@ model Follow {
   @@index([targetType, targetId])
   @@index([targetType, targetId, createdAt])
 }
+
+model AdminAuditLog {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  actorEmail String
+  action     String
+  targetType String
+  targetId   String?
+  metadata   Json?
+  ip         String?
+  userAgent  String?
+
+  @@index([createdAt])
+  @@index([actorEmail, createdAt])
+  @@index([action, createdAt])
+  @@index([targetType, createdAt])
+}
