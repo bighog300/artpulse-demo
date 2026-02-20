@@ -22,3 +22,15 @@ Vercel Hobby only supports daily cron jobs. This repo schedules all cron jobs on
 - `/api/cron/retention/engagement` → `35 2 * * *`
 
 If you need higher frequency, upgrade plan and adjust schedules intentionally.
+
+## Private beta env vars
+
+Add these project environment variables in Vercel when running private beta:
+
+- `BETA_MODE` (`1` to enable)
+- `BETA_ALLOWLIST` (comma-separated emails)
+- `BETA_ALLOW_DOMAINS` (comma-separated domains)
+- `BETA_ADMIN_EMAILS` (comma-separated admin emails)
+- `BETA_REQUESTS_ENABLED` (`1` enabled, `0` disabled)
+
+`BETA_ALLOWLIST` and related values are evaluated at runtime from env, so updates require a redeploy.

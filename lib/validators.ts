@@ -431,13 +431,29 @@ export const adminSubmissionRequestChangesSchema = z.object({
   message: z.string().trim().min(10).max(2000),
 });
 
+
+export const betaAccessRequestSchema = z.object({
+  email: z.string().trim().email().transform((value) => value.toLowerCase()),
+  note: z.string().trim().max(1000).optional(),
+});
+
+export const betaFeedbackSchema = z.object({
+  email: z.string().trim().email().transform((value) => value.toLowerCase()).optional(),
+  pagePath: z.string().trim().max(500).optional(),
+  message: z.string().trim().min(1).max(2000),
+});
+
+export const betaRequestStatusPatchSchema = z.object({
+  status: z.enum(["PENDING", "APPROVED", "DENIED"]),
+});
+
 export const submissionDecisionSchema = z.object({
   action: z.enum(["approve", "reject"]),
   decisionReason: z.string().trim().max(2000).optional().nullable(),
 });
 
 export const venueMemberCreateSchema = z.object({
-  email: z.email().transform((value) => value.trim().toLowerCase()),
+  email: z.string().trim().email().transform((value) => value.toLowerCase()),
   role: z.enum(["OWNER", "EDITOR"]),
 });
 
@@ -446,7 +462,7 @@ export const venueMemberPatchSchema = z.object({
 });
 
 export const venueInviteCreateSchema = z.object({
-  email: z.email().transform((value) => value.trim().toLowerCase()),
+  email: z.string().trim().email().transform((value) => value.toLowerCase()),
   role: z.enum(["OWNER", "EDITOR"]),
 });
 

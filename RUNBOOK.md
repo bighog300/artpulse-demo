@@ -69,3 +69,11 @@ curl -H "Authorization: Bearer $CRON_SECRET" "http://localhost:3000/api/cron/ret
 - Verify `personalization_exposure` and `personalization_outcome` emit version and ranking version.
 - Verify exposure dedupe + per-view cap behavior.
 - Verify deterministic sampling is full-rate in dev and reduced in production.
+
+## Private beta operations
+
+- Enable with `BETA_MODE=1`.
+- Configure access via `BETA_ALLOWLIST`, `BETA_ALLOW_DOMAINS`, and `BETA_ADMIN_EMAILS`.
+- Leave `BETA_REQUESTS_ENABLED=1` to collect access requests.
+- Review pending requests and feedback in `/admin/beta`.
+- Approving a request updates internal status only; you must add the email to `BETA_ALLOWLIST` and redeploy.

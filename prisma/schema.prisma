@@ -117,6 +117,12 @@ enum AssetKind {
   IMAGE
 }
 
+enum BetaAccessRequestStatus {
+  PENDING
+  APPROVED
+  DENIED
+}
+
 model User {
   id                   String            @id @default(uuid()) @db.Uuid
   email                String            @unique
@@ -143,8 +149,37 @@ model User {
   locationLat          Float?
   locationLng          Float?
   locationRadiusKm     Int               @default(25)
+  betaAccessRequests   BetaAccessRequest[]
+  betaFeedbackEntries  BetaFeedback[]
 
   @@index([locationLat, locationLng])
+}
+
+
+model BetaAccessRequest {
+  id        String                  @id @default(uuid()) @db.Uuid
+  email     String                  @unique
+  note      String?
+  status    BetaAccessRequestStatus @default(PENDING)
+  createdAt DateTime                @default(now())
+  updatedAt DateTime                @updatedAt
+  userId    String?                 @db.Uuid
+  user      User?                   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+}
+
+model BetaFeedback {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String?
+  pagePath  String?
+  message   String
+  meta      Json?
+  createdAt DateTime @default(now())
+  userId    String?  @db.Uuid
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
 }
 
 model EngagementEvent {

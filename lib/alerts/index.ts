@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { captureException, captureMessage } from "@/lib/monitoring";
 
 export type AlertPayload = {
-  severity: "warn" | "error";
+  severity: "info" | "warn" | "error";
   title: string;
   body: string;
   tags?: Record<string, string | number | boolean | null | undefined>;
