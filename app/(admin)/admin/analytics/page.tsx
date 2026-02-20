@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
-import AnalyticsAdminClient from "@/app/admin/analytics/analytics-admin-client";
+import AnalyticsAdminClient from "@/app/(admin)/admin/analytics/analytics-admin-client";
 import { PageHeader } from "@/components/ui/page-header";
 
 export default async function AdminAnalyticsPage() {

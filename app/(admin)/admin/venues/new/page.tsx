@@ -1,4 +1,4 @@
-import SimpleAdminForm from "@/app/admin/_components/SimpleAdminForm";
+import SimpleAdminForm from "@/app/(admin)/admin/_components/SimpleAdminForm";
 
 export default function AdminNewVenue() {
   return (

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getSessionUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import PerfAdminClient from "@/app/admin/perf/perf-admin-client";
+import PerfAdminClient from "@/app/(admin)/admin/perf/perf-admin-client";
 
 export default async function AdminPerfPage() {
   const user = await getSessionUser();

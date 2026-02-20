@@ -21,6 +21,11 @@ AUTH_SECRET=replace-with-long-random-string
 AUTH_GOOGLE_ID=
 AUTH_GOOGLE_SECRET=
 
+# Admin access control (required for /admin + /api/admin/*)
+ADMIN_EMAILS=admin@example.com
+# Optional domain allowlist
+ADMIN_EMAIL_DOMAINS=example.org
+
 # Maps (optional, enables Nearby map view)
 NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=
 
@@ -43,6 +48,8 @@ Minimum required:
 - `AUTH_SECRET`
 - `AUTH_GOOGLE_ID`
 - `AUTH_GOOGLE_SECRET`
+- `ADMIN_EMAILS` (required for admin panel access control, comma-separated email allowlist)
+- `ADMIN_EMAIL_DOMAINS` (optional, comma-separated admin email domains)
 
 Optional:
 - `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` (enables `/nearby` map view)

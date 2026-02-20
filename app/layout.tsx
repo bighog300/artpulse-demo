@@ -6,6 +6,7 @@ import { getSessionUser } from '@/lib/auth';
 import { CommandPalette } from '@/components/command-palette/command-palette';
 import { AppShell } from '@/components/shell/app-shell';
 import { Geist } from 'next/font/google';
+import { isAdminEmail } from '@/lib/admin';
 
 const geist = Geist({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -18,6 +19,7 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const user = await getSessionUser();
+  const isAdmin = isAdminEmail(user?.email);
 
   return (
     <html lang="en" className={geist.variable}>
@@ -28,10 +30,10 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         >
           Skip to content
         </a>
-        <AppShell user={user}>{children}</AppShell>
+        <AppShell user={user} isAdmin={isAdmin}>{children}</AppShell>
         <ToastViewport />
         <MobileBottomNav isAuthenticated={Boolean(user)} />
-        <CommandPalette isAuthenticated={Boolean(user)} isAdmin={user?.role === 'ADMIN'} />
+        <CommandPalette isAuthenticated={Boolean(user)} isAdmin={isAdmin} />
       </body>
     </html>
   );

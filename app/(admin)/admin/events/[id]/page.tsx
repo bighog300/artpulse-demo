@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import EventAdminForm from "@/app/admin/_components/EventAdminForm";
+import EventAdminForm from "@/app/(admin)/admin/_components/EventAdminForm";
 import { db } from "@/lib/db";
 
 export default async function AdminEditEvent({ params }: { params: Promise<{ id: string }> }) {

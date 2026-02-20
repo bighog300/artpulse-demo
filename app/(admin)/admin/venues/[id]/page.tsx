@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import SimpleAdminForm from "@/app/admin/_components/SimpleAdminForm";
+import SimpleAdminForm from "@/app/(admin)/admin/_components/SimpleAdminForm";
 import { db } from "@/lib/db";
 
 export default async function AdminVenue({ params }: { params: Promise<{ id: string }> }) {

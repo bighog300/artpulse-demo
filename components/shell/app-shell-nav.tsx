@@ -11,6 +11,7 @@ type ShellUser = {
 
 type AppShellNavProps = {
   user: ShellUser | null;
+  isAdmin: boolean;
 };
 
 type NavLink = { label: string; href: string };
@@ -49,14 +50,14 @@ function NavTextLink({ href, label, onClick }: { href: string; label: string; on
   );
 }
 
-export function AppShellNav({ user }: AppShellNavProps) {
+export function AppShellNav({ user, isAdmin }: AppShellNavProps) {
   const pathname = usePathname() ?? "/";
   const [mobileOpen, setMobileOpen] = useState(false);
   const [unread, setUnread] = useState(0);
 
   const roleLinks: NavLink[] = [];
   if (user?.role === "EDITOR" || user?.role === "ADMIN") roleLinks.push({ label: "Publisher Dashboard", href: "/my" });
-  if (user?.role === "ADMIN") roleLinks.push({ label: "Admin", href: "/admin" });
+  if (isAdmin) roleLinks.push({ label: "Admin", href: "/admin" });
 
   useEffect(() => {
     setMobileOpen(false);
