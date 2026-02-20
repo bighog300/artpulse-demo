@@ -67,7 +67,7 @@ export async function runEngagementRetentionCron(
           lock: lock.supported ? "acquired" : "unsupported",
         } as const;
         logCronSummary(summary);
-        markCronSuccess(summary.cronName, summary.finishedAt);
+        await markCronSuccess(summary.cronName, summary.finishedAt, summary.cronRunId);
         return Response.json(summary);
       }
 
@@ -87,12 +87,12 @@ export async function runEngagementRetentionCron(
         lock: lock.supported ? "acquired" : "unsupported",
       } as const;
       logCronSummary(summary);
-      markCronSuccess(summary.cronName, summary.finishedAt);
+      await markCronSuccess(summary.cronName, summary.finishedAt, summary.cronRunId);
       return Response.json(summary);
     }, { route, requestId: meta.requestId, cronRunId, userScope: false });
   } catch (error) {
     captureException(error, { route, requestId: meta.requestId, cronRunId, userScope: false });
-    markCronFailure("retention_engagement", "internal_error");
+    await markCronFailure("retention_engagement", "internal_error", new Date().toISOString(), cronRunId);
     await sendAlert({ severity: "error", title: "Cron execution failed", body: `cron=retention_engagement cronRunId=${cronRunId}`, tags: { cronName: "retention_engagement", cronRunId } });
     return Response.json({ ok: false, cronName: "retention_engagement", cronRunId, error: { code: "internal_error", message: "Cron execution failed", details: undefined } }, { status: 500 });
   } finally {

@@ -59,7 +59,7 @@ export async function runCronOutboxSend(
 
       logCronSummary(summary);
       if (summary.errorCount > 0) {
-        markCronFailure(summary.cronName, `failed=${summary.failed}`);
+        await markCronFailure(summary.cronName, `failed=${summary.failed}`, summary.finishedAt, summary.cronRunId);
         await sendAlert({
           severity: "error",
           title: "Cron outbox failures",
@@ -67,7 +67,7 @@ export async function runCronOutboxSend(
           tags: { cronName: summary.cronName, cronRunId: summary.cronRunId, durationMs: summary.durationMs, errorCount: summary.errorCount },
         });
       } else {
-        markCronSuccess(summary.cronName, summary.finishedAt);
+        await markCronSuccess(summary.cronName, summary.finishedAt, summary.cronRunId);
       }
       return Response.json(summary);
     }, { route, requestId: meta.requestId, cronRunId, userScope: false });
@@ -85,7 +85,7 @@ export async function runCronOutboxSend(
       dryRun,
       lock: lock.supported ? "acquired" : "unsupported",
     } as const;
-    markCronFailure(summary.cronName, "internal_error");
+    await markCronFailure(summary.cronName, "internal_error", summary.finishedAt, summary.cronRunId);
     await sendAlert({
       severity: "error",
       title: "Cron execution failed",
