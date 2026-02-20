@@ -1,5 +1,6 @@
 export const PERSONALIZATION_VERSION = "v3_1";
 export const PERSONALIZATION_VERSION_LEGACY = "v3" as const;
+export const PERSONALIZATION_EXPOSURE_SAMPLE_RATE_PROD = 0.25;
 
 export const DEFAULT_WEIGHTS = {
   followedVenue: 40,

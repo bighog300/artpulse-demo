@@ -21,11 +21,23 @@ test("analytics route rejects PII and sensitive location/query keys", async () =
     { ...base, props: { query: "secret" } },
     { ...base, props: { lat: 51.5, lng: -0.12 } },
     { ...base, props: { email: "user@example.com" } },
-    { ...base, props: { name: "Jane" } },
+    { ...base, props: { userName: "Jane" } },
   ];
 
   for (const payload of blockedPayloads) {
     const response = await POST(requestWithBody(payload));
     assert.equal(response.status, 400);
   }
+});
+
+test("analytics route allows legitimate name-like props", async () => {
+  const payload = {
+    name: "personalization_exposure",
+    ts: new Date().toISOString(),
+    path: "/events",
+    props: { venueName: "Tate", artistName: "Any", cronName: "daily_retention" },
+  };
+
+  const response = await POST(requestWithBody(payload));
+  assert.equal(response.status, 204);
 });

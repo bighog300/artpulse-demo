@@ -12,8 +12,8 @@
 
 ### Conditionally required when feature is enabled
 - `DIRECT_URL` (if direct Prisma connection is used)
-- `CRON_SECRET` (if cron routes are enabled)
-- `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` (if maps are enabled)
+- `CRON_SECRET` (required when `vercel.json` defines `crons`)
+- `NEXT_PUBLIC_MAPBOX_TOKEN` (canonical; `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` also supported)
 
 ## Vercel cron limits (Hobby)
 Vercel Hobby only supports daily cron jobs. This repo schedules all cron jobs once daily to remain deploy-safe on Hobby:

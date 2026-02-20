@@ -7,7 +7,20 @@ import { captureMessage } from "@/lib/monitoring";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const MAX_BODY_BYTES = 50 * 1024;
-const FORBIDDEN_PROP_KEYS = [/query/i, /lat/i, /lng/i, /email/i, /name/i, /user/i, /address/i];
+const FORBIDDEN_PROP_KEYS = [
+  /query/i,
+  /^lat$/i,
+  /^lng$/i,
+  /email/i,
+  /^user_?id$/i,
+  /user.?name/i,
+  /full.?name/i,
+  /first.?name/i,
+  /last.?name/i,
+  /phone/i,
+  /address/i,
+  /^ip$/i,
+];
 
 const analyticsSchema = z.object({
   name: z.string().min(1).max(80),

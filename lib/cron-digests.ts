@@ -140,16 +140,16 @@ export async function runWeeklyDigests(headerSecret: string | null, dryRunRaw: s
     } as const;
     logCronSummary(summary);
     if (summary.errorCount > 0) {
-      markCronFailure(summary.cronName, `errorCount=${summary.errorCount}`);
+      await markCronFailure(summary.cronName, `errorCount=${summary.errorCount}`, summary.finishedAt, summary.cronRunId);
       await sendAlert({ severity: "error", title: "Cron digest failures", body: `cron=${summary.cronName} cronRunId=${summary.cronRunId} durationMs=${summary.durationMs} errors=${summary.errorCount}`, tags: { cronName: summary.cronName, cronRunId: summary.cronRunId, errorCount: summary.errorCount, durationMs: summary.durationMs } });
     } else {
-      markCronSuccess(summary.cronName, summary.finishedAt);
+      await markCronSuccess(summary.cronName, summary.finishedAt, summary.cronRunId);
     }
     return Response.json(summary);
     }, { route, requestId: meta.requestId, cronRunId, userScope: false });
   } catch (error) {
     captureException(error, { route: "/api/cron/digests/weekly", requestId: meta.requestId, cronRunId, userScope: false });
-    markCronFailure("digests_weekly", "internal_error");
+    await markCronFailure("digests_weekly", "internal_error", new Date().toISOString(), cronRunId);
     await sendAlert({ severity: "error", title: "Cron execution failed", body: `cron=digests_weekly cronRunId=${cronRunId}` , tags: { cronName: "digests_weekly", cronRunId } });
     return Response.json({ ok: false, cronName: "digests_weekly", cronRunId, error: { code: "internal_error", message: "Cron execution failed", details: undefined } }, { status: 500 });
   } finally {

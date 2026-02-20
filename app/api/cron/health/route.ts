@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   });
   if (authFailure) return authFailure;
 
-  const watchdog = await runOpsWatchdog();
+  const watchdog = await runOpsWatchdog({ mode: "snapshot" });
   return NextResponse.json(
     {
       ok: true,

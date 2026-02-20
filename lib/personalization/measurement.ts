@@ -1,7 +1,7 @@
 "use client";
 
 import { track } from "@/lib/analytics/client";
-import { getPersonalizationTuning, PERSONALIZATION_VERSION } from "@/lib/personalization/tuning";
+import { getPersonalizationTuning, PERSONALIZATION_EXPOSURE_SAMPLE_RATE_PROD, PERSONALIZATION_VERSION } from "@/lib/personalization/tuning";
 
 const EXPOSURES_KEY = "ap_exposures_v3";
 const OUTCOMES_KEY = "ap_outcomes_v3";
@@ -61,8 +61,6 @@ type Metrics = {
 const memStore = new Map<string, string>();
 const exposureViewCounter = new Map<string, number>();
 
-const EXPOSURE_SAMPLE_RATE_PROD = 0.25;
-
 function daySessionBucket(sessionId: string, dayKey: string) {
   const value = `${sessionId}:${dayKey}`;
   let hash = 0;
@@ -74,7 +72,7 @@ function daySessionBucket(sessionId: string, dayKey: string) {
 
 function shouldSampleExposure(sessionId: string, dayKey: string) {
   if (process.env.NODE_ENV !== "production") return true;
-  return daySessionBucket(sessionId, dayKey) <= EXPOSURE_SAMPLE_RATE_PROD;
+  return daySessionBucket(sessionId, dayKey) <= PERSONALIZATION_EXPOSURE_SAMPLE_RATE_PROD;
 }
 
 
