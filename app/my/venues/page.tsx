@@ -63,7 +63,7 @@ export default async function MyVenuesPage() {
           <h2 className="text-lg font-semibold">Pending invites</h2>
           <ul className="space-y-2">
             {pendingInvites.map((invite) => (
-              <li key={invite.id} className="rounded border bg-white p-3 text-sm">
+              <li key={invite.id} className="rounded border bg-card p-3 text-sm">
                 <p className="font-medium">{invite.venue.name}</p>
                 <p className="text-neutral-600">Role: {invite.role}</p>
                 <p className="mt-2"><Link className="underline" href={`/invite/${invite.token}`}>Review and accept invite</Link></p>

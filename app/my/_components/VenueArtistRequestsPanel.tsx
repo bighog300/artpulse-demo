@@ -27,13 +27,13 @@ export default function VenueArtistRequestsPanel({ venueId, initialRequests }: {
   return (
     <section className="space-y-3 rounded border p-4">
       <h2 className="text-lg font-semibold">Artist requests</h2>
-      {requests.length === 0 ? <p className="text-sm text-zinc-600">No pending requests.</p> : (
+      {requests.length === 0 ? <p className="text-sm text-muted-foreground">No pending requests.</p> : (
         <ul className="space-y-2">
           {requests.map((request) => (
             <li key={request.id} className="rounded border p-3">
               <p className="font-medium">{request.artist.name}</p>
-              <p className="mt-1 inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">{roleLabel(normalizeAssociationRole(request.role))}</p>
-              {request.message ? <p className="text-sm text-zinc-700">{request.message}</p> : null}
+              <p className="mt-1 inline-flex rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{roleLabel(normalizeAssociationRole(request.role))}</p>
+              {request.message ? <p className="text-sm text-muted-foreground">{request.message}</p> : null}
               <div className="mt-2 flex gap-2">
                 <button className="rounded border px-2 py-1 text-sm" onClick={() => moderateRequest(request.id, "approve")}>Approve</button>
                 <button className="rounded border px-2 py-1 text-sm" onClick={() => moderateRequest(request.id, "reject")}>Reject</button>

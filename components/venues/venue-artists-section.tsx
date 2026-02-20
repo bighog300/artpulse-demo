@@ -25,7 +25,7 @@ export function VenueArtistsSection({ verifiedArtists, derivedArtists }: { verif
     return (
       <section className="space-y-3">
         <h2 className="text-2xl font-semibold">Artists</h2>
-        <p className="rounded border border-dashed p-4 text-sm text-zinc-600">No associated artists yet.</p>
+        <p className="rounded border border-dashed p-4 text-sm text-muted-foreground">No associated artists yet.</p>
       </section>
     );
   }

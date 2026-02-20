@@ -39,10 +39,10 @@ export function TrendingEvents() {
 
   if (isLoading) {
     return (
-      <section className="space-y-2 rounded-lg border bg-zinc-50 p-3" aria-busy="true" aria-live="polite">
+      <section className="space-y-2 rounded-lg border bg-muted/50 p-3" aria-busy="true" aria-live="polite">
         <div>
-          <h2 className="text-sm font-semibold text-zinc-900">Trending</h2>
-          <p className="text-xs text-zinc-600">Based on saves from the last 14 days.</p>
+          <h2 className="text-sm font-semibold text-foreground">Trending</h2>
+          <p className="text-xs text-muted-foreground">Based on saves from the last 14 days.</p>
         </div>
         <EventCardSkeleton />
       </section>
@@ -52,10 +52,10 @@ export function TrendingEvents() {
   if (!items.length) return null;
 
   return (
-    <section className="space-y-2 rounded-lg border bg-zinc-50 p-3">
+    <section className="space-y-2 rounded-lg border bg-muted/50 p-3">
       <div>
-        <h2 className="text-sm font-semibold text-zinc-900">Trending</h2>
-        <p className="text-xs text-zinc-600">Based on saves from the last 14 days.</p>
+        <h2 className="text-sm font-semibold text-foreground">Trending</h2>
+        <p className="text-xs text-muted-foreground">Based on saves from the last 14 days.</p>
       </div>
       <ul className="space-y-2">
         {items.map((event) => (

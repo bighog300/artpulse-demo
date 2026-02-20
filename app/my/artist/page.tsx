@@ -54,7 +54,7 @@ export default async function MyArtistPage() {
     return (
       <main className="space-y-4 p-6">
         <h1 className="text-2xl font-semibold">My Artist Profile</h1>
-        <p className="rounded border border-dashed p-4 text-sm text-zinc-600">No artist profile is linked to your account yet. Ask an editor to connect your Artist record to your user account.</p>
+        <p className="rounded border border-dashed p-4 text-sm text-muted-foreground">No artist profile is linked to your account yet. Ask an editor to connect your Artist record to your user account.</p>
       </main>
     );
   }

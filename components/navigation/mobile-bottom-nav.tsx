@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, Home, MapPin, Menu, Palette, Search, Sparkles, UserCircle, Users } from "lucide-react";
+import { CalendarDays, Compass, Home, MapPin, Menu, Palette, Search, Sparkles, UserCircle, Users } from "lucide-react";
 import { usePathname } from "next/navigation";
 
 type MobileBottomNavProps = {
@@ -20,7 +20,7 @@ const ITEMS = [
 
 const MORE_AUTH_ITEMS = [
   { href: "/events", label: "Events", icon: Sparkles },
-  { href: "/nearby", label: "Nearby", icon: MapPin },
+  { href: "/nearby", label: "Nearby", icon: Compass },
   { href: "/for-you", label: "For You", icon: Sparkles },
   { href: "/following", label: "Following", icon: Users },
   { href: "/account", label: "Account", icon: UserCircle },
@@ -28,7 +28,7 @@ const MORE_AUTH_ITEMS = [
 
 const MORE_PUBLIC_ITEMS = [
   { href: "/events", label: "Events", icon: Sparkles },
-  { href: "/nearby", label: "Nearby", icon: MapPin },
+  { href: "/nearby", label: "Nearby", icon: Compass },
   { href: "/search", label: "Search", icon: Search },
   { href: "/login", label: "Sign in", icon: UserCircle },
 ] as const;
@@ -80,9 +80,9 @@ export function MobileBottomNavInner({ isAuthenticated, pathname }: MobileBottom
   const moreItems = useMemo(() => (isAuthenticated ? MORE_AUTH_ITEMS : MORE_PUBLIC_ITEMS), [isAuthenticated]);
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 border-t bg-white md:hidden" aria-label="Mobile navigation">
+    <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background md:hidden" aria-label="Mobile navigation">
       {isMoreOpen ? (
-        <div id="mobile-more-menu" className="border-b bg-white px-3 py-2">
+        <div id="mobile-more-menu" className="border-b border-border bg-background px-3 py-2">
           <ul className="space-y-1">
             {moreItems.map((item) => {
               const Icon = item.icon;
@@ -91,7 +91,7 @@ export function MobileBottomNavInner({ isAuthenticated, pathname }: MobileBottom
                 <li key={`more-${item.href}`}>
                   <Link
                     href={item.href}
-                    className={`flex items-center gap-2 rounded px-2 py-1.5 text-sm ${isActive ? "bg-zinc-100 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"}`}
+                    className={`flex items-center gap-2 rounded px-2 py-1.5 text-sm transition-colors ${isActive ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
                     onClick={() => setIsMoreOpen(false)}
                     aria-current={isActive ? "page" : undefined}
                   >
@@ -114,9 +114,9 @@ export function MobileBottomNavInner({ isAuthenticated, pathname }: MobileBottom
               <Link
                 href={item.href}
                 aria-current={isActive ? "page" : undefined}
-                className="relative flex flex-col items-center gap-1 px-2 py-2 text-[11px] text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black"
+                className="relative flex flex-col items-center gap-1 px-2 py-2 text-[11px] text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <Icon className={`h-4 w-4 ${isActive ? "text-black" : "text-zinc-500"}`} aria-hidden="true" />
+                <Icon className={`h-4 w-4 ${isActive ? "text-foreground" : "text-muted-foreground"}`} aria-hidden="true" />
                 <span>{item.label}</span>
               </Link>
             </li>
@@ -125,12 +125,12 @@ export function MobileBottomNavInner({ isAuthenticated, pathname }: MobileBottom
         <li>
           <button
             type="button"
-            className="flex w-full flex-col items-center gap-1 px-2 py-2 text-[11px] text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black"
+            className="flex w-full flex-col items-center gap-1 px-2 py-2 text-[11px] text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-expanded={isMoreOpen}
             aria-controls="mobile-more-menu"
             onClick={() => setIsMoreOpen((prev) => !prev)}
           >
-            <Menu className={`h-4 w-4 ${isMoreOpen ? "text-black" : "text-zinc-500"}`} aria-hidden="true" />
+            <Menu className={`h-4 w-4 ${isMoreOpen ? "text-foreground" : "text-muted-foreground"}`} aria-hidden="true" />
             <span>More</span>
           </button>
         </li>

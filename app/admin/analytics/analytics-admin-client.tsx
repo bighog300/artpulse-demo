@@ -162,7 +162,7 @@ export default function AnalyticsAdminClient() {
         <h2 className="text-lg font-semibold">Top targets</h2>
         <div className="flex flex-wrap items-center gap-2">
           {(["EVENT", "VENUE", "ARTIST"] as const).map((type) => (
-            <button type="button" key={type} className={`px-3 py-1 border rounded text-sm ${topType === type ? "bg-black text-white" : "bg-white"}`} onClick={() => setTopType(type)}>{type[0]}{type.slice(1).toLowerCase()}s</button>
+            <button type="button" key={type} className={`px-3 py-1 border rounded text-sm ${topType === type ? "bg-primary text-primary-foreground" : "bg-background"}`} onClick={() => setTopType(type)}>{type[0]}{type.slice(1).toLowerCase()}s</button>
           ))}
 
           <label className="ml-2 text-sm">Metric</label>

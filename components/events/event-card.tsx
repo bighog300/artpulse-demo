@@ -42,7 +42,7 @@ export function EventCard({ title, startAt, endAt, venueName, imageUrl, href, ba
           {imageUrl ? (
             <Image
               src={imageUrl}
-              alt={title}
+              alt=""
               fill
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               className="object-cover ui-trans motion-safe:group-hover:scale-[1.02] motion-safe:group-focus-visible:scale-[1.02]"

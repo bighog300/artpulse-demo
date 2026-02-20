@@ -31,7 +31,7 @@ export function VenueGalleryLightbox({ images }: { images: GalleryImage[] }) {
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-2xl font-semibold">Gallery</h2>
-        <p className="text-sm text-zinc-600">{images.length} photos</p>
+        <p className="text-sm text-muted-foreground">{images.length} photos</p>
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {images.map((image, index) => (

@@ -5,6 +5,9 @@ import { ToastViewport } from '@/components/ui/toast';
 import { getSessionUser } from '@/lib/auth';
 import { CommandPalette } from '@/components/command-palette/command-palette';
 import { AppShell } from '@/components/shell/app-shell';
+import { Geist } from 'next/font/google';
+
+const geist = Geist({ subsets: ['latin'], variable: '--font-sans' });
 
 export const metadata: Metadata = {
   title: { default: 'Artpulse', template: '%s | Artpulse' },
@@ -17,7 +20,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const user = await getSessionUser();
 
   return (
-    <html lang="en">
+    <html lang="en" className={geist.variable}>
       <body className="min-h-screen bg-background font-sans text-foreground">
         <a
           href="#main"

@@ -27,9 +27,9 @@ export function VenueEventShowcaseCard({ event, calendarHref }: { event: VenueSh
         imageUrl={event.imageUrl}
       />
       <div className="space-y-1 px-1">
-        <p className="text-sm text-zinc-700">{formatEventDateLabel(event.startAt)}</p>
-        <p className="text-sm text-zinc-700">{formatEventDateTimeRange(event.startAt, event.endAt)}</p>
-        {event.description ? <p className="line-clamp-3 text-sm text-zinc-600">{event.description}</p> : null}
+        <p className="text-sm text-foreground">{formatEventDateLabel(event.startAt)}</p>
+        <p className="text-sm text-foreground">{formatEventDateTimeRange(event.startAt, event.endAt)}</p>
+        {event.description ? <p className="line-clamp-3 text-sm text-muted-foreground">{event.description}</p> : null}
       </div>
       <div className="flex flex-wrap gap-2 px-1 pt-1">
         <Link href={`/events/${event.slug}`} className={cn(buttonVariants({ size: "sm" }))}>View details</Link>
