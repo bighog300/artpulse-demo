@@ -67,7 +67,7 @@ export function SetupChecklistCard({ page }: { page: string }) {
   ];
 
   return (
-    <aside className="rounded-lg border bg-zinc-50 p-3">
+    <aside className="rounded-lg border bg-muted/50 p-3">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold">Complete your setup</h3>
         <button

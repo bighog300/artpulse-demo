@@ -31,17 +31,17 @@ export function ArtistCard({
   const router = useRouter();
 
   return (
-    <article className="group overflow-hidden rounded-lg border bg-white motion-safe:transition-colors motion-safe:transition-shadow motion-safe:duration-150 motion-reduce:transition-none hover:border-zinc-400 hover:bg-zinc-50 hover:shadow-sm">
+    <article className="group overflow-hidden rounded-lg border bg-card motion-safe:transition-colors motion-safe:transition-shadow motion-safe:duration-150 motion-reduce:transition-none hover:border-border hover:bg-muted/50 hover:shadow-sm">
       <div className="flex items-start justify-between gap-2 p-3">
         <Link href={href} className="min-w-0 flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900">
           <div className="flex gap-3">
-            <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded bg-zinc-100">
+            <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded bg-muted">
               <Image src={imageUrl || PLACEHOLDER} alt={name} fill sizes="80px" className="object-cover" />
             </div>
             <div className="min-w-0 flex-1 space-y-1">
-              <h2 className="line-clamp-2 font-semibold text-zinc-900 group-hover:underline">{name}</h2>
+              <h2 className="line-clamp-2 font-semibold text-foreground group-hover:underline">{name}</h2>
               {bio ? (
-                <p className="text-sm text-zinc-700 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] overflow-hidden">{bio}</p>
+                <p className="text-sm text-muted-foreground [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] overflow-hidden">{bio}</p>
               ) : null}
             </div>
           </div>
@@ -63,7 +63,7 @@ export function ArtistCard({
             <button
               key={tag}
               type="button"
-              className="rounded-full border bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700 hover:bg-zinc-200"
+              className="rounded-full border bg-muted px-2 py-0.5 text-xs text-muted-foreground hover:bg-muted"
               onClick={() => router.push(`/events?tags=${encodeURIComponent(tag)}`)}
             >
               #{tag}

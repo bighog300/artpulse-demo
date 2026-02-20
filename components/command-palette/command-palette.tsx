@@ -181,12 +181,12 @@ export function CommandPalette({ isAuthenticated, isAdmin }: CommandPaletteProps
 
   return (
     <>
-      <button type="button" className="fixed bottom-24 right-4 z-30 rounded border bg-white px-3 py-1.5 text-xs text-zinc-600 shadow md:bottom-4" onClick={() => setIsOpen(true)}>
+      <button type="button" className="fixed bottom-24 right-4 z-30 rounded border bg-card px-3 py-1.5 text-xs text-muted-foreground shadow md:bottom-4" onClick={() => setIsOpen(true)}>
         ⌘K
       </button>
       {isOpen ? (
         <div className="fixed inset-0 z-40 bg-black/40 px-4 py-10" role="dialog" aria-modal="true" aria-label="Command palette">
-          <div ref={panelRef} className="mx-auto max-w-2xl rounded-lg border bg-white shadow-xl">
+          <div ref={panelRef} className="mx-auto max-w-2xl rounded-lg border bg-card shadow-xl">
             <div className="border-b p-3">
               <input
                 ref={inputRef}
@@ -194,11 +194,11 @@ export function CommandPalette({ isAuthenticated, isAdmin }: CommandPaletteProps
                 onChange={(event) => setQuery(event.target.value)}
                 onKeyDown={onInputKeyDown}
                 placeholder="Search venues, artists, and events..."
-                className="w-full rounded border px-3 py-2 text-sm outline-none ring-black focus:ring"
+                className="w-full rounded border px-3 py-2 text-sm outline-none ring-ring focus:ring"
               />
             </div>
             <div className="max-h-[65vh] overflow-auto p-3" role="listbox" aria-activedescendant={allOptions[activeIndex]?.id}>
-              <p className="px-2 pb-1 text-xs font-medium uppercase tracking-wide text-zinc-500">Navigate</p>
+              <p className="px-2 pb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Navigate</p>
               {navigateCommands.map((item, index) => (
                 <Link
                   key={item.id}
@@ -206,15 +206,15 @@ export function CommandPalette({ isAuthenticated, isAdmin }: CommandPaletteProps
                   href={item.href}
                   role="option"
                   aria-selected={activeIndex === index}
-                  className={`flex items-center justify-between rounded px-2 py-1.5 text-sm ${activeIndex === index ? "bg-zinc-100" : "hover:bg-zinc-50"}`}
+                  className={`flex items-center justify-between rounded px-2 py-1.5 text-sm ${activeIndex === index ? "bg-muted" : "hover:bg-muted/50"}`}
                   onClick={() => setIsOpen(false)}
                 >
                   <span>{item.label}</span>
-                  {item.meta ? <span className="text-xs text-zinc-500">{item.meta}</span> : null}
+                  {item.meta ? <span className="text-xs text-muted-foreground">{item.meta}</span> : null}
                 </Link>
               ))}
 
-              {results.events.length > 0 ? <p className="px-2 pb-1 pt-3 text-xs font-medium uppercase tracking-wide text-zinc-500">Events</p> : null}
+              {results.events.length > 0 ? <p className="px-2 pb-1 pt-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Events</p> : null}
               {results.events.map((item, index) => {
                 const optionIndex = navigateCommands.length + index;
                 return (
@@ -224,16 +224,16 @@ export function CommandPalette({ isAuthenticated, isAdmin }: CommandPaletteProps
                     href={`/events/${item.slug}`}
                     role="option"
                     aria-selected={activeIndex === optionIndex}
-                    className={`flex items-center justify-between rounded px-2 py-1.5 text-sm ${activeIndex === optionIndex ? "bg-zinc-100" : "hover:bg-zinc-50"}`}
+                    className={`flex items-center justify-between rounded px-2 py-1.5 text-sm ${activeIndex === optionIndex ? "bg-muted" : "hover:bg-muted/50"}`}
                     onClick={() => setIsOpen(false)}
                   >
                     <span>{item.title}</span>
-                    <span className="text-xs text-zinc-500">{formatEventDate(item.startAt)}</span>
+                    <span className="text-xs text-muted-foreground">{formatEventDate(item.startAt)}</span>
                   </Link>
                 );
               })}
 
-              {results.venues.length > 0 ? <p className="px-2 pb-1 pt-3 text-xs font-medium uppercase tracking-wide text-zinc-500">Venues</p> : null}
+              {results.venues.length > 0 ? <p className="px-2 pb-1 pt-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Venues</p> : null}
               {results.venues.map((item, index) => {
                 const optionIndex = navigateCommands.length + results.events.length + index;
                 return (
@@ -243,7 +243,7 @@ export function CommandPalette({ isAuthenticated, isAdmin }: CommandPaletteProps
                     href={`/venues/${item.slug}`}
                     role="option"
                     aria-selected={activeIndex === optionIndex}
-                    className={`flex items-center justify-between rounded px-2 py-1.5 text-sm ${activeIndex === optionIndex ? "bg-zinc-100" : "hover:bg-zinc-50"}`}
+                    className={`flex items-center justify-between rounded px-2 py-1.5 text-sm ${activeIndex === optionIndex ? "bg-muted" : "hover:bg-muted/50"}`}
                     onClick={() => setIsOpen(false)}
                   >
                     <span>{item.name}</span>
@@ -251,7 +251,7 @@ export function CommandPalette({ isAuthenticated, isAdmin }: CommandPaletteProps
                 );
               })}
 
-              {results.artists.length > 0 ? <p className="px-2 pb-1 pt-3 text-xs font-medium uppercase tracking-wide text-zinc-500">Artists</p> : null}
+              {results.artists.length > 0 ? <p className="px-2 pb-1 pt-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Artists</p> : null}
               {results.artists.map((item, index) => {
                 const optionIndex = navigateCommands.length + results.events.length + results.venues.length + index;
                 return (
@@ -261,7 +261,7 @@ export function CommandPalette({ isAuthenticated, isAdmin }: CommandPaletteProps
                     href={`/artists/${item.slug}`}
                     role="option"
                     aria-selected={activeIndex === optionIndex}
-                    className={`flex items-center justify-between rounded px-2 py-1.5 text-sm ${activeIndex === optionIndex ? "bg-zinc-100" : "hover:bg-zinc-50"}`}
+                    className={`flex items-center justify-between rounded px-2 py-1.5 text-sm ${activeIndex === optionIndex ? "bg-muted" : "hover:bg-muted/50"}`}
                     onClick={() => setIsOpen(false)}
                   >
                     <span>{item.name}</span>

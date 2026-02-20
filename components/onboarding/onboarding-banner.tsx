@@ -35,7 +35,7 @@ export function OnboardingBanner({
   }
 
   return (
-    <aside className={`space-y-3 rounded-lg border bg-zinc-50 ${compact ? "p-3" : "p-4"}`}>
+    <aside className={`space-y-3 rounded-lg border bg-muted/50 ${compact ? "p-3" : "p-4"}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold">Set up your feed</h2>

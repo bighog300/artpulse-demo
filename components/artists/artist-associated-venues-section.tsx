@@ -7,7 +7,7 @@ import type { AssociatedVenue } from "@/lib/artist-associated-venues";
 type FilterKey = "all" | "exhibitions" | string;
 
 function Badge({ text, subtle = false }: { text: string; subtle?: boolean }) {
-  return <span className={`rounded-full px-2 py-0.5 text-xs ${subtle ? "bg-zinc-100 text-zinc-600" : "bg-zinc-800 text-white"}`}>{text}</span>;
+  return <span className={`rounded-full px-2 py-0.5 text-xs ${subtle ? "bg-muted text-muted-foreground" : "bg-secondary text-secondary-foreground"}`}>{text}</span>;
 }
 
 export function ArtistAssociatedVenuesSection({ verified, derived }: { verified: AssociatedVenue[]; derived: AssociatedVenue[] }) {
@@ -37,7 +37,7 @@ export function ArtistAssociatedVenuesSection({ verified, derived }: { verified:
       <div className="grid gap-4 md:grid-cols-2">
         <div>
           <h3 className="text-lg font-medium">Verified</h3>
-          {filtered.verified.length === 0 ? <p className="text-sm text-zinc-600">No verified venues yet.</p> : (
+          {filtered.verified.length === 0 ? <p className="text-sm text-muted-foreground">No verified venues yet.</p> : (
             <ul className="space-y-2">
               {filtered.verified.map((venue) => <li key={`v-${venue.id}`} className="flex items-center gap-2"><Link className="underline" href={`/venues/${venue.slug}`}>{venue.name}</Link><Badge text={venue.roleLabel} /></li>)}
             </ul>
@@ -45,7 +45,7 @@ export function ArtistAssociatedVenuesSection({ verified, derived }: { verified:
         </div>
         <div>
           <h3 className="text-lg font-medium">From exhibitions</h3>
-          {filtered.derived.length === 0 ? <p className="text-sm text-zinc-600">No exhibition venues yet.</p> : (
+          {filtered.derived.length === 0 ? <p className="text-sm text-muted-foreground">No exhibition venues yet.</p> : (
             <ul className="space-y-2">
               {filtered.derived.map((venue) => <li key={`d-${venue.id}`} className="flex items-center gap-2"><Link className="underline" href={`/venues/${venue.slug}`}>{venue.name}</Link><Badge text="Exhibition venue" subtle /></li>)}
             </ul>

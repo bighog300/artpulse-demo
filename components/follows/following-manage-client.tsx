@@ -123,12 +123,12 @@ export function FollowingManageClient() {
           className="rounded border px-3 py-1.5 text-sm"
         />
         {(["ALL", "ARTISTS", "VENUES"] as const).map((item) => (
-          <button key={item} type="button" className={`rounded border px-3 py-1 text-sm ${tab === item ? "border-black" : "border-zinc-300"}`} onClick={() => setTab(item)}>{item === "ALL" ? "All" : item === "ARTISTS" ? "Artists" : "Venues"}</button>
+          <button key={item} type="button" className={`rounded border px-3 py-1 text-sm ${tab === item ? "border-primary" : "border-border"}`} onClick={() => setTab(item)}>{item === "ALL" ? "All" : item === "ARTISTS" ? "Artists" : "Venues"}</button>
         ))}
         <button type="button" className="rounded border px-3 py-1 text-sm" disabled={!selectedTargets.length || isSaving} onClick={unfollowSelected}>{isSaving ? "Removing..." : "Unfollow selected"}</button>
       </div>
 
-      {rows.length === 0 ? <p className="text-sm text-zinc-600">No matches</p> : (
+      {rows.length === 0 ? <p className="text-sm text-muted-foreground">No matches</p> : (
         <ul className="space-y-2">
           {rows.map((row) => {
             const key = `${row.targetType}:${row.id}`;
@@ -139,10 +139,10 @@ export function FollowingManageClient() {
                   <input type="checkbox" checked={Boolean(selected[key])} onChange={() => toggle(row)} />
                   <div>
                     <Link className="font-medium underline" href={href}>{row.name}</Link>
-                    <p className="text-xs text-zinc-600">Upcoming 30d: {row.upcomingEventsCount} · Followers: {row.followersCount}</p>
+                    <p className="text-xs text-muted-foreground">Upcoming 30d: {row.upcomingEventsCount} · Followers: {row.followersCount}</p>
                   </div>
                 </label>
-                <span className="text-xs text-zinc-500">{row.targetType === "ARTIST" ? "Artist" : "Venue"}</span>
+                <span className="text-xs text-muted-foreground">{row.targetType === "ARTIST" ? "Artist" : "Venue"}</span>
               </li>
             );
           })}

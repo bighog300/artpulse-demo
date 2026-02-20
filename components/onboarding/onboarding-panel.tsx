@@ -47,7 +47,7 @@ export function OnboardingPanel() {
   if (loading || dismissed || !payload || payload.state?.completedAt) return null;
 
   return (
-    <aside className="rounded border bg-zinc-50 p-4">
+    <aside className="rounded border bg-muted/50 p-4">
       <div className="mb-2 flex items-center justify-between gap-2">
         <h2 className="font-semibold">Get started on Artpulse</h2>
         <button
@@ -61,14 +61,14 @@ export function OnboardingPanel() {
           Hide for now
         </button>
       </div>
-      <p className="text-sm text-zinc-600">{remainingCount} step{remainingCount === 1 ? "" : "s"} remaining</p>
+      <p className="text-sm text-muted-foreground">{remainingCount} step{remainingCount === 1 ? "" : "s"} remaining</p>
       <ul className="mt-3 space-y-2">
         {payload.checklist.map((item) => (
-          <li key={item.flag} className="rounded border bg-white p-3 text-sm">
+          <li key={item.flag} className="rounded border bg-card p-3 text-sm">
             <div className="flex items-center justify-between gap-2">
               <div>
                 <p className="font-medium">{item.done ? "✓ " : ""}{item.title}</p>
-                <p className="text-zinc-600">{item.description}</p>
+                <p className="text-muted-foreground">{item.description}</p>
               </div>
               {!item.done ? <Link className="whitespace-nowrap underline" href={item.href}>Go</Link> : null}
             </div>

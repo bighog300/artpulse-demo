@@ -163,7 +163,7 @@ export function NearbyMap({ events, lat, lng, radiusKm, days, onSearchArea }: Ne
       {selected ? (
         <>
           <div className="hidden md:block"><EventPreviewCard event={selected} /></div>
-          <div className="fixed inset-x-0 bottom-16 z-20 border-t bg-white p-3 shadow-lg md:hidden">
+          <div className="fixed inset-x-0 bottom-16 z-20 border-t bg-card p-3 shadow-lg md:hidden">
             <EventPreviewCard event={selected} />
           </div>
         </>
