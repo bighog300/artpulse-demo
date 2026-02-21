@@ -81,12 +81,19 @@ jobs:
           for attempt in $(seq 1 "$max_attempts"); do
             echo "Fetching Neon connection URLs attempt ${attempt}/${max_attempts}..."
 
-            if node scripts/neon/get-connection-urls.mjs --branch-name "$PR_BRANCH_NAME"; then
+            set +e
+            node scripts/neon/get-connection-urls.mjs --branch-name "$PR_BRANCH_NAME"
+            status=$?
+            set -e
+
+            if [ "$status" -eq 0 ]; then
               if grep -q '^database_url=' "$GITHUB_OUTPUT" && grep -q '^direct_url=' "$GITHUB_OUTPUT"; then
                 echo "Connection URLs retrieved successfully."
                 exit 0
               fi
               echo "get-connection-urls succeeded but required outputs were not set yet."
+            elif [ "$status" -eq 2 ]; then
+              exit 2
             fi
 
             if [ "$attempt" -lt "$max_attempts" ]; then

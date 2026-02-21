@@ -10,6 +10,18 @@ import {
   parseArgs,
 } from "./_neon-api.mjs";
 
+const RETRYABLE_EXIT_CODE = 1;
+const NON_RETRYABLE_EXIT_CODE = 2;
+
+class TaggedFailure extends Error {
+  constructor(reasonTag, message, { retryable }) {
+    super(message);
+    this.name = "TaggedFailure";
+    this.reasonTag = reasonTag;
+    this.retryable = retryable;
+  }
+}
+
 function toBool(value) {
   if (value === true) return true;
   if (value === false) return false;
@@ -43,9 +55,14 @@ async function buildConnectionUri({ projectId, apiKey, branchId, endpointId, dat
   return result.uri;
 }
 
+const parsedArgs = parseArgs(process.argv.slice(2));
+const requestedBranchName = parsedArgs["branch-name"] || process.env.PR_BRANCH_NAME || "";
+let resolvedProjectId = parsedArgs["project-id"] || process.env.NEON_PROJECT_ID || "";
+
 async function main() {
-  const args = parseArgs(process.argv.slice(2));
+  const args = parsedArgs;
   const projectId = getProjectId(args);
+  resolvedProjectId = projectId;
   const apiKey = getApiKey(args);
 
   const branchName = args["branch-name"];
@@ -57,7 +74,11 @@ async function main() {
   const requirePooled = toBool(args["require-pooled"] ?? process.env.NEON_REQUIRE_POOLED ?? "false");
 
   const branch = await getBranchByName({ projectId, apiKey, branchName });
-  if (!branch) throw new Error(`Branch "${branchName}" not found.`);
+  if (!branch) {
+    throw new TaggedFailure("BRANCH_NOT_FOUND", `Branch "${branchName}" not found.`, {
+      retryable: true,
+    });
+  }
 
   // Fetch endpoints. Neon may return multiple endpoints; we must filter by branch_id.
   const endpointResp = await neonRequest({
@@ -71,16 +92,27 @@ async function main() {
   const directEndpoint = pickEndpointForBranch(endpoints, { branchId: branch.id, pooled: false });
   const pooledEndpoint = pickEndpointForBranch(endpoints, { branchId: branch.id, pooled: true });
 
-  if (branchEndpoints.length === 0 || !directEndpoint) {
-    throw new Error(
-      `Branch "${branchName}" exists but endpoints not ready yet. ` +
-        `Found ${branchEndpoints.length} endpoint(s) for this branch; waiting for direct endpoint provisioning.`
+  if (branchEndpoints.length === 0) {
+    throw new TaggedFailure(
+      "ENDPOINTS_NOT_READY",
+      `Branch "${branchName}" exists but endpoints not ready yet. Found 0 endpoint(s) for this branch.`,
+      { retryable: true }
+    );
+  }
+
+  if (!directEndpoint) {
+    throw new TaggedFailure(
+      "DIRECT_ENDPOINT_MISSING",
+      `Branch "${branchName}" has ${branchEndpoints.length} endpoint(s) but no direct/non-pooler endpoint.`,
+      { retryable: false }
     );
   }
 
   if (requirePooled && !pooledEndpoint) {
-    throw new Error(
-      `Branch "${branchName}" exists but pooled endpoint is not ready yet (NEON_REQUIRE_POOLED=true).`
+    throw new TaggedFailure(
+      "ENDPOINTS_NOT_READY",
+      `Branch "${branchName}" exists but pooled endpoint is not ready yet (NEON_REQUIRE_POOLED=true).`,
+      { retryable: true }
     );
   }
 
@@ -127,7 +159,16 @@ async function main() {
 }
 
 main().catch((err) => {
+  const projectId = resolvedProjectId || "";
+  const branchName = requestedBranchName || "";
+  const reasonTag = err instanceof TaggedFailure ? err.reasonTag : "OTHER";
+  const retryable = err instanceof TaggedFailure ? err.retryable : false;
+  const message = err?.message || String(err);
+
   // eslint-disable-next-line no-console
-  console.error(err?.message || err);
-  process.exit(1);
+  console.error(
+    `FAIL_REASON=${reasonTag} NEON_PROJECT_ID=${projectId || "<unset>"} PR_BRANCH_NAME=${branchName || "<unset>"} MESSAGE=${message}`
+  );
+
+  process.exit(retryable ? RETRYABLE_EXIT_CODE : NON_RETRYABLE_EXIT_CODE);
 });
