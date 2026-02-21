@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Menu, Search, Bell, UserCircle, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { AuthShellNav } from "./auth-shell-nav";
 
 type ShellUser = {
   role: "USER" | "EDITOR" | "ADMIN";
@@ -25,7 +26,16 @@ const PRIMARY_LINKS: NavLink[] = [
   { label: "Artists", href: "/artists" },
 ];
 
-const HIDE_NAV_PREFIXES = ["/admin", "/my", "/login", "/invite"];
+const HIDE_NAV_PREFIXES = ["/admin"];
+const AUTH_NAV_PREFIXES = ["/login", "/invite"];
+
+export type ShellNavMode = "hidden" | "auth" | "full";
+
+export function getShellNavMode(pathname: string): ShellNavMode {
+  if (HIDE_NAV_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) return "hidden";
+  if (AUTH_NAV_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) return "auth";
+  return "full";
+}
 
 function isPathActive(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
@@ -87,7 +97,13 @@ export function AppShellNav({ user, isAdmin }: AppShellNavProps) {
     };
   }, [user]);
 
-  if (HIDE_NAV_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) return null;
+  const navMode = getShellNavMode(pathname);
+
+  if (navMode === "hidden") return null;
+
+  if (navMode === "auth") {
+    return <AuthShellNav title={pathname === "/login" ? "Sign in" : "Invitation"} />;
+  }
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/80 bg-background/95 backdrop-blur">
