@@ -163,5 +163,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Skip when Neon secrets are unavailable
+        run: |
+          if [ -z "$NEON_API_KEY" ] || [ -z "$NEON_PROJECT_ID" ]; then
+            echo "NEON_API_KEY or NEON_PROJECT_ID is missing; skipping preview branch deletion."
+            exit 0
+          fi
+
       - name: Delete preview Neon branch
         run: node scripts/neon/delete-branch.mjs --branch-name "$PR_BRANCH_NAME" --if-exists
