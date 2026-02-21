@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { db } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { redirectToLogin } from "@/lib/auth-redirect";
@@ -8,6 +9,8 @@ import { ArtistGalleryManager } from "@/components/artists/artist-gallery-manage
 import { getArtistPublishIssues } from "@/lib/artist-publish";
 import { ArtistPublishPanel } from "@/app/my/_components/ArtistPublishPanel";
 import { ArtistVenuesPanel } from "@/components/artists/artist-venues-panel";
+import { Button } from "@/components/ui/button";
+import { countAllArtworksByArtist } from "@/lib/artworks";
 
 export default async function MyArtistPage() {
   const user = await getSessionUser();
@@ -60,16 +63,25 @@ export default async function MyArtistPage() {
   }
 
   const latestSubmission = artist.targetSubmissions[0] ?? null;
-  const publishedVenues = await db.venue.findMany({
-    where: { isPublished: true },
-    orderBy: { name: "asc" },
-    select: { id: true, name: true, slug: true },
-    take: 100,
-  });
+  const [publishedVenues, artworkCount] = await Promise.all([
+    db.venue.findMany({
+      where: { isPublished: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, slug: true },
+      take: 100,
+    }),
+    countAllArtworksByArtist(artist.id),
+  ]);
 
   return (
     <main className="space-y-6 p-6">
-      <h1 className="text-2xl font-semibold">My Artist Profile</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">My Artist Profile</h1>
+          <p className="text-sm text-muted-foreground">{artworkCount} total artwork{artworkCount === 1 ? "" : "s"}</p>
+        </div>
+        <Button asChild><Link href="/my/artwork/new">Add artwork</Link></Button>
+      </div>
       <ArtistPublishPanel
         artistSlug={artist.slug}
         isPublished={artist.isPublished}

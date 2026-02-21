@@ -41,6 +41,7 @@ test("GET /api/events rejects invalid date input", async () => {
 
 test("GET /api/events includes image fields for cards", async () => {
   const originalFindMany = db.event.findMany;
+  const originalArtworkEventGroupBy = db.artworkEvent.groupBy;
 
   db.event.findMany = (async () => ([{
     id: "evt_1",
@@ -63,6 +64,7 @@ test("GET /api/events includes image fields for cards", async () => {
     eventTags: [],
     eventArtists: [],
   } as any])) as typeof db.event.findMany;
+  db.artworkEvent.groupBy = (async () => []) as typeof db.artworkEvent.groupBy;
 
   try {
     const req = new NextRequest("http://localhost/api/events?limit=1");
@@ -76,5 +78,6 @@ test("GET /api/events includes image fields for cards", async () => {
     assert.equal(Array.isArray(body.items[0].images), true);
   } finally {
     db.event.findMany = originalFindMany;
+    db.artworkEvent.groupBy = originalArtworkEventGroupBy;
   }
 });

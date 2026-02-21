@@ -17,6 +17,7 @@ type VenueListItem = {
   imageAlt: string | null;
   followersCount: number;
   isFollowing: boolean;
+  artworkCount: number;
 };
 
 export function VenuesClient({ venues, isAuthenticated }: { venues: VenueListItem[]; isAuthenticated: boolean }) {
@@ -47,6 +48,7 @@ export function VenuesClient({ venues, isAuthenticated }: { venues: VenueListIte
               imageUrl={venue.imageUrl}
               imageAlt={venue.imageAlt}
               action={<div onClick={(event) => { event.preventDefault(); event.stopPropagation(); }}><FollowButton targetType="VENUE" targetId={venue.id} initialIsFollowing={venue.isFollowing} initialFollowersCount={venue.followersCount} isAuthenticated={isAuthenticated} /></div>}
+              artworkCount={venue.artworkCount}
             />
           ))}
         </div>

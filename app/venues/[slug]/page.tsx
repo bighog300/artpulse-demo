@@ -17,7 +17,8 @@ import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { buildVenueJsonLd, getDetailUrl } from "@/lib/seo.public-profiles";
 import { getVenueDescriptionExcerpt } from "@/lib/venues";
 import { resolveEntityPrimaryImage } from "@/lib/public-images";
-import { listPublishedArtworksByVenue } from "@/lib/artworks";
+import { ArtworkCountBadge } from "@/components/artwork/artwork-count-badge";
+import { countPublishedArtworksByVenue, listPublishedArtworksByVenue } from "@/lib/artworks";
 
 export const revalidate = 300;
 
@@ -74,7 +75,7 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
     db.follow.count({ where: { targetType: "VENUE", targetId: venue.id } }),
     user ? db.follow.findUnique({ where: { userId_targetType_targetId: { userId: user.id, targetType: "VENUE", targetId: venue.id } }, select: { id: true } }) : Promise.resolve(null),
     listPublishedArtworksByVenue(venue.id, 6),
-    db.artwork.count({ where: { isPublished: true, venues: { some: { venueId: venue.id } } } }),
+    countPublishedArtworksByVenue(venue.id),
   ]);
 
   const cover = resolveEntityPrimaryImage(venue);
@@ -107,6 +108,7 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
         coverUrl={coverUrl}
         primaryAction={<FollowButton targetType="VENUE" targetId={venue.id} initialIsFollowing={Boolean(existingFollow)} initialFollowersCount={followersCount} isAuthenticated={Boolean(user)} analyticsSlug={venue.slug} />}
         secondaryAction={mapHref ? <a className="inline-flex rounded-md border px-3 py-1 text-sm" href={mapHref} target="_blank" rel="noreferrer">Open in Maps</a> : undefined}
+        meta={<ArtworkCountBadge count={artworkCount} href={`/artwork?venueId=${venue.id}`} />}
       />
 
             {Boolean(user) ? <ContextualNudgeSlot page="venue_detail" type="entity_save_search" nudgeId="nudge_entity_save_search" title="Turn this into alerts" body="Save a search like this to get weekly updates." destination={`/search?q=${encodeURIComponent(venue.name)}`} /> : null}

@@ -17,6 +17,7 @@ type ArtistListItem = {
   tags: string[];
   followersCount: number;
   isFollowing: boolean;
+  artworkCount: number;
 };
 
 export function ArtistsClient({ artists, isAuthenticated }: { artists: ArtistListItem[]; isAuthenticated: boolean }) {
@@ -48,6 +49,7 @@ export function ArtistsClient({ artists, isAuthenticated }: { artists: ArtistLis
               imageAlt={artist.imageAlt}
               tags={artist.tags}
               action={<div onClick={(event) => { event.preventDefault(); event.stopPropagation(); }}><FollowButton targetType="ARTIST" targetId={artist.id} initialIsFollowing={artist.isFollowing} initialFollowersCount={artist.followersCount} isAuthenticated={isAuthenticated} /></div>}
+              artworkCount={artist.artworkCount}
             />
           ))}
         </div>

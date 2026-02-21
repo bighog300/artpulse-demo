@@ -11,9 +11,10 @@ type EntityHeaderProps = {
   tags?: string[];
   primaryAction?: ReactNode;
   secondaryAction?: ReactNode;
+  meta?: ReactNode;
 };
 
-export function EntityHeader({ title, subtitle, imageUrl, coverUrl, tags = [], primaryAction, secondaryAction }: EntityHeaderProps) {
+export function EntityHeader({ title, subtitle, imageUrl, coverUrl, tags = [], primaryAction, secondaryAction, meta }: EntityHeaderProps) {
   return (
     <header className="overflow-hidden rounded-2xl border border-border bg-card">
       <div className="relative aspect-[16/5] min-h-24 bg-gradient-to-r from-indigo-500/50 via-fuchsia-500/40 to-cyan-400/40">
@@ -28,6 +29,7 @@ export function EntityHeader({ title, subtitle, imageUrl, coverUrl, tags = [], p
             <div className="space-y-1">
               <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">{title}</h1>
               {subtitle ? <p className="text-sm text-muted-foreground">{subtitle}</p> : null}
+              {meta ? <div className="pt-1">{meta}</div> : null}
             </div>
           </div>
           {(primaryAction || secondaryAction) ? <div className="flex flex-wrap items-center gap-2 md:justify-end">{primaryAction}{secondaryAction}</div> : null}
