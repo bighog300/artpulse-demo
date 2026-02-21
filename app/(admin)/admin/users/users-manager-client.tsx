@@ -12,12 +12,31 @@ type AdminUser = {
   createdAt: string;
 };
 
+type AdminInvite = {
+  id: string;
+  email: string;
+  intendedRole: Role;
+  createdAt: string;
+  expiresAt: string;
+  acceptedAt: string | null;
+  revokedAt: string | null;
+  status: "active" | "accepted" | "revoked" | "expired";
+};
+
 export function UsersManagerClient() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const [savingUserId, setSavingUserId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<Role>("EDITOR");
+  const [creatingInvite, setCreatingInvite] = useState(false);
+  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+  const [inviteExpiresAt, setInviteExpiresAt] = useState<string | null>(null);
+  const [inviteNotice, setInviteNotice] = useState<string | null>(null);
+  const [invites, setInvites] = useState<AdminInvite[]>([]);
 
   async function loadUsers(nextQuery: string) {
     setBusy(true);
@@ -36,12 +55,27 @@ export function UsersManagerClient() {
     }
   }
 
+  async function loadInvites() {
+    try {
+      const res = await fetch("/api/admin/invites", { method: "GET" });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.error?.message ?? "Failed to load invites");
+      setInvites(body.invites ?? []);
+    } catch {
+      // Non-fatal for users management table.
+    }
+  }
+
   useEffect(() => {
     const timer = setTimeout(() => {
       void loadUsers(query);
     }, 250);
     return () => clearTimeout(timer);
   }, [query]);
+
+  useEffect(() => {
+    void loadInvites();
+  }, []);
 
   async function updateRole(userId: string, role: Role) {
     setSavingUserId(userId);
@@ -67,8 +101,105 @@ export function UsersManagerClient() {
     }
   }
 
+  async function createInvite() {
+    const normalized = inviteEmail.trim().toLowerCase();
+    if (!normalized) return;
+    if (inviteRole === "ADMIN" && !window.confirm("Create an ADMIN invite? This grants full admin access upon acceptance.")) {
+      return;
+    }
+
+    setCreatingInvite(true);
+    setInviteNotice(null);
+    setError(null);
+    setInviteUrl(null);
+    setInviteExpiresAt(null);
+
+    try {
+      const res = await fetch("/api/admin/invites", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: normalized, role: inviteRole }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.error?.message ?? "Failed to create invite");
+
+      setInviteUrl(body.inviteUrl ?? null);
+      setInviteExpiresAt(body.expiresAt ?? null);
+      if (body.reused) {
+        setInviteNotice("An active invite already exists for this email. Existing invite returned.");
+      } else {
+        setInviteNotice("Invite created. Copy and share the link below.");
+      }
+
+      await loadInvites();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create invite");
+    } finally {
+      setCreatingInvite(false);
+    }
+  }
+
+  async function revokeInvite(inviteId: string) {
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/invites/${inviteId}/revoke`, { method: "POST" });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.error?.message ?? "Failed to revoke invite");
+      await loadInvites();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to revoke invite");
+    }
+  }
+
+  async function copyInviteLink() {
+    if (!inviteUrl) return;
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      setInviteNotice("Invite link copied.");
+    } catch {
+      setInviteNotice("Copy failed. Please copy manually.");
+    }
+  }
+
   return (
     <div className="space-y-4">
+      <div className="rounded border bg-background p-3 space-y-3">
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="text-sm font-medium">Invite user / create editor</h2>
+        </div>
+
+        <div className="grid gap-2 md:grid-cols-[1fr_auto_auto]">
+          <input
+            value={inviteEmail}
+            onChange={(event) => setInviteEmail(event.target.value)}
+            type="email"
+            placeholder="person@example.com"
+            className="w-full rounded border px-2 py-1 text-sm"
+          />
+          <select className="rounded border px-2 py-1 text-sm" value={inviteRole} onChange={(event) => setInviteRole(event.target.value as Role)}>
+            <option value="USER">USER</option>
+            <option value="EDITOR">EDITOR</option>
+            <option value="ADMIN">ADMIN</option>
+          </select>
+          <button type="button" disabled={creatingInvite} onClick={() => void createInvite()} className="rounded border px-3 py-1 text-sm">
+            {creatingInvite ? "Creating…" : "Create invite"}
+          </button>
+        </div>
+
+        {inviteNotice ? <p className="text-sm text-muted-foreground">{inviteNotice}</p> : null}
+
+        {inviteUrl ? (
+          <div className="space-y-2 rounded border p-2">
+            <label className="text-xs font-medium text-muted-foreground">Invite link</label>
+            <div className="flex gap-2">
+              <input readOnly value={inviteUrl} className="w-full rounded border px-2 py-1 text-xs" />
+              <button type="button" onClick={() => void copyInviteLink()} className="rounded border px-3 py-1 text-sm">Copy link</button>
+            </div>
+            {inviteExpiresAt ? <p className="text-xs text-muted-foreground">Expires: {new Date(inviteExpiresAt).toISOString()}</p> : null}
+          </div>
+        ) : null}
+      </div>
+
       <div className="rounded border bg-background p-3 space-y-2">
         <label htmlFor="users-search" className="text-sm font-medium">Search users</label>
         <input
@@ -114,6 +245,39 @@ export function UsersManagerClient() {
                   </select>
                 </td>
                 <td className="px-3 py-2">{new Date(user.createdAt).toISOString()}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="overflow-x-auto rounded border bg-background">
+        <table className="w-full min-w-[900px] text-sm">
+          <thead className="bg-muted/50 text-left">
+            <tr>
+              <th className="px-3 py-2">Invite email</th>
+              <th className="px-3 py-2">Role</th>
+              <th className="px-3 py-2">Status</th>
+              <th className="px-3 py-2">Expires</th>
+              <th className="px-3 py-2">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {invites.length === 0 ? (
+              <tr>
+                <td className="px-3 py-3 text-muted-foreground" colSpan={5}>No invites found.</td>
+              </tr>
+            ) : invites.map((invite) => (
+              <tr key={invite.id} className="border-t">
+                <td className="px-3 py-2">{invite.email}</td>
+                <td className="px-3 py-2">{invite.intendedRole}</td>
+                <td className="px-3 py-2">{invite.status}</td>
+                <td className="px-3 py-2">{new Date(invite.expiresAt).toISOString()}</td>
+                <td className="px-3 py-2">
+                  {invite.status === "active" ? (
+                    <button type="button" onClick={() => void revokeInvite(invite.id)} className="rounded border px-2 py-1 text-xs">Revoke</button>
+                  ) : "—"}
+                </td>
               </tr>
             ))}
           </tbody>
