@@ -8,32 +8,36 @@ type Props = {
   targetId: string;
   role: "featured" | "gallery";
   onUploaded: (url: string) => void;
+  multiple?: boolean;
 };
 
-export default function AdminImageUpload({ targetType, targetId, role, onUploaded }: Props) {
-  const [file, setFile] = useState<File | null>(null);
+export default function AdminImageUpload({ targetType, targetId, role, onUploaded, multiple = false }: Props) {
+  const [files, setFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  const disabled = useMemo(() => !file || isUploading, [file, isUploading]);
+  const disabled = useMemo(() => files.length === 0 || isUploading, [files, isUploading]);
 
   async function onStartUpload() {
-    if (!file) return;
+    if (!files.length) return;
     setError(null);
     setProgress(0);
     setIsUploading(true);
 
     try {
-      const result = await upload(file.name, file, {
-        access: "public",
-        handleUploadUrl: "/api/admin/blob/upload",
-        clientPayload: JSON.stringify({ targetType, targetId, role }),
-        onUploadProgress: (event) => setProgress(event.percentage),
-      });
+      for (let index = 0; index < files.length; index += 1) {
+        const file = files[index]!;
+        const result = await upload(file.name, file, {
+          access: "public",
+          handleUploadUrl: "/api/admin/blob/upload",
+          clientPayload: JSON.stringify({ targetType, targetId, role }),
+          onUploadProgress: (event) => setProgress(((index + event.percentage / 100) / files.length) * 100),
+        });
+        onUploaded(result.url);
+      }
 
-      onUploaded(result.url);
-      setFile(null);
+      setFiles([]);
       setProgress(100);
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "Upload failed");
@@ -44,19 +48,20 @@ export default function AdminImageUpload({ targetType, targetId, role, onUploade
 
   return (
     <div className="space-y-2 rounded border p-3">
-      <p className="text-sm font-medium">Upload image</p>
+      <p className="text-sm font-medium">Upload image{multiple ? "s" : ""}</p>
       <input
         type="file"
         accept="image/*"
+        multiple={multiple}
         onChange={(event) => {
-          const nextFile = event.target.files?.[0] ?? null;
-          setFile(nextFile);
+          const nextFiles = Array.from(event.target.files ?? []);
+          setFiles(nextFiles);
           setError(null);
           setProgress(0);
         }}
       />
       <button type="button" className="rounded border px-3 py-1 text-sm disabled:opacity-50" disabled={disabled} onClick={onStartUpload}>
-        {isUploading ? `Uploading ${Math.round(progress)}%` : "Upload"}
+        {isUploading ? `Uploading ${Math.round(progress)}%` : `Upload${files.length > 1 ? ` (${files.length})` : ""}`}
       </button>
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
     </div>

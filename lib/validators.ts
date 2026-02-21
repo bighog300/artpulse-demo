@@ -111,6 +111,24 @@ export const venueCoverPatchSchema = z.object({
   }
 });
 
+
+export const adminEntityImageCreateSchema = z.object({
+  url: httpUrlSchema,
+  alt: z.string().trim().max(300).optional().nullable(),
+  makePrimary: z.boolean().optional(),
+});
+
+export const adminEntityImagePatchSchema = z.object({
+  alt: z.string().trim().max(300).optional().nullable(),
+  isPrimary: z.literal(true).optional(),
+}).refine((data) => data.alt !== undefined || data.isPrimary === true, {
+  message: "At least one field must be provided",
+});
+
+export const adminEntityImageReorderSchema = z.object({
+  order: z.array(z.string().uuid()).min(1).refine((value) => new Set(value).size === value.length, "order must be unique"),
+});
+
 export const favoriteBodySchema = z.object({
   targetType: z.enum(["EVENT", "VENUE", "ARTIST"]),
   targetId: z.string().uuid(),

@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import AdminImageUpload from "@/app/(admin)/admin/_components/AdminImageUpload";
-import { safeParseImagesJson } from "@/lib/images";
+import ImageGalleryManager from "@/app/(admin)/admin/_components/ImageGalleryManager";
 
 type Props = {
   title: string;
@@ -14,8 +13,6 @@ type Props = {
   redirectPath: string;
   uploadTargetType: "venue" | "artist";
   uploadTargetId: string;
-  featuredFieldName?: string;
-  galleryJsonFieldName?: string;
 };
 
 export default function AdminEntityForm({
@@ -27,26 +24,10 @@ export default function AdminEntityForm({
   redirectPath,
   uploadTargetType,
   uploadTargetId,
-  featuredFieldName = "featuredImageUrl",
-  galleryJsonFieldName,
 }: Props) {
   const router = useRouter();
   const [form, setForm] = useState<Record<string, unknown>>(initial);
-  const [pendingUploadUrl, setPendingUploadUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  function setUploadedAsFeatured(url: string) {
-    setForm((prev) => ({ ...prev, [featuredFieldName]: url }));
-    setPendingUploadUrl(null);
-  }
-
-  function appendUploadedImage(url: string) {
-    if (!galleryJsonFieldName) return;
-    const parsed = safeParseImagesJson(form[galleryJsonFieldName]);
-    const next = [...parsed, { url, sortOrder: parsed.length }];
-    setForm((prev) => ({ ...prev, [galleryJsonFieldName]: JSON.stringify(next, null, 2) }));
-    setPendingUploadUrl(null);
-  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -58,7 +39,7 @@ export default function AdminEntityForm({
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      setError(body?.message || "Save failed");
+      setError(body?.message || body?.error?.message || "Save failed");
       return;
     }
     router.push(redirectPath);
@@ -80,15 +61,6 @@ export default function AdminEntityForm({
             />
           </label>
         ))}
-        <AdminImageUpload targetType={uploadTargetType} targetId={uploadTargetId} role="gallery" onUploaded={setPendingUploadUrl} />
-        {pendingUploadUrl ? (
-          <div className="flex gap-2 text-sm">
-            <button type="button" className="rounded border px-2 py-1" onClick={() => setUploadedAsFeatured(pendingUploadUrl)}>Set as featured</button>
-            {galleryJsonFieldName ? (
-              <button type="button" className="rounded border px-2 py-1" onClick={() => appendUploadedImage(pendingUploadUrl)}>Add to gallery JSON</button>
-            ) : null}
-          </div>
-        ) : null}
         <label className="block text-sm">
           <input
             type="checkbox"
@@ -101,6 +73,7 @@ export default function AdminEntityForm({
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
         <button className="rounded border px-3 py-1">Save</button>
       </form>
+      {uploadTargetId === "new" ? <p className="text-sm text-muted-foreground">Save first to add images.</p> : <ImageGalleryManager entityType={uploadTargetType} entityId={uploadTargetId} />}
     </main>
   );
 }

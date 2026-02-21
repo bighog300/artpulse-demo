@@ -1,19 +1,19 @@
-import { NextResponse } from "next/server";
 import { AdminAccessError, requireAdmin } from "@/lib/admin";
+import { apiError } from "@/lib/api";
 
 /**
  * actorEmail is included to make it easy for admin routes to write audit logs via logAdminAction().
  */
 type AdminRouteHandler<T> = (context: { email: string; actorEmail: string }) => Promise<T>;
 
-export async function withAdminRoute<T>(handler: AdminRouteHandler<T>) {
+export async function withAdminRoute<T>(handler: AdminRouteHandler<T>, deps: { requireAdminFn?: typeof requireAdmin } = {}) {
   try {
-    const admin = await requireAdmin({ redirectOnFail: false });
+    const admin = await (deps.requireAdminFn ?? requireAdmin)({ redirectOnFail: false });
     return await handler({ ...admin, actorEmail: admin.email });
   } catch (error) {
     if (error instanceof AdminAccessError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
+      return apiError(error.status, error.status === 401 ? "unauthenticated" : "forbidden", error.message);
     }
-    return NextResponse.json({ error: "internal_server_error" }, { status: 500 });
+    return apiError(500, "internal_error", "Unexpected server error");
   }
 }
