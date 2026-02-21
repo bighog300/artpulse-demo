@@ -23,7 +23,7 @@ export default async function VenuesPage() {
     );
   }
 
-  let venues: Array<{ id: string; slug: string; name: string; subtitle: string; description: string | null; imageUrl: string | null; imageAlt: string | null; followersCount: number; isFollowing: boolean }> = [];
+  let venues: Array<{ id: string; slug: string; name: string; subtitle: string; description: string | null; imageUrl: string | null; imageAlt: string | null; followersCount: number; isFollowing: boolean; artworkCount: number }> = [];
 
   if (hasDatabaseUrl()) {
     const dbVenues = await db.venue.findMany({
@@ -32,12 +32,14 @@ export default async function VenuesPage() {
       select: { id: true, slug: true, name: true, city: true, region: true, country: true, description: true, featuredImageUrl: true, images: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { url: true, alt: true, sortOrder: true, isPrimary: true, width: true, height: true, asset: { select: { url: true } } } } },
     });
     const ids = dbVenues.map((venue) => venue.id);
-    const [followerCounts, userFollows] = await Promise.all([
+    const [followerCounts, userFollows, artworkCounts] = await Promise.all([
       ids.length ? db.follow.groupBy({ by: ["targetId"], where: { targetType: "VENUE", targetId: { in: ids } }, _count: { _all: true } }) : Promise.resolve([]),
       user && ids.length ? db.follow.findMany({ where: { userId: user.id, targetType: "VENUE", targetId: { in: ids } }, select: { targetId: true } }) : Promise.resolve([]),
+      ids.length ? db.artworkVenue.groupBy({ by: ["venueId"], where: { venueId: { in: ids }, artwork: { isPublished: true } }, _count: { _all: true } }) : Promise.resolve([]),
     ]);
     const countById = new Map(followerCounts.map((entry) => [entry.targetId, entry._count._all]));
     const followedSet = new Set(userFollows.map((row) => row.targetId));
+    const artworkCountByVenueId = new Map(artworkCounts.map((entry) => [entry.venueId, entry._count._all]));
 
     venues = dbVenues.map((venue) => ({
       id: venue.id,
@@ -49,6 +51,7 @@ export default async function VenuesPage() {
       imageAlt: resolveEntityPrimaryImage(venue)?.alt ?? venue.name,
       followersCount: countById.get(venue.id) ?? 0,
       isFollowing: followedSet.has(venue.id),
+      artworkCount: artworkCountByVenueId.get(venue.id) ?? 0,
     }));
   } else {
     venues = uiFixtureVenues.map((venue) => ({
@@ -61,6 +64,7 @@ export default async function VenuesPage() {
       imageAlt: resolveEntityPrimaryImage(venue)?.alt ?? venue.name,
       followersCount: 0,
       isFollowing: false,
+      artworkCount: 0,
     }));
   }
 

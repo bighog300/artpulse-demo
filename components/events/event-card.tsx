@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { ImageIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatEventDateRange, formatEventDayMonth } from "@/components/events/event-format";
 import { cn } from "@/lib/utils";
@@ -21,9 +22,10 @@ type EventCardProps = {
   distanceLabel?: string;
   className?: string;
   onOpen?: () => void;
+  artworkCount?: number;
 };
 
-export function EventCard({ title, startAt, endAt, venueName, imageUrl, imageAlt, href, badges, tags, secondaryText, action, distanceLabel, className, onOpen }: EventCardProps) {
+export function EventCard({ title, startAt, endAt, venueName, imageUrl, imageAlt, href, badges, tags, secondaryText, action, distanceLabel, className, onOpen, artworkCount = 0 }: EventCardProps) {
   const start = typeof startAt === "string" ? new Date(startAt) : startAt;
   const end = endAt ? (typeof endAt === "string" ? new Date(endAt) : endAt) : undefined;
   const hasValidStart = !Number.isNaN(start.getTime());
@@ -66,6 +68,7 @@ export function EventCard({ title, startAt, endAt, venueName, imageUrl, imageAlt
           {dateRange ? <p className="text-sm text-muted-foreground">{dateRange}</p> : null}
           {secondaryText ? <p className="text-sm text-muted-foreground">{secondaryText}</p> : null}
           {venueName ? <p className="line-clamp-1 text-sm text-muted-foreground">{venueName}</p> : null}
+          {artworkCount > 0 ? <p className="inline-flex items-center gap-1 text-xs text-muted-foreground"><ImageIcon className="h-3.5 w-3.5" />{artworkCount}</p> : null}
           {chips?.length ? (
             <div className="flex flex-wrap gap-1">
               {chips.slice(0, 2).map((badge) => (

@@ -17,7 +17,8 @@ import { PageShell } from "@/components/ui/page-shell";
 import { SectionHeader } from "@/components/ui/section-header";
 import { ContextualNudgeSlot } from "@/components/onboarding/contextual-nudge-slot";
 import { resolveEntityPrimaryImage } from "@/lib/public-images";
-import { listPublishedArtworksByEvent } from "@/lib/artworks";
+import { ArtworkCountBadge } from "@/components/artwork/artwork-count-badge";
+import { countPublishedArtworksByEvent, listPublishedArtworksByEvent } from "@/lib/artworks";
 
 export const dynamic = "force-dynamic";
 
@@ -56,7 +57,7 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
 
   const [artworks, artworkCount, similarEvents] = await Promise.all([
     listPublishedArtworksByEvent(event.id, 6),
-    db.artwork.count({ where: { isPublished: true, events: { some: { eventId: event.id } } } }),
+    countPublishedArtworksByEvent(event.id),
     db.event.findMany({
     where: { isPublished: true, id: { not: event.id }, OR: [{ venueId: event.venueId ?? undefined }, { eventArtists: { some: { artistId: { in: event.eventArtists.map((ea) => ea.artistId) } } } }] },
     include: { venue: { select: { name: true } }, images: { take: 1, orderBy: { sortOrder: "asc" }, include: { asset: { select: { url: true } } } } },
@@ -90,7 +91,10 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
           {primaryImage ? <Image src={primaryImage.url} alt={primaryImage.alt ?? event.title} fill sizes="100vw" className="object-cover" /> : <div className="flex h-full items-center justify-center bg-muted text-muted-foreground">No event image</div>}
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent" />
           <div className="absolute bottom-0 left-0 w-full section-stack p-5 text-white">
-            <h1 className="type-h2 text-white">{event.title}</h1>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="type-h2 text-white">{event.title}</h1>
+              <ArtworkCountBadge count={artworkCount} href={`/artwork?eventId=${event.id}`} badgeClassName="border-white/40 bg-white/10 text-white" />
+            </div>
             <p className="type-caption text-white/90">{formatEventDateRange(event.startAt, event.endAt)} · {event.venue?.name ?? "Venue TBA"}</p>
             <EventDetailActions eventId={event.id} eventSlug={event.slug} nextUrl={`/events/${slug}`} isAuthenticated={isAuthenticated} initialSaved={initialSaved} calendarLink={calendarLink} />
             {isAuthenticated && (event.venue?.slug || event.eventArtists[0]?.artist.slug) ? (

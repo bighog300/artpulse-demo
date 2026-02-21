@@ -32,6 +32,7 @@ type EventListItem = {
     isPrimary?: boolean | null;
     asset?: { url?: string | null } | null;
   }>;
+  artworkCount?: number;
 };
 
 type EventsResponse = { items: EventListItem[]; nextCursor: string | null };
@@ -186,6 +187,7 @@ export function EventsClient({ isAuthenticated, fixtureItems, fallbackFixtureIte
                 imageAlt={resolveEntityPrimaryImage(event)?.alt}
                 badges={(event.tags ?? []).map((tag) => tag.slug)}
                 action={<SaveEventButton eventId={event.id} initialSaved={favoriteIds.has(event.id)} nextUrl={`/events?${searchParams?.toString() ?? ""}`} isAuthenticated={isAuthenticated} analytics={{ eventSlug: event.slug }} />}
+                artworkCount={event.artworkCount ?? 0}
               /></div>
             ))}
           </div>

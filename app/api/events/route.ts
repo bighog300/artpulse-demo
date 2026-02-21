@@ -139,6 +139,12 @@ export async function GET(req: NextRequest) {
     const page = geoEnabled ? pageResult.page : (hasMore ? fallbackItems.slice(0, limit) : fallbackItems);
     const durationMs = Number((performance.now() - startedAt).toFixed(1));
 
+    const eventIds = page.map((event) => event.id);
+    const artworkCounts = eventIds.length
+      ? await db.artworkEvent.groupBy({ by: ["eventId"], where: { eventId: { in: eventIds }, artwork: { isPublished: true } }, _count: { _all: true } })
+      : [];
+    const artworkCountByEventId = new Map(artworkCounts.map((entry) => [entry.eventId, entry._count._all]));
+
     logInfo({ message: "api_events_completed", route: "/api/events", requestId, durationMs, resultCount: page.length });
     if (durationMs > SLOW_ROUTE_THRESHOLD_MS) {
       logWarn({ message: "api_events_slow", route: "/api/events", requestId, durationMs, resultCount: page.length, thresholdMs: SLOW_ROUTE_THRESHOLD_MS });
@@ -157,6 +163,7 @@ export async function GET(req: NextRequest) {
           primaryImageHeight: image?.height ?? null,
           tags: (e.eventTags ?? []).map((et) => ({ name: et.tag.name, slug: et.tag.slug })),
           artistIds: (e.eventArtists ?? []).map((eventArtist) => eventArtist.artistId),
+          artworkCount: artworkCountByEventId.get(e.id) ?? 0,
         };
       }),
       nextCursor: hasMore && page.length > 0 ? encodeCursor(page[page.length - 1]) : null,

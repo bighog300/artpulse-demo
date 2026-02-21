@@ -23,7 +23,7 @@ export default async function ArtistsPage() {
     );
   }
 
-  let artists: Array<{ id: string; name: string; slug: string; bio: string | null; avatarImageUrl: string | null; imageAlt: string | null; tags: string[]; followersCount: number; isFollowing: boolean }> = [];
+  let artists: Array<{ id: string; name: string; slug: string; bio: string | null; avatarImageUrl: string | null; imageAlt: string | null; tags: string[]; followersCount: number; isFollowing: boolean; artworkCount: number }> = [];
 
   if (hasDatabaseUrl()) {
     const dbArtists = await db.artist.findMany({
@@ -41,12 +41,14 @@ export default async function ArtistsPage() {
       },
     });
     const ids = dbArtists.map((artist) => artist.id);
-    const [followerCounts, userFollows] = await Promise.all([
+    const [followerCounts, userFollows, artworkCounts] = await Promise.all([
       ids.length ? db.follow.groupBy({ by: ["targetId"], where: { targetType: "ARTIST", targetId: { in: ids } }, _count: { _all: true } }) : Promise.resolve([]),
       user && ids.length ? db.follow.findMany({ where: { userId: user.id, targetType: "ARTIST", targetId: { in: ids } }, select: { targetId: true } }) : Promise.resolve([]),
+      ids.length ? db.artwork.groupBy({ by: ["artistId"], where: { isPublished: true, artistId: { in: ids } }, _count: { _all: true } }) : Promise.resolve([]),
     ]);
     const countById = new Map(followerCounts.map((entry) => [entry.targetId, entry._count._all]));
     const followedSet = new Set(userFollows.map((row) => row.targetId));
+    const artworkCountByArtistId = new Map(artworkCounts.map((entry) => [entry.artistId, entry._count._all]));
     artists = dbArtists.map((artist) => ({
       id: artist.id,
       name: artist.name,
@@ -57,9 +59,10 @@ export default async function ArtistsPage() {
       tags: Array.from(new Set(artist.eventArtists.flatMap((row) => row.event.eventTags.map(({ tag }) => tag.slug)))).slice(0, 6),
       followersCount: countById.get(artist.id) ?? 0,
       isFollowing: followedSet.has(artist.id),
+      artworkCount: artworkCountByArtistId.get(artist.id) ?? 0,
     }));
   } else {
-    artists = uiFixtureArtists.map((artist) => ({ ...artist, avatarImageUrl: resolveEntityPrimaryImage(artist)?.url ?? artist.avatarImageUrl, imageAlt: resolveEntityPrimaryImage(artist)?.alt ?? artist.name, tags: artist.tags ?? [], followersCount: 0, isFollowing: false }));
+    artists = uiFixtureArtists.map((artist) => ({ ...artist, avatarImageUrl: resolveEntityPrimaryImage(artist)?.url ?? artist.avatarImageUrl, imageAlt: resolveEntityPrimaryImage(artist)?.alt ?? artist.name, tags: artist.tags ?? [], followersCount: 0, isFollowing: false, artworkCount: 0 }));
   }
 
   return (

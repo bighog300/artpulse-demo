@@ -36,7 +36,41 @@ export function publishedArtworksByEventWhere(eventId: string) {
   return { isPublished: true, events: { some: { eventId } } };
 }
 
-function mapPublishedArtworkRow(item: any): PublishedArtworkListItem {
+
+type PublishedArtworkRow = {
+  id: string;
+  slug: string | null;
+  title: string;
+  artist: { id: string; name: string };
+  featuredAsset: { url: string | null } | null;
+  images: Array<{ asset: { url: string | null } | null }>;
+};
+
+type ArtworkCountDeps = {
+  count: (args: { where: Record<string, unknown> }) => Promise<number>;
+};
+
+function artworkCountDeps(): ArtworkCountDeps {
+  return { count: (args) => db.artwork.count(args) };
+}
+
+export async function countPublishedArtworksByArtist(artistId: string, deps: ArtworkCountDeps = artworkCountDeps()) {
+  return deps.count({ where: publishedArtworksByArtistWhere(artistId) });
+}
+
+export async function countPublishedArtworksByVenue(venueId: string, deps: ArtworkCountDeps = artworkCountDeps()) {
+  return deps.count({ where: publishedArtworksByVenueWhere(venueId) });
+}
+
+export async function countPublishedArtworksByEvent(eventId: string, deps: ArtworkCountDeps = artworkCountDeps()) {
+  return deps.count({ where: publishedArtworksByEventWhere(eventId) });
+}
+
+export async function countAllArtworksByArtist(artistId: string, deps: ArtworkCountDeps = artworkCountDeps()) {
+  return deps.count({ where: { artistId } });
+}
+
+function mapPublishedArtworkRow(item: PublishedArtworkRow): PublishedArtworkListItem {
   return {
     id: item.id,
     slug: item.slug,
