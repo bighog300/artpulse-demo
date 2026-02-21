@@ -19,6 +19,7 @@ import { ContextualNudgeSlot } from "@/components/onboarding/contextual-nudge-sl
 import { resolveEntityPrimaryImage } from "@/lib/public-images";
 import { ArtworkCountBadge } from "@/components/artwork/artwork-count-badge";
 import { countPublishedArtworksByEvent, listPublishedArtworksByEvent } from "@/lib/artworks";
+import { EntityPageViewTracker } from "@/components/analytics/entity-page-view-tracker";
 
 export const dynamic = "force-dynamic";
 
@@ -84,6 +85,7 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
 
   return (
     <PageShell className="page-stack">
+      <EntityPageViewTracker entityType="EVENT" entityId={event.id} />
       <Breadcrumbs items={[{ label: "Events", href: "/events" }, { label: event.title, href: `/events/${slug}` }]} />
 
       <section className="relative overflow-hidden rounded-2xl border border-border">

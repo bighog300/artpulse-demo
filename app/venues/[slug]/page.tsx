@@ -9,6 +9,7 @@ import { ArtworkRelatedSection } from "@/components/artwork/artwork-related-sect
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageShell } from "@/components/ui/page-shell";
 import { PageViewTracker } from "@/components/analytics/page-view-tracker";
+import { EntityPageViewTracker } from "@/components/analytics/entity-page-view-tracker";
 import { SectionHeader } from "@/components/ui/section-header";
 import { ContextualNudgeSlot } from "@/components/onboarding/contextual-nudge-slot";
 import { getSessionUser } from "@/lib/auth";
@@ -101,6 +102,7 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
   return (
     <PageShell className="page-stack">
       <PageViewTracker name="entity_viewed" props={{ type: "venue", slug }} />
+      <EntityPageViewTracker entityType="VENUE" entityId={venue.id} />
       <EntityHeader
         title={venue.name}
         subtitle={subtitle}

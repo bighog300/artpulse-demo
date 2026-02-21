@@ -3,9 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")     // migrations (direct)
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL") // migrations (direct)
 }
 
 enum Role {
@@ -123,19 +123,26 @@ enum BetaAccessRequestStatus {
   DENIED
 }
 
+enum AnalyticsEntityType {
+  ARTWORK
+  ARTIST
+  VENUE
+  EVENT
+}
+
 model User {
-  id                   String            @id @default(uuid()) @db.Uuid
-  email                String            @unique
+  id                   String                @id @default(uuid()) @db.Uuid
+  email                String                @unique
   name                 String?
   imageUrl             String?
-  role                 Role              @default(USER)
-  createdAt            DateTime          @default(now())
-  updatedAt            DateTime          @updatedAt
+  role                 Role                  @default(USER)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
   favorites            Favorite[]
   venueMemberships     VenueMembership[]
-  submissions          Submission[]      @relation("SubmissionSubmitter")
-  decidedSubmissions   Submission[]      @relation("SubmissionDecider")
-  sentVenueInvites     VenueInvite[]     @relation("VenueInviteInvitedBy")
+  submissions          Submission[]          @relation("SubmissionSubmitter")
+  decidedSubmissions   Submission[]          @relation("SubmissionDecider")
+  sentVenueInvites     VenueInvite[]         @relation("VenueInviteInvitedBy")
   ownedAssets          Asset[]
   follows              Follow[]
   perfSnapshotsCreated PerfSnapshot[]
@@ -148,11 +155,12 @@ model User {
   locationLabel        String?
   locationLat          Float?
   locationLng          Float?
-  locationRadiusKm     Int               @default(25)
+  locationRadiusKm     Int                   @default(25)
   betaAccessRequests   BetaAccessRequest[]
   betaFeedbackEntries  BetaFeedback[]
-  adminInvitesCreated  AdminInvite[]      @relation("AdminInviteCreatedBy")
+  adminInvitesCreated  AdminInvite[]         @relation("AdminInviteCreatedBy")
   importMappingPresets ImportMappingPreset[]
+  pageViewEvents       PageViewEvent[]
 
   @@index([locationLat, locationLng])
 }
@@ -170,7 +178,6 @@ model ImportMappingPreset {
   @@unique([createdById, entityType, name])
   @@index([createdById, entityType, updatedAt])
 }
-
 
 model BetaAccessRequest {
   id        String                  @id @default(uuid()) @db.Uuid
@@ -246,33 +253,33 @@ model PerfSnapshot {
 }
 
 model Venue {
-  id                String            @id @default(uuid()) @db.Uuid
-  name              String
-  slug              String            @unique
-  description       String?
-  addressLine1      String?
-  addressLine2      String?
-  city              String?
-  region            String?
-  country           String?
-  postcode          String?
-  lat               Float?
-  lng               Float?
-  websiteUrl        String?
-  instagramUrl      String?
-  contactEmail      String?
-  featuredImageUrl  String?
-  featuredAssetId   String?           @db.Uuid
-  isPublished       Boolean           @default(false)
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  events            Event[]
-  images            VenueImage[]
-  memberships       VenueMembership[]
-  invites           VenueInvite[]
-  submissions       Submission[]      @relation("SubmissionVenue")
-  targetSubmissions Submission[]      @relation("SubmissionTargetVenue")
-  featuredAsset     Asset?            @relation("VenueFeaturedAsset", fields: [featuredAssetId], references: [id], onDelete: SetNull)
+  id                 String                   @id @default(uuid()) @db.Uuid
+  name               String
+  slug               String                   @unique
+  description        String?
+  addressLine1       String?
+  addressLine2       String?
+  city               String?
+  region             String?
+  country            String?
+  postcode           String?
+  lat                Float?
+  lng                Float?
+  websiteUrl         String?
+  instagramUrl       String?
+  contactEmail       String?
+  featuredImageUrl   String?
+  featuredAssetId    String?                  @db.Uuid
+  isPublished        Boolean                  @default(false)
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  events             Event[]
+  images             VenueImage[]
+  memberships        VenueMembership[]
+  invites            VenueInvite[]
+  submissions        Submission[]             @relation("SubmissionVenue")
+  targetSubmissions  Submission[]             @relation("SubmissionTargetVenue")
+  featuredAsset      Asset?                   @relation("VenueFeaturedAsset", fields: [featuredAssetId], references: [id], onDelete: SetNull)
   artistAssociations ArtistVenueAssociation[]
   artworkVenues      ArtworkVenue[]
 
@@ -281,24 +288,24 @@ model Venue {
 }
 
 model Artist {
-  id               String        @id @default(uuid()) @db.Uuid
-  userId           String?       @unique @db.Uuid
-  name             String
-  slug             String        @unique
-  bio              String?
-  websiteUrl       String?
-  instagramUrl     String?
-  avatarImageUrl   String?
-  featuredImageUrl String?
-  featuredAssetId  String?       @db.Uuid
-  isPublished      Boolean       @default(false)
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
-  user             User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  images           ArtistImage[]
-  eventArtists     EventArtist[]
-  targetSubmissions Submission[]  @relation("SubmissionTargetArtist")
-  featuredAsset    Asset?        @relation("ArtistFeaturedAsset", fields: [featuredAssetId], references: [id], onDelete: SetNull)
+  id                String                   @id @default(uuid()) @db.Uuid
+  userId            String?                  @unique @db.Uuid
+  name              String
+  slug              String                   @unique
+  bio               String?
+  websiteUrl        String?
+  instagramUrl      String?
+  avatarImageUrl    String?
+  featuredImageUrl  String?
+  featuredAssetId   String?                  @db.Uuid
+  isPublished       Boolean                  @default(false)
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+  user              User?                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  images            ArtistImage[]
+  eventArtists      EventArtist[]
+  targetSubmissions Submission[]             @relation("SubmissionTargetArtist")
+  featuredAsset     Asset?                   @relation("ArtistFeaturedAsset", fields: [featuredAssetId], references: [id], onDelete: SetNull)
   venueAssociations ArtistVenueAssociation[]
   artworks          Artwork[]
 
@@ -307,19 +314,19 @@ model Artist {
 }
 
 model ArtistVenueAssociation {
-  id                String                         @id @default(uuid()) @db.Uuid
-  artistId          String                         @db.Uuid
-  venueId           String                         @db.Uuid
+  id                String                       @id @default(uuid()) @db.Uuid
+  artistId          String                       @db.Uuid
+  venueId           String                       @db.Uuid
   role              String?
-  status            ArtistVenueAssociationStatus   @default(PENDING)
+  status            ArtistVenueAssociationStatus @default(PENDING)
   message           String?
-  createdAt         DateTime                       @default(now())
-  updatedAt         DateTime                       @updatedAt
-  requestedByUserId String?                        @db.Uuid
-  reviewedByUserId  String?                        @db.Uuid
+  createdAt         DateTime                     @default(now())
+  updatedAt         DateTime                     @updatedAt
+  requestedByUserId String?                      @db.Uuid
+  reviewedByUserId  String?                      @db.Uuid
   reviewedAt        DateTime?
-  artist            Artist                         @relation(fields: [artistId], references: [id], onDelete: Cascade)
-  venue             Venue                          @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  artist            Artist                       @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  venue             Venue                        @relation(fields: [venueId], references: [id], onDelete: Cascade)
 
   @@unique([artistId, venueId])
   @@index([venueId, status, createdAt])
@@ -327,9 +334,9 @@ model ArtistVenueAssociation {
 }
 
 model Event {
-  id            String        @id @default(uuid()) @db.Uuid
+  id            String         @id @default(uuid()) @db.Uuid
   title         String
-  slug          String        @unique
+  slug          String         @unique
   description   String?
   startAt       DateTime
   endAt         DateTime?
@@ -339,14 +346,14 @@ model Event {
   priceText     String?
   isFree        Boolean?
   organizerName String?
-  venueId       String?       @db.Uuid
+  venueId       String?        @db.Uuid
   lat           Float?
   lng           Float?
-  isPublished   Boolean       @default(false)
+  isPublished   Boolean        @default(false)
   publishedAt   DateTime?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  venue         Venue?        @relation(fields: [venueId], references: [id])
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  venue         Venue?         @relation(fields: [venueId], references: [id])
   images        EventImage[]
   eventTags     EventTag[]
   eventArtists  EventArtist[]
@@ -411,19 +418,18 @@ model Submission {
   @@index([submitterUserId, createdAt])
 }
 
-
 model AdminInvite {
-  id              String   @id @default(uuid()) @db.Uuid
+  id              String    @id @default(uuid()) @db.Uuid
   email           String
-  normalizedEmail String   @unique
-  intendedRole    Role     @default(EDITOR)
-  tokenHash       String   @unique
-  createdById     String   @db.Uuid
-  createdAt       DateTime @default(now())
+  normalizedEmail String    @unique
+  intendedRole    Role      @default(EDITOR)
+  tokenHash       String    @unique
+  createdById     String    @db.Uuid
+  createdAt       DateTime  @default(now())
   expiresAt       DateTime
   acceptedAt      DateTime?
   revokedAt       DateTime?
-  createdBy       User     @relation("AdminInviteCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  createdBy       User      @relation("AdminInviteCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
 
   @@index([normalizedEmail, createdAt])
   @@index([expiresAt])
@@ -548,21 +554,21 @@ model EventArtist {
 }
 
 model ArtistImage {
-  id        String   @id @default(uuid()) @db.Uuid
-  artistId  String   @db.Uuid
-  assetId   String?  @db.Uuid
-  url       String
+  id          String   @id @default(uuid()) @db.Uuid
+  artistId    String   @db.Uuid
+  assetId     String?  @db.Uuid
+  url         String
   alt         String?
   width       Int?
   height      Int?
   contentType String?
   sizeBytes   Int?
   sortOrder   Int      @default(0)
-  isPrimary Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt @default(now())
-  artist    Artist   @relation(fields: [artistId], references: [id], onDelete: Cascade)
-  asset     Asset?   @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  isPrimary   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+  artist      Artist   @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  asset       Asset?   @relation(fields: [assetId], references: [id], onDelete: SetNull)
 
   @@index([artistId, sortOrder])
   @@index([artistId, isPrimary])
@@ -570,21 +576,21 @@ model ArtistImage {
 }
 
 model EventImage {
-  id        String   @id @default(uuid()) @db.Uuid
-  eventId   String   @db.Uuid
-  assetId   String?  @db.Uuid
-  url       String
+  id          String   @id @default(uuid()) @db.Uuid
+  eventId     String   @db.Uuid
+  assetId     String?  @db.Uuid
+  url         String
   alt         String?
   width       Int?
   height      Int?
   contentType String?
   sizeBytes   Int?
   sortOrder   Int      @default(0)
-  isPrimary Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt @default(now())
-  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  asset     Asset?   @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  isPrimary   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  asset       Asset?   @relation(fields: [assetId], references: [id], onDelete: SetNull)
 
   @@index([assetId])
   @@index([eventId, sortOrder])
@@ -592,21 +598,21 @@ model EventImage {
 }
 
 model VenueImage {
-  id        String   @id @default(uuid()) @db.Uuid
-  venueId   String   @db.Uuid
-  assetId   String?  @db.Uuid
-  url       String
+  id          String   @id @default(uuid()) @db.Uuid
+  venueId     String   @db.Uuid
+  assetId     String?  @db.Uuid
+  url         String
   alt         String?
   width       Int?
   height      Int?
   contentType String?
   sizeBytes   Int?
   sortOrder   Int      @default(0)
-  isPrimary Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt @default(now())
-  venue     Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
-  asset     Asset?   @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  isPrimary   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+  venue       Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  asset       Asset?   @relation(fields: [assetId], references: [id], onDelete: SetNull)
 
   @@index([assetId])
   @@index([venueId, sortOrder])
@@ -614,24 +620,24 @@ model VenueImage {
 }
 
 model Asset {
-  id                String        @id @default(uuid()) @db.Uuid
-  ownerUserId       String?       @db.Uuid
-  kind              AssetKind
-  url               String
-  filename          String?
-  mime              String?
-  sizeBytes         Int?
-  width             Int?
-  height            Int?
-  alt               String?
-  createdAt         DateTime      @default(now())
-  owner             User?         @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
-  eventImages       EventImage[]
-  venueImages       VenueImage[]
-  artistImages      ArtistImage[]
-  venueFeaturedFor  Venue[]       @relation("VenueFeaturedAsset")
-  artistFeaturedFor Artist[]      @relation("ArtistFeaturedAsset")
-  artworkFeaturedFor Artwork[]    @relation("ArtworkFeaturedAsset")
+  id                 String         @id @default(uuid()) @db.Uuid
+  ownerUserId        String?        @db.Uuid
+  kind               AssetKind
+  url                String
+  filename           String?
+  mime               String?
+  sizeBytes          Int?
+  width              Int?
+  height             Int?
+  alt                String?
+  createdAt          DateTime       @default(now())
+  owner              User?          @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
+  eventImages        EventImage[]
+  venueImages        VenueImage[]
+  artistImages       ArtistImage[]
+  venueFeaturedFor   Venue[]        @relation("VenueFeaturedAsset")
+  artistFeaturedFor  Artist[]       @relation("ArtistFeaturedAsset")
+  artworkFeaturedFor Artwork[]      @relation("ArtworkFeaturedAsset")
   artworkImages      ArtworkImage[]
 
   @@index([ownerUserId])
@@ -709,6 +715,34 @@ model ArtworkEvent {
   @@index([eventId, artworkId])
 }
 
+model PageViewEvent {
+  id         String              @id @default(uuid()) @db.Uuid
+  entityType AnalyticsEntityType
+  entityId   String              @db.Uuid
+  occurredAt DateTime            @default(now())
+  day        DateTime            @db.Date
+  viewerHash String?
+  userId     String?             @db.Uuid
+  user       User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId, occurredAt])
+  @@index([day, entityType])
+  @@index([entityType, entityId, day])
+  @@index([userId, occurredAt])
+}
+
+model PageViewDaily {
+  id         String              @id @default(uuid()) @db.Uuid
+  entityType AnalyticsEntityType
+  entityId   String              @db.Uuid
+  day        DateTime            @db.Date
+  views      Int                 @default(0)
+
+  @@unique([entityType, entityId, day])
+  @@index([entityType, entityId, day])
+  @@index([day, entityType])
+}
+
 model Favorite {
   id         String             @id @default(uuid()) @db.Uuid
   userId     String             @db.Uuid
@@ -754,8 +788,8 @@ model AdminAuditLog {
 }
 
 model JobRun {
-  id         String   @id @default(cuid())
-  createdAt  DateTime @default(now())
+  id         String    @id @default(cuid())
+  createdAt  DateTime  @default(now())
   startedAt  DateTime?
   finishedAt DateTime?
   name       String
