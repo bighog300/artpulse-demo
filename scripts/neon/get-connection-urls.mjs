@@ -2,9 +2,11 @@
 import process from "node:process";
 import {
   appendGitHubOutput,
+  createEndpoint,
   getApiKey,
   getBranchByName,
   getProjectId,
+  listEndpoints,
   maskForGitHubActions,
   neonRequest,
   parseArgs,
@@ -80,22 +82,24 @@ async function main() {
     });
   }
 
-  // Fetch endpoints. Neon may return multiple endpoints; we must filter by branch_id.
-  const endpointResp = await neonRequest({
-    path: `/projects/${projectId}/endpoints`,
+  const branchEndpoints = await listEndpoints({
+    projectId,
     apiKey,
+    branchId: branch.id,
   });
-
-  const endpoints = endpointResp?.endpoints || [];
-
-  const branchEndpoints = endpoints.filter((e) => e.branch_id === branch.id);
-  const directEndpoint = pickEndpointForBranch(endpoints, { branchId: branch.id, pooled: false });
-  const pooledEndpoint = pickEndpointForBranch(endpoints, { branchId: branch.id, pooled: true });
+  const directEndpoint = pickEndpointForBranch(branchEndpoints, { branchId: branch.id, pooled: false });
+  const pooledEndpoint = pickEndpointForBranch(branchEndpoints, { branchId: branch.id, pooled: true });
 
   if (branchEndpoints.length === 0) {
+    try {
+      await createEndpoint({ projectId, apiKey, branchId: branch.id });
+    } catch {
+      // best effort only
+    }
+
     throw new TaggedFailure(
       "ENDPOINTS_NOT_READY",
-      `Branch "${branchName}" exists but endpoints not ready yet. Found 0 endpoint(s) for this branch.`,
+      `Branch "${branchName}" exists but endpoints not ready yet. Found 0 endpoint(s) for this branch; requested endpoint creation.`,
       { retryable: true }
     );
   }
