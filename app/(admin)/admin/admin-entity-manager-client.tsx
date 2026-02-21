@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 type EntityName = "venues" | "events" | "artists";
 
 type RowResult = { rowIndex: number; status: string; errors?: string[]; targetId?: string; patch?: Record<string, unknown> };
+type PresetListItem = { id: string; name: string; entityType: EntityName; updatedAt: string };
 
 export function AdminEntityManagerClient({ entity, fields, title, defaultMatchBy }: { entity: EntityName; fields: string[]; title: string; defaultMatchBy: "id" | "slug" | "name" }) {
   const [items, setItems] = useState<Array<Record<string, unknown>>>([]);
@@ -24,6 +25,9 @@ export function AdminEntityManagerClient({ entity, fields, title, defaultMatchBy
   const [preview, setPreview] = useState<{ summary: Record<string, number>; rowResults: RowResult[]; sampleRows: string[][] } | null>(null);
   const [createMissing, setCreateMissing] = useState(false);
   const [matchBy, setMatchBy] = useState<"id" | "slug" | "name">(defaultMatchBy);
+  const [presets, setPresets] = useState<PresetListItem[]>([]);
+  const [selectedPresetId, setSelectedPresetId] = useState<string>("");
+  const [presetNotice, setPresetNotice] = useState<string | null>(null);
 
   const maxPage = useMemo(() => Math.max(1, Math.ceil(total / 20)), [total]);
 
@@ -45,10 +49,28 @@ export function AdminEntityManagerClient({ entity, fields, title, defaultMatchBy
     }
   }
 
+  async function loadPresets() {
+    try {
+      const params = new URLSearchParams({ entityType: entity });
+      const res = await fetch(`/api/admin/import-mapping-presets?${params.toString()}`);
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.error?.message ?? "Failed to load presets");
+      setPresets(body.presets ?? []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load presets");
+    }
+  }
+
   useEffect(() => {
     const timer = setTimeout(() => void loadData(query, page), 250);
     return () => clearTimeout(timer);
   }, [query, page]);
+
+  useEffect(() => {
+    if (!importOpen) return;
+    setPresetNotice(null);
+    void loadPresets();
+  }, [importOpen, entity]);
 
   function startEdit(item: Record<string, unknown>) {
     const id = String(item.id ?? "");
@@ -148,9 +170,83 @@ export function AdminEntityManagerClient({ entity, fields, title, defaultMatchBy
     }
   }
 
+  async function loadSelectedPreset(presetId: string) {
+    if (!presetId) return;
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/import-mapping-presets/${presetId}`);
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.error?.message ?? "Failed to load preset");
+      setMapping((body.mappingJson ?? {}) as Record<string, string>);
+      setPresetNotice(`Loaded preset \"${body.name}\".`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load preset");
+    }
+  }
+
+  async function savePreset() {
+    const name = window.prompt("Preset name (2-60 chars):");
+    if (!name) return;
+    setError(null);
+    try {
+      const payload = { entityType: entity, name, mapping };
+      const firstRes = await fetch("/api/admin/import-mapping-presets", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (firstRes.status === 409) {
+        const overwrite = window.confirm("Preset exists. Overwrite it?");
+        if (!overwrite) return;
+        const overwriteRes = await fetch("/api/admin/import-mapping-presets", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ ...payload, overwrite: true }),
+        });
+        const overwriteBody = await overwriteRes.json();
+        if (!overwriteRes.ok) throw new Error(overwriteBody?.error?.message ?? "Failed to overwrite preset");
+        await loadPresets();
+        setSelectedPresetId(overwriteBody.id);
+        setPresetNotice(`Preset \"${overwriteBody.name}\" overwritten.`);
+        return;
+      }
+
+      const body = await firstRes.json();
+      if (!firstRes.ok) throw new Error(body?.error?.message ?? "Failed to save preset");
+      await loadPresets();
+      setSelectedPresetId(body.id);
+      setPresetNotice(`Preset \"${body.name}\" saved.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save preset");
+    }
+  }
+
+  async function deleteSelectedPreset() {
+    if (!selectedPresetId) return;
+    const selectedPreset = presets.find((preset) => preset.id === selectedPresetId);
+    const confirmed = window.confirm(`Delete preset \"${selectedPreset?.name ?? "selected"}\"?`);
+    if (!confirmed) return;
+
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/import-mapping-presets/${selectedPresetId}`, { method: "DELETE" });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.error?.message ?? "Failed to delete preset");
+      await loadPresets();
+      setSelectedPresetId("");
+      setPresetNotice("Preset deleted.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete preset");
+    }
+  }
+
   return (
-    <div className="space-y-3">
-      <h1 className="text-2xl font-semibold">{title}</h1>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold">{title}</h1>
+        <p className="text-sm text-muted-foreground">Total: {total}</p>
+      </div>
+
       <div className="flex flex-wrap gap-2">
         <input value={query} onChange={(e) => { setPage(1); setQuery(e.target.value); }} className="rounded border px-2 py-1 text-sm" placeholder={`Search ${entity}`} />
         <button type="button" onClick={() => void exportCsv()} className="rounded border px-3 py-1 text-sm">Export CSV</button>
@@ -162,6 +258,15 @@ export function AdminEntityManagerClient({ entity, fields, title, defaultMatchBy
           <input type="file" accept=".csv,text/csv" onChange={(e) => { const file = e.target.files?.[0]; if (file) void onUpload(file); }} />
           {headers.length > 0 ? (
             <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                <select value={selectedPresetId} onChange={(e) => { const presetId = e.target.value; setSelectedPresetId(presetId); void loadSelectedPreset(presetId); }} className="rounded border px-2 py-1">
+                  <option value="">Load preset</option>
+                  {presets.map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
+                </select>
+                <button type="button" className="rounded border px-3 py-1" onClick={() => void savePreset()}>Save preset</button>
+                <button type="button" className="rounded border px-3 py-1" onClick={() => void deleteSelectedPreset()} disabled={!selectedPresetId}>Delete preset</button>
+              </div>
+              {presetNotice ? <p className="rounded border border-green-200 bg-green-50 p-2 text-sm text-green-700">{presetNotice}</p> : null}
               <div className="grid gap-2 md:grid-cols-2">
                 {headers.map((column) => (
                   <label key={column} className="flex items-center justify-between gap-2 text-sm">
