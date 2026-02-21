@@ -28,6 +28,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Check Vercel secrets
+        id: vercel_secrets
+        shell: bash
+        run: |
+          ok=true
+          [ -n "${{ secrets.VERCEL_TOKEN }}" ] || ok=false
+          [ -n "${{ secrets.VERCEL_ORG_ID }}" ] || ok=false
+          [ -n "${{ secrets.VERCEL_PROJECT_ID }}" ] || ok=false
+          echo "has_vercel_secrets=$ok" >> "$GITHUB_OUTPUT"
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -130,7 +140,7 @@ jobs:
         run: pnpm db:seed
 
       - name: Update Vercel Preview env vars for this git branch
-        if: ${{ secrets.VERCEL_TOKEN != '' && secrets.VERCEL_ORG_ID != '' && secrets.VERCEL_PROJECT_ID != '' }}
+        if: ${{ steps.vercel_secrets.outputs.has_vercel_secrets == 'true' }}
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -145,9 +155,9 @@ jobs:
           printf "%s" "$DIRECT_URL" | pnpm dlx vercel env add DIRECT_URL preview --git-branch "$PR_GIT_BRANCH" --token "$VERCEL_TOKEN"
           echo "set-env OK: Vercel preview env vars updated for branch $PR_GIT_BRANCH"
 
-      - name: Vercel env sync fallback note
-        if: ${{ !(secrets.VERCEL_TOKEN != '' && secrets.VERCEL_ORG_ID != '' && secrets.VERCEL_PROJECT_ID != '') }}
-        run: echo "VERCEL_TOKEN / VERCEL_ORG_ID / VERCEL_PROJECT_ID not configured; use workflow outputs to set Preview env vars manually."
+      - name: Skip Vercel steps (missing secrets)
+        if: ${{ steps.vercel_secrets.outputs.has_vercel_secrets != 'true' }}
+        run: echo "Skipping Vercel-related steps because Vercel secrets are not available."
 
   delete_preview_db:
     if: github.event.action == 'closed'
