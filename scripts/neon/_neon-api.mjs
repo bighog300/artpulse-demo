@@ -58,7 +58,12 @@ async function neonRequest({ method = "GET", path, apiKey, body }) {
 
   if (!response.ok) {
     const msg = json?.message || json?.error || JSON.stringify(json) || response.statusText;
-    throw new Error(`Neon API ${method} ${path} failed (${response.status}): ${msg}`);
+    const error = new Error(`Neon API ${method} ${path} failed (${response.status}): ${msg}`);
+    error.status = response.status;
+    error.responseBody = text || "";
+    error.method = method;
+    error.path = path;
+    throw error;
   }
 
   return json;
@@ -147,18 +152,42 @@ async function createEndpoint({ projectId, apiKey, branchId }) {
 
     return response?.endpoint || null;
   } catch (error) {
+    const status = Number(error?.status) || 0;
     const message = String(error?.message || "").toLowerCase();
-    const isAlreadyExistsError = message.includes("(409)") || message.includes("already exists");
-    if (!isAlreadyExistsError) {
-      throw error;
+    const isAlreadyExistsError = status === 409 || message.includes("(409)") || message.includes("already exists");
+
+    if (isAlreadyExistsError) {
+      const refreshedEndpoints = await listEndpoints({ projectId, apiKey, branchId });
+      return (
+        refreshedEndpoints.find((endpoint) => endpoint.type === "read_write") ||
+        refreshedEndpoints[0] ||
+        null
+      );
     }
 
-    const refreshedEndpoints = await listEndpoints({ projectId, apiKey, branchId });
-    return (
-      refreshedEndpoints.find((endpoint) => endpoint.type === "read_write") ||
-      refreshedEndpoints[0] ||
-      null
+    const responseBody = String(error?.responseBody || "");
+    const responseBodyShort = responseBody.length > 2000 ? `${responseBody.slice(0, 2000)}…<truncated>` : responseBody;
+
+    let failReason = "ENDPOINT_CREATE_FAILED";
+    if (status === 401 || status === 403) {
+      failReason = "NEON_AUTH";
+    } else if (status === 429) {
+      failReason = "NEON_RATE_LIMIT";
+    } else if (status >= 400 && status < 500) {
+      failReason = "NEON_BAD_REQUEST";
+    } else if (status >= 500) {
+      failReason = "NEON_SERVER";
+    }
+
+    // eslint-disable-next-line no-console
+    console.error(
+      `FAIL_REASON=${failReason} FAIL_CODE=ENDPOINT_CREATE_FAILED STATUS=${status || "unknown"} RESPONSE_BODY=${responseBodyShort || "<empty>"}`
     );
+
+    error.failReason = failReason;
+    error.createEndpointStatus = status || null;
+    error.createEndpointBody = responseBodyShort || "";
+    throw error;
   }
 }
 
