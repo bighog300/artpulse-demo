@@ -55,6 +55,25 @@ jobs:
       - name: Ensure preview Neon branch exists
         run: node scripts/neon/create-branch.mjs --branch-name "$PR_BRANCH_NAME" --parent-branch "$PARENT_NEON_BRANCH"
 
+      - name: Wait until preview Neon branch is visible
+        run: |
+          max_attempts=20
+          for attempt in $(seq 1 "$max_attempts"); do
+            echo "Checking Neon branch visibility attempt ${attempt}/${max_attempts}..."
+
+            if node --input-type=module -e 'import { getBranchByName } from "./scripts/neon/_neon-api.mjs"; const b=await getBranchByName({ projectId: process.env.NEON_PROJECT_ID, apiKey: process.env.NEON_API_KEY, branchName: process.env.PR_BRANCH_NAME }); if (!b) process.exit(1);'; then
+              echo "Branch is visible in Neon API."
+              exit 0
+            fi
+
+            if [ "$attempt" -lt "$max_attempts" ]; then
+              sleep 3
+            fi
+          done
+
+          echo "Neon branch was not visible after ${max_attempts} attempts."
+          exit 1
+
       - name: Fetch preview DB connection URLs
         id: neon-urls
         run: |

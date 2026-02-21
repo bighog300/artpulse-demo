@@ -65,11 +65,27 @@ async function neonRequest({ method = "GET", path, apiKey, body }) {
 }
 
 async function listBranches({ projectId, apiKey }) {
-  const result = await neonRequest({
-    path: `/projects/${projectId}/branches`,
-    apiKey,
-  });
-  return result.branches || [];
+  const allBranches = [];
+  let cursor = null;
+
+  // Neon list endpoints may paginate; collect every page so branch lookups are reliable.
+  do {
+    const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
+    const result = await neonRequest({
+      path: `/projects/${projectId}/branches${query}`,
+      apiKey,
+    });
+
+    allBranches.push(...(result?.branches || []));
+
+    cursor =
+      result?.pagination?.next_cursor ||
+      result?.next_cursor ||
+      result?.page?.next_cursor ||
+      null;
+  } while (cursor);
+
+  return allBranches;
 }
 
 function pickBranchByName(branches, branchName) {
