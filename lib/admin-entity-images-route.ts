@@ -16,6 +16,12 @@ export type AdminEntityType = "event" | "venue" | "artist";
 
 type Tx = Prisma.TransactionClient;
 
+const PRIMARY_UNIQUE_INDEXES = [
+  "event_image_one_primary_per_event",
+  "venue_image_one_primary_per_venue",
+  "artist_image_one_primary_per_artist",
+] as const;
+
 const entityConfig = {
   event: {
     targetType: "event",
@@ -64,6 +70,29 @@ async function setAllPrimaryFalse(tx: Tx, entityType: AdminEntityType, entityId:
   if (entityType === "event") return tx.eventImage.updateMany({ where: { eventId: entityId }, data: { isPrimary: false } });
   if (entityType === "venue") return tx.venueImage.updateMany({ where: { venueId: entityId }, data: { isPrimary: false } });
   return tx.artistImage.updateMany({ where: { artistId: entityId }, data: { isPrimary: false } });
+}
+
+async function setPrimaryImageById(tx: Tx, entityType: AdminEntityType, imageId: string) {
+  if (entityType === "event") return tx.eventImage.update({ where: { id: imageId }, data: { isPrimary: true } });
+  if (entityType === "venue") return tx.venueImage.update({ where: { id: imageId }, data: { isPrimary: true } });
+  return tx.artistImage.update({ where: { id: imageId }, data: { isPrimary: true } });
+}
+
+async function normalizeSortOrder(tx: Tx, entityType: AdminEntityType, entityId: string) {
+  const images = await listImages(tx, entityType, entityId);
+  await Promise.all(images.map((entry, index) => {
+    if (entry.sortOrder === index) return Promise.resolve();
+    if (entityType === "event") return tx.eventImage.update({ where: { id: entry.id }, data: { sortOrder: index } });
+    if (entityType === "venue") return tx.venueImage.update({ where: { id: entry.id }, data: { sortOrder: index } });
+    return tx.artistImage.update({ where: { id: entry.id }, data: { sortOrder: index } });
+  }));
+}
+
+function isPrimaryUniquenessConflict(error: unknown) {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") return false;
+  const target = error.meta?.target;
+  const values = Array.isArray(target) ? target.map(String) : typeof target === "string" ? [target] : [];
+  return values.some((value) => PRIMARY_UNIQUE_INDEXES.includes(value as (typeof PRIMARY_UNIQUE_INDEXES)[number]));
 }
 
 export async function getAdminEntityImages(entityType: AdminEntityType, entityId: string) {
@@ -134,7 +163,7 @@ export async function patchAdminEntityImage(input: {
 }) {
   const { entityType, entityId, imageId, alt, isPrimary, actorEmail, req } = input;
 
-  const updated = await db.$transaction(async (tx) => {
+  const setPrimaryAttempt = async () => db.$transaction(async (tx) => {
     const entity = await ensureEntityExists(tx, entityType, entityId);
     if (!entity) return { type: "entity_not_found" as const };
 
@@ -157,16 +186,30 @@ export async function patchAdminEntityImage(input: {
 
     if (isPrimary) {
       await setAllPrimaryFalse(tx, entityType, entityId);
-      next = entityType === "event"
-        ? await tx.eventImage.update({ where: { id: imageId }, data: { isPrimary: true } })
-        : entityType === "venue"
-          ? await tx.venueImage.update({ where: { id: imageId }, data: { isPrimary: true } })
-          : await tx.artistImage.update({ where: { id: imageId }, data: { isPrimary: true } });
+      next = await setPrimaryImageById(tx, entityType, imageId);
       await updateFeaturedImageUrl(tx, entityType, entityId, next.url);
     }
 
     return { type: "ok" as const, item: mapImage(next) };
   });
+
+  let updated: Awaited<ReturnType<typeof setPrimaryAttempt>>;
+  try {
+    updated = await setPrimaryAttempt();
+  } catch (error) {
+    if (!isPrimary || !isPrimaryUniquenessConflict(error)) throw error;
+    try {
+      await db.$transaction(async (tx) => {
+        await listImages(tx, entityType, entityId);
+      });
+      updated = await setPrimaryAttempt();
+    } catch (retryError) {
+      if (isPrimaryUniquenessConflict(retryError)) {
+        return apiError(409, "conflict", "Image primary selection conflicted with another admin update. Please retry.");
+      }
+      throw retryError;
+    }
+  }
 
   if (updated.type === "entity_not_found") return apiError(404, "not_found", entityConfig[entityType].parentNotFoundMessage);
   if (updated.type === "image_not_found") return apiError(404, "not_found", "Image not found");
@@ -196,13 +239,15 @@ export async function reorderAdminEntityImages(input: {
     const entity = await ensureEntityExists(tx, entityType, entityId);
     if (!entity) return { type: "entity_not_found" as const };
 
-    const existing = entityType === "event"
-      ? await tx.eventImage.findMany({ where: { eventId: entityId, id: { in: order } }, select: { id: true } })
-      : entityType === "venue"
-        ? await tx.venueImage.findMany({ where: { venueId: entityId, id: { in: order } }, select: { id: true } })
-        : await tx.artistImage.findMany({ where: { artistId: entityId, id: { in: order } }, select: { id: true } });
+    const current = await listImages(tx, entityType, entityId);
+    const currentIds = current.map((item) => item.id);
+    const providedIds = new Set(order);
 
-    if (existing.length !== order.length) return { type: "invalid_order" as const };
+    const hasExactSet = order.length === currentIds.length
+      && providedIds.size === order.length
+      && currentIds.every((id) => providedIds.has(id));
+
+    if (!hasExactSet) return { type: "invalid_order" as const };
 
     await Promise.all(order.map((id, index) => {
       if (entityType === "event") return tx.eventImage.update({ where: { id }, data: { sortOrder: index } });
@@ -210,11 +255,12 @@ export async function reorderAdminEntityImages(input: {
       return tx.artistImage.update({ where: { id }, data: { sortOrder: index } });
     }));
 
+    await normalizeSortOrder(tx, entityType, entityId);
     return { type: "ok" as const };
   });
 
   if (result.type === "entity_not_found") return apiError(404, "not_found", entityConfig[entityType].parentNotFoundMessage);
-  if (result.type === "invalid_order") return apiError(400, "invalid_request", "One or more images do not belong to this entity");
+  if (result.type === "invalid_order") return apiError(400, "invalid_request", "Order payload must include every image id exactly once.");
 
   await logAdminAction({ actorEmail, action: `admin.${entityType}.image.reorder`, targetType: entityConfig[entityType].targetType, targetId: entityId, metadata: { order }, req });
   return NextResponse.json({ ok: true });
@@ -245,23 +291,14 @@ export async function deleteAdminEntityImage(input: {
     else if (entityType === "venue") await tx.venueImage.delete({ where: { id: imageId } });
     else await tx.artistImage.delete({ where: { id: imageId } });
 
-    const remaining = await listImages(tx, entityType, entityId);
-    const sorted = [...remaining].sort((a, b) => a.sortOrder - b.sortOrder);
-
-    await Promise.all(sorted.map((entry, index) => {
-      if (entry.sortOrder === index) return Promise.resolve();
-      if (entityType === "event") return tx.eventImage.update({ where: { id: entry.id }, data: { sortOrder: index } });
-      if (entityType === "venue") return tx.venueImage.update({ where: { id: entry.id }, data: { sortOrder: index } });
-      return tx.artistImage.update({ where: { id: entry.id }, data: { sortOrder: index } });
-    }));
+    await normalizeSortOrder(tx, entityType, entityId);
 
     if (image.isPrimary) {
-      const nextPrimary = sorted[0] ?? null;
+      const normalized = await listImages(tx, entityType, entityId);
+      const nextPrimary = normalized[0] ?? null;
       await setAllPrimaryFalse(tx, entityType, entityId);
       if (nextPrimary) {
-        if (entityType === "event") await tx.eventImage.update({ where: { id: nextPrimary.id }, data: { isPrimary: true } });
-        else if (entityType === "venue") await tx.venueImage.update({ where: { id: nextPrimary.id }, data: { isPrimary: true } });
-        else await tx.artistImage.update({ where: { id: nextPrimary.id }, data: { isPrimary: true } });
+        await setPrimaryImageById(tx, entityType, nextPrimary.id);
       }
       await updateFeaturedImageUrl(tx, entityType, entityId, nextPrimary?.url ?? null);
     }
