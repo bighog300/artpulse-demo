@@ -122,7 +122,10 @@ export const adminEntityImageCreateSchema = z.object({
   makePrimary: z.boolean().optional(),
   setPrimary: z.boolean().optional(),
   contentType: z.enum(["image/jpeg", "image/png", "image/webp"]).optional(),
-  size: z.number().int().positive().max(10 * 1024 * 1024).optional(),
+  width: z.number().int().min(1).max(10_000).optional(),
+  height: z.number().int().min(1).max(10_000).optional(),
+  sizeBytes: z.number().int().positive().max(20 * 1024 * 1024).optional(),
+  size: z.number().int().positive().max(20 * 1024 * 1024).optional(),
 }).refine((data) => !(data.makePrimary !== undefined && data.setPrimary !== undefined), {
   message: "Provide only one of makePrimary or setPrimary",
 });
@@ -130,8 +133,13 @@ export const adminEntityImageCreateSchema = z.object({
 export const adminEntityImagePatchSchema = z.object({
   url: httpsUrlSchema.optional(),
   alt: z.string().trim().max(300).optional().nullable(),
+  contentType: z.enum(["image/jpeg", "image/png", "image/webp"]).optional(),
+  width: z.number().int().min(1).max(10_000).optional(),
+  height: z.number().int().min(1).max(10_000).optional(),
+  sizeBytes: z.number().int().positive().max(20 * 1024 * 1024).optional(),
+  size: z.number().int().positive().max(20 * 1024 * 1024).optional(),
   isPrimary: z.literal(true).optional(),
-}).refine((data) => data.alt !== undefined || data.isPrimary === true || data.url !== undefined, {
+}).refine((data) => data.alt !== undefined || data.isPrimary === true || data.url !== undefined || data.contentType !== undefined || data.width !== undefined || data.height !== undefined || data.sizeBytes !== undefined || data.size !== undefined, {
   message: "At least one field must be provided",
 });
 

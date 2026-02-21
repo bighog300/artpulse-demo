@@ -10,12 +10,11 @@ import { PageShell } from "@/components/ui/page-shell";
 import { PageViewTracker } from "@/components/analytics/page-view-tracker";
 import { SectionHeader } from "@/components/ui/section-header";
 import { ContextualNudgeSlot } from "@/components/onboarding/contextual-nudge-slot";
-import { resolveImageUrl } from "@/lib/assets";
 import { getSessionUser } from "@/lib/auth";
-import { resolveArtistCoverUrl } from "@/lib/artists";
 import { db } from "@/lib/db";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { buildArtistJsonLd, getDetailUrl } from "@/lib/seo.public-profiles";
+import { resolveEntityPrimaryImage } from "@/lib/public-images";
 
 const FALLBACK_METADATA = { title: "Artist | Artpulse", description: "Browse artist profiles and related events on Artpulse." };
 
@@ -24,10 +23,10 @@ export const revalidate = 300;
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   if (!hasDatabaseUrl()) return FALLBACK_METADATA;
-  const artist = await db.artist.findFirst({ where: { slug, isPublished: true }, select: { name: true, bio: true, avatarImageUrl: true, featuredImageUrl: true, featuredAsset: { select: { url: true } }, images: { take: 1, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { url: true, asset: { select: { url: true } } } } } });
+  const artist = await db.artist.findFirst({ where: { slug, isPublished: true }, select: { name: true, bio: true, avatarImageUrl: true, featuredImageUrl: true, images: { take: 4, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { url: true, alt: true, sortOrder: true, isPrimary: true, width: true, height: true, asset: { select: { url: true } } } } } });
   if (!artist) return FALLBACK_METADATA;
   const description = (artist.bio ?? "").trim().slice(0, 160) || FALLBACK_METADATA.description;
-  const imageUrl = resolveArtistCoverUrl(artist);
+  const imageUrl = resolveEntityPrimaryImage(artist)?.url ?? null;
   return { title: `${artist.name} | Artpulse`, description, openGraph: { title: `${artist.name} | Artpulse`, description, images: imageUrl ? [{ url: imageUrl, alt: artist.name }] : undefined } };
 }
 
@@ -47,8 +46,8 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
       websiteUrl: true,
       instagramUrl: true,
       avatarImageUrl: true,
-      featuredAsset: { select: { url: true } },
-      images: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true, url: true, asset: { select: { url: true } } } },
+      featuredImageUrl: true,
+      images: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true, url: true, alt: true, sortOrder: true, isPrimary: true, width: true, height: true, asset: { select: { url: true } } } },
       eventArtists: {
         where: { event: { isPublished: true, startAt: { gte: now } } },
         orderBy: { event: { startAt: "asc" } },
@@ -62,7 +61,7 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
               startAt: true,
               endAt: true,
               venue: { select: { name: true, slug: true } },
-              images: { take: 1, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { url: true, asset: { select: { url: true } } } },
+              images: { take: 4, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { url: true, alt: true, sortOrder: true, isPrimary: true, width: true, height: true, asset: { select: { url: true } } } },
               eventTags: { select: { tag: { select: { slug: true } } } },
             },
           },
@@ -78,7 +77,7 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
     user ? db.follow.findUnique({ where: { userId_targetType_targetId: { userId: user.id, targetType: "ARTIST", targetId: artist.id } }, select: { id: true } }) : Promise.resolve(null),
   ]);
 
-  const imageUrl = resolveArtistCoverUrl(artist);
+  const imageUrl = resolveEntityPrimaryImage(artist)?.url ?? null;
   const events = artist.eventArtists.map((row) => ({
     id: row.event.id,
     title: row.event.title,
@@ -87,7 +86,8 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
     endAt: row.event.endAt,
     venueName: row.event.venue?.name,
     venueSlug: row.event.venue?.slug,
-    imageUrl: resolveImageUrl(row.event.images[0]?.asset?.url, row.event.images[0]?.url),
+    imageUrl: resolveEntityPrimaryImage(row.event)?.url ?? null,
+    imageAlt: resolveEntityPrimaryImage(row.event)?.alt ?? row.event.title,
     tags: row.event.eventTags.map(({ tag }) => tag.slug),
   }));
 
@@ -101,7 +101,7 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
       <EntityHeader
         title={artist.name}
         subtitle={artistTags.slice(0, 2).join(" • ") || "Artist profile"}
-        imageUrl={artist.avatarImageUrl ?? imageUrl}
+        imageUrl={resolveEntityPrimaryImage(artist)?.url ?? artist.avatarImageUrl ?? imageUrl}
         coverUrl={imageUrl}
         tags={artistTags}
         primaryAction={<FollowButton targetType="ARTIST" targetId={artist.id} initialIsFollowing={Boolean(existingFollow)} initialFollowersCount={followersCount} isAuthenticated={Boolean(user)} analyticsSlug={artist.slug} />}
@@ -115,7 +115,7 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
             <SectionHeader title="Upcoming events" subtitle="Catch this artist's next exhibitions and shows." />
             {events.length === 0 ? <EmptyState title="No upcoming events" description="Follow this artist and we’ll keep you posted." /> : (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {events.map((event) => <EventCard key={event.id} href={`/events/${event.slug}`} title={event.title} startAt={event.startAt} endAt={event.endAt} venueName={event.venueName} venueSlug={event.venueSlug} imageUrl={event.imageUrl} tags={event.tags} />)}
+                {events.map((event) => <EventCard key={event.id} href={`/events/${event.slug}`} title={event.title} startAt={event.startAt} endAt={event.endAt} venueName={event.venueName} venueSlug={event.venueSlug} imageUrl={event.imageUrl} imageAlt={event.imageAlt} tags={event.tags} />)}
               </div>
             )}
           </section>

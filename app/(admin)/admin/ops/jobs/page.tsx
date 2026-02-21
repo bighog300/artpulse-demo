@@ -25,6 +25,7 @@ export default async function AdminJobsPage() {
         jobs={jobs}
         initialRuns={runs.map((run) => ({
           ...run,
+          metadata: (run.metadata && typeof run.metadata === "object" && !Array.isArray(run.metadata)) ? run.metadata as Record<string, unknown> : null,
           createdAt: run.createdAt.toISOString(),
         }))}
       />

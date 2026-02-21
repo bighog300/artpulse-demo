@@ -10,12 +10,12 @@ import { PageShell } from "@/components/ui/page-shell";
 import { PageViewTracker } from "@/components/analytics/page-view-tracker";
 import { SectionHeader } from "@/components/ui/section-header";
 import { ContextualNudgeSlot } from "@/components/onboarding/contextual-nudge-slot";
-import { resolveImageUrl } from "@/lib/assets";
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { buildVenueJsonLd, getDetailUrl } from "@/lib/seo.public-profiles";
-import { getVenueDescriptionExcerpt, resolveVenueCoverUrl } from "@/lib/venues";
+import { getVenueDescriptionExcerpt } from "@/lib/venues";
+import { resolveEntityPrimaryImage } from "@/lib/public-images";
 
 export const revalidate = 300;
 
@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   if (!hasDatabaseUrl()) return { title: "Venue | Artpulse", description: "Discover venue details and upcoming events on Artpulse." };
   const venue = await db.venue.findFirst({ where: { slug, isPublished: true }, select: { name: true, description: true, featuredImageUrl: true, featuredAsset: { select: { url: true } } } });
   if (!venue) return { title: "Venue | Artpulse", description: "Discover venue details and upcoming events on Artpulse." };
-  const imageUrl = resolveVenueCoverUrl(venue);
+  const imageUrl = resolveEntityPrimaryImage(venue)?.url ?? null;
   return { title: `${venue.name} | Artpulse`, description: getVenueDescriptionExcerpt(venue.description, `Explore ${venue.name} on Artpulse.`), openGraph: { title: `${venue.name} | Artpulse`, description: getVenueDescriptionExcerpt(venue.description, `Explore ${venue.name} on Artpulse.`), images: imageUrl ? [{ url: imageUrl, alt: venue.name }] : undefined } };
 }
 
@@ -48,7 +48,7 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
       region: true,
       country: true,
       featuredImageUrl: true,
-      featuredAsset: { select: { url: true } },
+      images: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { url: true, alt: true, sortOrder: true, isPrimary: true, width: true, height: true, asset: { select: { url: true } } } },
       events: {
         where: { isPublished: true, startAt: { gte: now } },
         orderBy: [{ startAt: "asc" }, { id: "asc" }],
@@ -59,7 +59,7 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
           slug: true,
           startAt: true,
           endAt: true,
-          images: { take: 1, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { url: true, asset: { select: { url: true } } } },
+          images: { take: 4, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { url: true, alt: true, sortOrder: true, isPrimary: true, width: true, height: true, asset: { select: { url: true } } } },
           eventTags: { select: { tag: { select: { slug: true } } } },
         },
       },
@@ -73,7 +73,8 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
     user ? db.follow.findUnique({ where: { userId_targetType_targetId: { userId: user.id, targetType: "VENUE", targetId: venue.id } }, select: { id: true } }) : Promise.resolve(null),
   ]);
 
-  const coverUrl = resolveImageUrl(venue.featuredAsset?.url, venue.featuredImageUrl);
+  const cover = resolveEntityPrimaryImage(venue);
+  const coverUrl = cover?.url ?? null;
   const subtitle = [venue.city, venue.region, venue.country].filter(Boolean).join(", ") || "Venue profile";
   const address = [venue.addressLine1, venue.city, venue.region, venue.country].filter(Boolean).join(", ");
   const mapHref = address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}` : null;
@@ -84,7 +85,8 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
     slug: event.slug,
     startAt: event.startAt,
     endAt: event.endAt,
-    imageUrl: resolveImageUrl(event.images[0]?.asset?.url, event.images[0]?.url),
+    imageUrl: resolveEntityPrimaryImage(event)?.url ?? null,
+    imageAlt: resolveEntityPrimaryImage(event)?.alt ?? event.title,
     tags: event.eventTags.map(({ tag }) => tag.slug),
   }));
 
@@ -111,7 +113,7 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
             <SectionHeader title="Upcoming events" subtitle="What’s happening at this venue next." />
             {events.length === 0 ? <EmptyState title="No upcoming events" description="Follow this venue and check back soon." /> : (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {events.map((event) => <EventCard key={event.id} href={`/events/${event.slug}`} title={event.title} startAt={event.startAt} endAt={event.endAt} venueName={venue.name} venueSlug={venue.slug} imageUrl={event.imageUrl} tags={event.tags} />)}
+                {events.map((event) => <EventCard key={event.id} href={`/events/${event.slug}`} title={event.title} startAt={event.startAt} endAt={event.endAt} venueName={venue.name} venueSlug={venue.slug} imageUrl={event.imageUrl} imageAlt={event.imageAlt} tags={event.tags} />)}
               </div>
             )}
           </section>

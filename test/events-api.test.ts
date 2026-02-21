@@ -71,8 +71,8 @@ test("GET /api/events includes image fields for cards", async () => {
     assert.equal(res.status, 200);
     const body = await res.json();
     assert.equal(body.items.length, 1);
-    assert.equal(body.items[0].featuredImageUrl, "https://example.com/featured.jpg");
-    assert.equal(body.items[0].primaryImageUrl, "https://example.com/featured.jpg");
+    assert.equal(body.items[0].featuredImageUrl, "https://example.com/gallery.jpg");
+    assert.equal(body.items[0].primaryImageUrl, "https://example.com/gallery.jpg");
     assert.equal(Array.isArray(body.items[0].images), true);
   } finally {
     db.event.findMany = originalFindMany;

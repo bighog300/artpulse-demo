@@ -6,7 +6,7 @@ import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { useUiFixtures as getUiFixturesEnabled, uiFixtureVenues } from "@/lib/ui-fixtures";
-import { resolveVenueCoverUrl } from "@/lib/venues";
+import { resolveEntityPrimaryImage } from "@/lib/public-images";
 
 export const revalidate = 300;
 const fixturesEnabled = getUiFixturesEnabled();
@@ -23,13 +23,13 @@ export default async function VenuesPage() {
     );
   }
 
-  let venues: Array<{ id: string; slug: string; name: string; subtitle: string; description: string | null; imageUrl: string | null; followersCount: number; isFollowing: boolean }> = [];
+  let venues: Array<{ id: string; slug: string; name: string; subtitle: string; description: string | null; imageUrl: string | null; imageAlt: string | null; followersCount: number; isFollowing: boolean }> = [];
 
   if (hasDatabaseUrl()) {
     const dbVenues = await db.venue.findMany({
       where: { isPublished: true },
       orderBy: { name: "asc" },
-      select: { id: true, slug: true, name: true, city: true, region: true, country: true, description: true, featuredImageUrl: true, featuredAsset: { select: { url: true } } },
+      select: { id: true, slug: true, name: true, city: true, region: true, country: true, description: true, featuredImageUrl: true, images: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { url: true, alt: true, sortOrder: true, isPrimary: true, width: true, height: true, asset: { select: { url: true } } } } },
     });
     const ids = dbVenues.map((venue) => venue.id);
     const [followerCounts, userFollows] = await Promise.all([
@@ -45,7 +45,8 @@ export default async function VenuesPage() {
       name: venue.name,
       subtitle: [venue.city, venue.region, venue.country].filter(Boolean).join(", ") || "Location unavailable",
       description: venue.description,
-      imageUrl: resolveVenueCoverUrl(venue),
+      imageUrl: resolveEntityPrimaryImage(venue)?.url ?? null,
+      imageAlt: resolveEntityPrimaryImage(venue)?.alt ?? venue.name,
       followersCount: countById.get(venue.id) ?? 0,
       isFollowing: followedSet.has(venue.id),
     }));
@@ -56,7 +57,8 @@ export default async function VenuesPage() {
       name: venue.name,
       subtitle: [venue.city, venue.region, venue.country].filter(Boolean).join(", ") || "Location unavailable",
       description: venue.description,
-      imageUrl: resolveVenueCoverUrl(venue),
+      imageUrl: resolveEntityPrimaryImage(venue)?.url ?? null,
+      imageAlt: resolveEntityPrimaryImage(venue)?.alt ?? venue.name,
       followersCount: 0,
       isFollowing: false,
     }));

@@ -1,7 +1,9 @@
 import { db } from "@/lib/db";
+import { runBlobCleanupOrphansJob } from "@/lib/jobs/blob-cleanup-orphans";
 
 export type JobRunContext = {
   params?: unknown;
+  actorEmail?: string | null;
 };
 
 export type JobResult = {
@@ -21,6 +23,10 @@ export const JOBS: Record<string, JobDefinition> = {
       message: "health ping ok",
       metadata: { ok: true },
     }),
+  },
+  "blob.cleanup-orphans": {
+    description: "Delete unreferenced Vercel Blob images (dry-run supported).",
+    run: async ({ params, actorEmail }) => runBlobCleanupOrphansJob({ params, actorEmail }),
   },
   "db.vacuum-lite": {
     description: "Lightweight DB check that validates connectivity and captures key table counts.",

@@ -13,6 +13,7 @@ type ArtistListItem = {
   slug: string;
   bio: string | null;
   avatarImageUrl: string | null;
+  imageAlt: string | null;
   tags: string[];
   followersCount: number;
   isFollowing: boolean;
@@ -44,6 +45,7 @@ export function ArtistsClient({ artists, isAuthenticated }: { artists: ArtistLis
               subtitle={artist.tags.slice(0, 2).join(" • ") || null}
               description={artist.bio}
               imageUrl={artist.avatarImageUrl}
+              imageAlt={artist.imageAlt}
               tags={artist.tags}
               action={<div onClick={(event) => { event.preventDefault(); event.stopPropagation(); }}><FollowButton targetType="ARTIST" targetId={artist.id} initialIsFollowing={artist.isFollowing} initialFollowersCount={artist.followersCount} isAuthenticated={isAuthenticated} /></div>}
             />
