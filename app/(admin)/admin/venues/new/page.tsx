@@ -1,3 +1,4 @@
+import { ADMIN_IMAGE_ALT_REQUIRED } from "@/lib/admin-policy";
 import AdminEntityForm from "@/app/(admin)/admin/_components/AdminEntityForm";
 
 export default function AdminNewVenue() {
@@ -24,6 +25,7 @@ export default function AdminNewVenue() {
         { name: "featuredImageUrl", label: "Featured Image URL" },
         { name: "featuredAssetId", label: "Featured Asset ID" },
       ]}
+      altRequired={ADMIN_IMAGE_ALT_REQUIRED}
     />
   );
 }
