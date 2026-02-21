@@ -286,7 +286,15 @@ export async function handleSetVenueCover(
       return withNoStore(apiError(400, "invalid_request", "Invalid payload", zodDetails(parsedBody.error)));
     }
 
-    const imageId = parsedBody.data.imageId ?? parsedBody.data.venueImageId;
+    const imageId = parsedBody.data.imageId !== undefined ? parsedBody.data.imageId : parsedBody.data.venueImageId;
+    if (imageId === null) {
+      const cover = await deps.updateVenueCover(parsedId.venueId, {
+        featuredAssetId: null,
+        featuredImageUrl: null,
+      });
+      return withNoStore(NextResponse.json({ cover }, { headers: NO_STORE_HEADERS }));
+    }
+
     const image = await deps.findVenueImageById(parsedId.venueId, imageId!);
     if (!image) {
       return withNoStore(apiError(400, "invalid_request", "Image does not belong to this venue"));

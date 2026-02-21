@@ -11,6 +11,7 @@ type ArtistRecord = {
   websiteUrl: string | null;
   instagramUrl: string | null;
   avatarImageUrl: string | null;
+  featuredAssetId: string | null;
 };
 
 type Deps = {

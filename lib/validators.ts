@@ -80,7 +80,7 @@ export const artistImageReorderSchema = z.object({
 });
 
 export const artistCoverPatchSchema = z.object({
-  imageId: z.string().uuid(),
+  imageId: z.string().uuid().nullable(),
 });
 
 export const myArtistPatchSchema = z.object({
@@ -89,6 +89,7 @@ export const myArtistPatchSchema = z.object({
   websiteUrl: httpUrlSchema.optional().nullable(),
   instagramUrl: httpUrlSchema.optional().nullable(),
   avatarImageUrl: httpUrlSchema.optional().nullable(),
+  featuredAssetId: z.string().uuid().optional().nullable(),
 });
 
 export const venueImageCreateSchema = z.object({
@@ -106,10 +107,11 @@ export const venueImageReorderSchema = z.object({
 });
 
 export const venueCoverPatchSchema = z.object({
-  imageId: z.string().uuid().optional(),
-  venueImageId: z.string().uuid().optional(),
+  imageId: z.string().uuid().nullable().optional(),
+  venueImageId: z.string().uuid().nullable().optional(),
 }).superRefine((data, ctx) => {
   const candidateId = data.imageId ?? data.venueImageId;
+  if (data.imageId === null || data.venueImageId === null) return;
   if (!candidateId) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["imageId"], message: "imageId is required" });
   }

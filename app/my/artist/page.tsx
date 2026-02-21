@@ -92,6 +92,8 @@ export default async function MyArtistPage() {
           websiteUrl: artist.websiteUrl,
           instagramUrl: artist.instagramUrl,
           avatarImageUrl: artist.avatarImageUrl,
+          featuredAssetId: artist.featuredAssetId,
+          featuredAssetUrl: artist.featuredAsset?.url ?? null,
         }}
       />
       <ArtistGalleryManager
