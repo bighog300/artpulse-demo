@@ -517,11 +517,14 @@ model ArtistImage {
   url       String
   alt       String?
   sortOrder Int      @default(0)
+  isPrimary Boolean  @default(false)
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   artist    Artist   @relation(fields: [artistId], references: [id], onDelete: Cascade)
   asset     Asset?   @relation(fields: [assetId], references: [id], onDelete: SetNull)
 
   @@index([artistId, sortOrder])
+  @@index([artistId, isPrimary])
   @@index([assetId])
 }
 
@@ -532,12 +535,15 @@ model EventImage {
   url       String
   alt       String?
   sortOrder Int      @default(0)
+  isPrimary Boolean  @default(false)
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   asset     Asset?   @relation(fields: [assetId], references: [id], onDelete: SetNull)
 
   @@index([assetId])
   @@index([eventId, sortOrder])
+  @@index([eventId, isPrimary])
 }
 
 model VenueImage {
@@ -547,12 +553,15 @@ model VenueImage {
   url       String
   alt       String?
   sortOrder Int      @default(0)
+  isPrimary Boolean  @default(false)
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   venue     Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
   asset     Asset?   @relation(fields: [assetId], references: [id], onDelete: SetNull)
 
   @@index([assetId])
   @@index([venueId, sortOrder])
+  @@index([venueId, isPrimary])
 }
 
 model Asset {

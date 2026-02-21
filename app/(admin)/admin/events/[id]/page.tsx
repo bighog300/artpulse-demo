@@ -6,7 +6,7 @@ export default async function AdminEditEvent({ params }: { params: Promise<{ id:
   const { id } = await params;
   const event = await db.event.findUnique({
     where: { id },
-    include: { eventTags: { include: { tag: true } }, eventArtists: { include: { artist: true } }, images: { orderBy: { sortOrder: "asc" } } },
+    include: { eventTags: { include: { tag: true } }, eventArtists: { include: { artist: true } } },
   });
   if (!event) notFound();
 
@@ -26,7 +26,6 @@ export default async function AdminEditEvent({ params }: { params: Promise<{ id:
         venueId: event.venueId,
         tagSlugs: event.eventTags.map((x) => x.tag.slug),
         artistSlugs: event.eventArtists.map((x) => x.artist.slug),
-        images: event.images.map((x) => ({ url: x.url, alt: x.alt, sortOrder: x.sortOrder })),
         isPublished: event.isPublished,
       }}
     />

@@ -1,0 +1,277 @@
+import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
+import { apiError } from "@/lib/api";
+import { db } from "@/lib/db";
+import { logAdminAction } from "@/lib/admin-audit";
+
+export type AdminImageItem = {
+  id: string;
+  url: string;
+  alt: string | null;
+  sortOrder: number;
+  isPrimary: boolean;
+};
+
+export type AdminEntityType = "event" | "venue" | "artist";
+
+type Tx = Prisma.TransactionClient;
+
+const entityConfig = {
+  event: {
+    targetType: "event",
+    parentNotFoundMessage: "Event not found",
+  },
+  venue: {
+    targetType: "venue",
+    parentNotFoundMessage: "Venue not found",
+  },
+  artist: {
+    targetType: "artist",
+    parentNotFoundMessage: "Artist not found",
+  },
+} as const;
+
+async function ensureEntityExists(tx: Tx, entityType: AdminEntityType, entityId: string) {
+  if (entityType === "event") {
+    return tx.event.findUnique({ where: { id: entityId }, select: { id: true } });
+  }
+  if (entityType === "venue") {
+    return tx.venue.findUnique({ where: { id: entityId }, select: { id: true } });
+  }
+  return tx.artist.findUnique({ where: { id: entityId }, select: { id: true } });
+}
+
+function mapImage(row: { id: string; url: string; alt: string | null; sortOrder: number; isPrimary: boolean }): AdminImageItem {
+  return { id: row.id, url: row.url, alt: row.alt, sortOrder: row.sortOrder, isPrimary: row.isPrimary };
+}
+
+async function listImages(tx: Tx, entityType: AdminEntityType, entityId: string) {
+  if (entityType === "event") return tx.eventImage.findMany({ where: { eventId: entityId }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] });
+  if (entityType === "venue") return tx.venueImage.findMany({ where: { venueId: entityId }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] });
+  return tx.artistImage.findMany({ where: { artistId: entityId }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] });
+}
+
+async function updateFeaturedImageUrl(tx: Tx, entityType: AdminEntityType, entityId: string, url: string | null) {
+  if (entityType === "event") return;
+  if (entityType === "venue") {
+    await tx.venue.update({ where: { id: entityId }, data: { featuredImageUrl: url, featuredAssetId: null } });
+    return;
+  }
+  await tx.artist.update({ where: { id: entityId }, data: { featuredImageUrl: url, featuredAssetId: null } });
+}
+
+async function setAllPrimaryFalse(tx: Tx, entityType: AdminEntityType, entityId: string) {
+  if (entityType === "event") return tx.eventImage.updateMany({ where: { eventId: entityId }, data: { isPrimary: false } });
+  if (entityType === "venue") return tx.venueImage.updateMany({ where: { venueId: entityId }, data: { isPrimary: false } });
+  return tx.artistImage.updateMany({ where: { artistId: entityId }, data: { isPrimary: false } });
+}
+
+export async function getAdminEntityImages(entityType: AdminEntityType, entityId: string) {
+  const items = await db.$transaction(async (tx) => {
+    const entity = await ensureEntityExists(tx, entityType, entityId);
+    if (!entity) return null;
+    const images = await listImages(tx, entityType, entityId);
+    return images.map(mapImage);
+  });
+
+  if (!items) return apiError(404, "not_found", entityConfig[entityType].parentNotFoundMessage);
+  return NextResponse.json({ items });
+}
+
+export async function addAdminEntityImage(input: {
+  entityType: AdminEntityType;
+  entityId: string;
+  url: string;
+  alt?: string | null;
+  makePrimary?: boolean;
+  actorEmail: string;
+  req: Request;
+}) {
+  const { entityType, entityId, url, alt, makePrimary, actorEmail, req } = input;
+  const created = await db.$transaction(async (tx) => {
+    const entity = await ensureEntityExists(tx, entityType, entityId);
+    if (!entity) return null;
+
+    const current = await listImages(tx, entityType, entityId);
+    const nextSortOrder = current.length ? Math.max(...current.map((x) => x.sortOrder)) + 1 : 0;
+    const shouldBePrimary = Boolean(makePrimary) || current.length === 0;
+
+    if (shouldBePrimary) await setAllPrimaryFalse(tx, entityType, entityId);
+
+    const createData = { url, alt: alt ?? null, sortOrder: nextSortOrder, isPrimary: shouldBePrimary };
+    const item = entityType === "event"
+      ? await tx.eventImage.create({ data: { ...createData, eventId: entityId } })
+      : entityType === "venue"
+        ? await tx.venueImage.create({ data: { ...createData, venueId: entityId } })
+        : await tx.artistImage.create({ data: { ...createData, artistId: entityId } });
+
+    if (shouldBePrimary) await updateFeaturedImageUrl(tx, entityType, entityId, item.url);
+    return mapImage(item);
+  });
+
+  if (!created) return apiError(404, "not_found", entityConfig[entityType].parentNotFoundMessage);
+
+  await logAdminAction({
+    actorEmail,
+    action: `admin.${entityType}.image.add`,
+    targetType: entityConfig[entityType].targetType,
+    targetId: entityId,
+    metadata: { imageId: created.id, makePrimary: Boolean(makePrimary) },
+    req,
+  });
+
+  return NextResponse.json({ item: created }, { status: 201 });
+}
+
+export async function patchAdminEntityImage(input: {
+  entityType: AdminEntityType;
+  entityId: string;
+  imageId: string;
+  alt?: string | null;
+  isPrimary?: true;
+  actorEmail: string;
+  req: Request;
+}) {
+  const { entityType, entityId, imageId, alt, isPrimary, actorEmail, req } = input;
+
+  const updated = await db.$transaction(async (tx) => {
+    const entity = await ensureEntityExists(tx, entityType, entityId);
+    if (!entity) return { type: "entity_not_found" as const };
+
+    const image = entityType === "event"
+      ? await tx.eventImage.findFirst({ where: { id: imageId, eventId: entityId } })
+      : entityType === "venue"
+        ? await tx.venueImage.findFirst({ where: { id: imageId, venueId: entityId } })
+        : await tx.artistImage.findFirst({ where: { id: imageId, artistId: entityId } });
+
+    if (!image) return { type: "image_not_found" as const };
+
+    let next = image;
+    if (alt !== undefined) {
+      next = entityType === "event"
+        ? await tx.eventImage.update({ where: { id: imageId }, data: { alt } })
+        : entityType === "venue"
+          ? await tx.venueImage.update({ where: { id: imageId }, data: { alt } })
+          : await tx.artistImage.update({ where: { id: imageId }, data: { alt } });
+    }
+
+    if (isPrimary) {
+      await setAllPrimaryFalse(tx, entityType, entityId);
+      next = entityType === "event"
+        ? await tx.eventImage.update({ where: { id: imageId }, data: { isPrimary: true } })
+        : entityType === "venue"
+          ? await tx.venueImage.update({ where: { id: imageId }, data: { isPrimary: true } })
+          : await tx.artistImage.update({ where: { id: imageId }, data: { isPrimary: true } });
+      await updateFeaturedImageUrl(tx, entityType, entityId, next.url);
+    }
+
+    return { type: "ok" as const, item: mapImage(next) };
+  });
+
+  if (updated.type === "entity_not_found") return apiError(404, "not_found", entityConfig[entityType].parentNotFoundMessage);
+  if (updated.type === "image_not_found") return apiError(404, "not_found", "Image not found");
+
+  await logAdminAction({
+    actorEmail,
+    action: isPrimary ? `admin.${entityType}.image.set_primary` : `admin.${entityType}.image.update`,
+    targetType: entityConfig[entityType].targetType,
+    targetId: entityId,
+    metadata: { imageId },
+    req,
+  });
+
+  return NextResponse.json({ item: updated.item });
+}
+
+export async function reorderAdminEntityImages(input: {
+  entityType: AdminEntityType;
+  entityId: string;
+  order: string[];
+  actorEmail: string;
+  req: Request;
+}) {
+  const { entityType, entityId, order, actorEmail, req } = input;
+
+  const result = await db.$transaction(async (tx) => {
+    const entity = await ensureEntityExists(tx, entityType, entityId);
+    if (!entity) return { type: "entity_not_found" as const };
+
+    const existing = entityType === "event"
+      ? await tx.eventImage.findMany({ where: { eventId: entityId, id: { in: order } }, select: { id: true } })
+      : entityType === "venue"
+        ? await tx.venueImage.findMany({ where: { venueId: entityId, id: { in: order } }, select: { id: true } })
+        : await tx.artistImage.findMany({ where: { artistId: entityId, id: { in: order } }, select: { id: true } });
+
+    if (existing.length !== order.length) return { type: "invalid_order" as const };
+
+    await Promise.all(order.map((id, index) => {
+      if (entityType === "event") return tx.eventImage.update({ where: { id }, data: { sortOrder: index } });
+      if (entityType === "venue") return tx.venueImage.update({ where: { id }, data: { sortOrder: index } });
+      return tx.artistImage.update({ where: { id }, data: { sortOrder: index } });
+    }));
+
+    return { type: "ok" as const };
+  });
+
+  if (result.type === "entity_not_found") return apiError(404, "not_found", entityConfig[entityType].parentNotFoundMessage);
+  if (result.type === "invalid_order") return apiError(400, "invalid_request", "One or more images do not belong to this entity");
+
+  await logAdminAction({ actorEmail, action: `admin.${entityType}.image.reorder`, targetType: entityConfig[entityType].targetType, targetId: entityId, metadata: { order }, req });
+  return NextResponse.json({ ok: true });
+}
+
+export async function deleteAdminEntityImage(input: {
+  entityType: AdminEntityType;
+  entityId: string;
+  imageId: string;
+  actorEmail: string;
+  req: Request;
+}) {
+  const { entityType, entityId, imageId, actorEmail, req } = input;
+
+  const result = await db.$transaction(async (tx) => {
+    const entity = await ensureEntityExists(tx, entityType, entityId);
+    if (!entity) return { type: "entity_not_found" as const };
+
+    const image = entityType === "event"
+      ? await tx.eventImage.findFirst({ where: { id: imageId, eventId: entityId } })
+      : entityType === "venue"
+        ? await tx.venueImage.findFirst({ where: { id: imageId, venueId: entityId } })
+        : await tx.artistImage.findFirst({ where: { id: imageId, artistId: entityId } });
+
+    if (!image) return { type: "image_not_found" as const };
+
+    if (entityType === "event") await tx.eventImage.delete({ where: { id: imageId } });
+    else if (entityType === "venue") await tx.venueImage.delete({ where: { id: imageId } });
+    else await tx.artistImage.delete({ where: { id: imageId } });
+
+    const remaining = await listImages(tx, entityType, entityId);
+    const sorted = [...remaining].sort((a, b) => a.sortOrder - b.sortOrder);
+
+    await Promise.all(sorted.map((entry, index) => {
+      if (entry.sortOrder === index) return Promise.resolve();
+      if (entityType === "event") return tx.eventImage.update({ where: { id: entry.id }, data: { sortOrder: index } });
+      if (entityType === "venue") return tx.venueImage.update({ where: { id: entry.id }, data: { sortOrder: index } });
+      return tx.artistImage.update({ where: { id: entry.id }, data: { sortOrder: index } });
+    }));
+
+    if (image.isPrimary) {
+      const nextPrimary = sorted[0] ?? null;
+      await setAllPrimaryFalse(tx, entityType, entityId);
+      if (nextPrimary) {
+        if (entityType === "event") await tx.eventImage.update({ where: { id: nextPrimary.id }, data: { isPrimary: true } });
+        else if (entityType === "venue") await tx.venueImage.update({ where: { id: nextPrimary.id }, data: { isPrimary: true } });
+        else await tx.artistImage.update({ where: { id: nextPrimary.id }, data: { isPrimary: true } });
+      }
+      await updateFeaturedImageUrl(tx, entityType, entityId, nextPrimary?.url ?? null);
+    }
+
+    return { type: "ok" as const };
+  });
+
+  if (result.type === "entity_not_found") return apiError(404, "not_found", entityConfig[entityType].parentNotFoundMessage);
+  if (result.type === "image_not_found") return apiError(404, "not_found", "Image not found");
+
+  await logAdminAction({ actorEmail, action: `admin.${entityType}.image.delete`, targetType: entityConfig[entityType].targetType, targetId: entityId, metadata: { imageId }, req });
+  return NextResponse.json({ ok: true });
+}

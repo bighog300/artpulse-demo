@@ -61,12 +61,12 @@ function getEntityImageUrl(entity: { featuredImageUrl?: string | null; images?: 
   const featured = normalizeUrlOrNull(entity.featuredImageUrl);
   if (featured) return featured;
 
-  const jsonImages = safeParseImagesJson(entity.images);
-  const firstJsonImage = pickFirstUrl(jsonImages);
-  if (firstJsonImage) return firstJsonImage;
+  const relationImages = toImageArray(entity.EventImage ?? entity.VenueImage ?? entity.ArtistImage);
+  const relationImage = pickRelationUrl(relationImages);
+  if (relationImage) return relationImage;
 
-  const relationImages = toImageArray(entity.EventImage ?? entity.VenueImage ?? entity.ArtistImage ?? entity.images);
-  return pickRelationUrl(relationImages);
+  const jsonImages = safeParseImagesJson(entity.images);
+  return pickFirstUrl(jsonImages);
 }
 
 export function getEventImageUrl(event: { featuredImageUrl?: string | null; images?: unknown; EventImage?: unknown }): string | null {
