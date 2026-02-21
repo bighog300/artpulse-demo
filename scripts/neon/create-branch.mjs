@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 import {
   appendGitHubOutput,
+  createEndpoint,
   getApiKey,
   getBranchByName,
   getProjectId,
+  listEndpoints,
   neonRequest,
   parseArgs,
 } from "./_neon-api.mjs";
@@ -67,6 +69,34 @@ async function main() {
       }
     }
   }
+
+  const endpoints = await listEndpoints({
+    projectId,
+    apiKey,
+    branchId: branch.id,
+  });
+
+  if (endpoints.length === 0) {
+    try {
+      await createEndpoint({
+        projectId,
+        apiKey,
+        branchId: branch.id,
+      });
+    } catch (error) {
+      console.warn(
+        `WARN: Failed to create endpoint for branch "${branch.name}" (will continue): ${error?.message || error}`
+      );
+    }
+  }
+
+  const refreshedEndpoints = await listEndpoints({
+    projectId,
+    apiKey,
+    branchId: branch.id,
+  });
+
+  console.log(`Ensured endpoint exists for branch ${branch.name} (count=${refreshedEndpoints.length})`);
 
   appendGitHubOutput("branch_id", branch.id);
   appendGitHubOutput("branch_name", branch.name);

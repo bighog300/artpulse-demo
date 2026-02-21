@@ -88,6 +88,80 @@ async function listBranches({ projectId, apiKey }) {
   return allBranches;
 }
 
+async function listEndpoints({ projectId, apiKey, branchId }) {
+  const allEndpoints = [];
+  let cursor = null;
+
+  do {
+    const search = new URLSearchParams();
+    if (branchId) {
+      search.set("branch_id", branchId);
+    }
+    if (cursor) {
+      search.set("cursor", cursor);
+    }
+
+    const query = search.toString() ? `?${search.toString()}` : "";
+    const result = await neonRequest({
+      path: `/projects/${projectId}/endpoints${query}`,
+      apiKey,
+    });
+
+    allEndpoints.push(...(result?.endpoints || []));
+
+    cursor =
+      result?.pagination?.next_cursor ||
+      result?.next_cursor ||
+      result?.page?.next_cursor ||
+      null;
+  } while (cursor);
+
+  return branchId
+    ? allEndpoints.filter((endpoint) => endpoint.branch_id === branchId)
+    : allEndpoints;
+}
+
+async function createEndpoint({ projectId, apiKey, branchId }) {
+  const existingEndpoints = await listEndpoints({ projectId, apiKey, branchId });
+  const existingReadWrite =
+    existingEndpoints.find((endpoint) => endpoint.type === "read_write") ||
+    existingEndpoints[0] ||
+    null;
+
+  if (existingReadWrite) {
+    return existingReadWrite;
+  }
+
+  try {
+    const response = await neonRequest({
+      method: "POST",
+      path: `/projects/${projectId}/endpoints`,
+      apiKey,
+      body: {
+        endpoint: {
+          branch_id: branchId,
+          type: "read_write",
+        },
+      },
+    });
+
+    return response?.endpoint || null;
+  } catch (error) {
+    const message = String(error?.message || "").toLowerCase();
+    const isAlreadyExistsError = message.includes("(409)") || message.includes("already exists");
+    if (!isAlreadyExistsError) {
+      throw error;
+    }
+
+    const refreshedEndpoints = await listEndpoints({ projectId, apiKey, branchId });
+    return (
+      refreshedEndpoints.find((endpoint) => endpoint.type === "read_write") ||
+      refreshedEndpoints[0] ||
+      null
+    );
+  }
+}
+
 function pickBranchByName(branches, branchName) {
   return (branches || []).find((branch) => branch.name === branchName) || null;
 }
@@ -113,8 +187,10 @@ export {
   getApiKey,
   getBranchByName,
   getProjectId,
+  listEndpoints,
   listBranches,
   maskForGitHubActions,
   neonRequest,
   parseArgs,
+  createEndpoint,
 };
