@@ -17,17 +17,6 @@ function toBool(value) {
   return v === "1" || v === "true" || v === "yes" || v === "on";
 }
 
-function summarizeEndpoints(endpoints) {
-  const rows = (endpoints || []).map((e) => ({
-    id: e.id,
-    branch_id: e.branch_id,
-    type: e.type,
-    pooler_enabled: Boolean(e.pooler_enabled),
-    host: e.host,
-  }));
-  return JSON.stringify(rows);
-}
-
 function pickEndpointForBranch(endpoints, { branchId, pooled }) {
   const inBranch = (endpoints || []).filter((e) => e.branch_id === branchId);
   const filtered = inBranch.filter((e) => Boolean(e.pooler_enabled) === pooled);
@@ -78,20 +67,20 @@ async function main() {
 
   const endpoints = endpointResp?.endpoints || [];
 
+  const branchEndpoints = endpoints.filter((e) => e.branch_id === branch.id);
   const directEndpoint = pickEndpointForBranch(endpoints, { branchId: branch.id, pooled: false });
   const pooledEndpoint = pickEndpointForBranch(endpoints, { branchId: branch.id, pooled: true });
 
-  if (!directEndpoint) {
+  if (branchEndpoints.length === 0 || !directEndpoint) {
     throw new Error(
-      `No direct endpoint (pooler_enabled=false) found for branch "${branchName}". ` +
-        `All endpoints: ${summarizeEndpoints(endpoints)}`
+      `Branch "${branchName}" exists but endpoints not ready yet. ` +
+        `Found ${branchEndpoints.length} endpoint(s) for this branch; waiting for direct endpoint provisioning.`
     );
   }
 
   if (requirePooled && !pooledEndpoint) {
     throw new Error(
-      `No pooled endpoint (pooler_enabled=true) found for branch "${branchName}" and NEON_REQUIRE_POOLED=true. ` +
-        `All endpoints: ${summarizeEndpoints(endpoints)}`
+      `Branch "${branchName}" exists but pooled endpoint is not ready yet (NEON_REQUIRE_POOLED=true).`
     );
   }
 
