@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import process from "node:process";
+import { pathToFileURL } from "node:url";
 import {
   appendGitHubOutput,
   createEndpoint,
@@ -31,12 +32,71 @@ function toBool(value) {
   return v === "1" || v === "true" || v === "yes" || v === "on";
 }
 
+function isPoolerHost(host) {
+  return String(host || "").toLowerCase().includes("-pooler");
+}
+
+function toNonPoolerHost(host) {
+  if (!host) return "";
+  return String(host).replace("-pooler", "");
+}
+
+function toPoolerHost(host) {
+  if (!host) return "";
+  const normalized = toNonPoolerHost(host);
+  if (isPoolerHost(normalized)) return normalized;
+  return normalized.replace(/^ep-/, "ep-") === normalized
+    ? normalized.replace(/^ep-([^.]*)\./, "ep-$1-pooler.")
+    : normalized;
+}
+
+function endpointHost(endpoint) {
+  return String(endpoint?.host || endpoint?.proxy_host || "").trim();
+}
+
+function endpointMatchesPooler(endpoint) {
+  if (typeof endpoint?.pooler_enabled === "boolean") {
+    return endpoint.pooler_enabled;
+  }
+  return isPoolerHost(endpointHost(endpoint));
+}
+
 function pickEndpointForBranch(endpoints, { branchId, pooled }) {
   const inBranch = (endpoints || []).filter((e) => e.branch_id === branchId);
-  const filtered = inBranch.filter((e) => Boolean(e.pooler_enabled) === pooled);
+  const filtered = inBranch.filter((e) => endpointMatchesPooler(e) === pooled);
 
   if (filtered.length === 0) return null;
   return filtered.find((e) => e.type === "read_write") || filtered[0];
+}
+
+function pickReadWriteEndpoint(endpoints, branchId) {
+  const inBranch = (endpoints || []).filter((e) => e.branch_id === branchId);
+  return inBranch.find((e) => e.type === "read_write") || inBranch[0] || null;
+}
+
+function replaceConnectionHost(uri, host) {
+  if (!uri || !host) return uri;
+  const parsed = new URL(uri);
+  parsed.hostname = host;
+  return parsed.toString();
+}
+
+export function selectConnectionHosts(endpoints, branchId) {
+  const directEndpoint = pickEndpointForBranch(endpoints, { branchId, pooled: false });
+  const pooledEndpoint = pickEndpointForBranch(endpoints, { branchId, pooled: true });
+  const primaryEndpoint = pickReadWriteEndpoint(endpoints, branchId);
+
+  const primaryHost = endpointHost(primaryEndpoint);
+  const directHost = endpointHost(directEndpoint) || toNonPoolerHost(primaryHost);
+  const pooledHost = endpointHost(pooledEndpoint) || (directHost ? toPoolerHost(directHost) : "");
+
+  return {
+    directEndpoint,
+    pooledEndpoint,
+    primaryEndpoint,
+    directHost,
+    pooledHost,
+  };
 }
 
 function sleep(ms) {
@@ -46,7 +106,6 @@ function sleep(ms) {
 }
 
 async function buildConnectionUri({ projectId, apiKey, branchId, endpointId, databaseName, roleName }) {
-  // Neon API: GET /projects/:id/connection_uri?branch_id=...&endpoint_id=...&database_name=...&role_name=...
   const result = await neonRequest({
     path:
       `/projects/${projectId}/connection_uri` +
@@ -93,8 +152,7 @@ async function main() {
     apiKey,
     branchId: branch.id,
   });
-  const directEndpoint = pickEndpointForBranch(branchEndpoints, { branchId: branch.id, pooled: false });
-  const pooledEndpoint = pickEndpointForBranch(branchEndpoints, { branchId: branch.id, pooled: true });
+  const selected = selectConnectionHosts(branchEndpoints, branch.id);
 
   if (branchEndpoints.length === 0) {
     let lastCreateFailure = null;
@@ -145,15 +203,23 @@ async function main() {
     );
   }
 
-  if (!directEndpoint) {
+  if (!selected.primaryEndpoint) {
     throw new TaggedFailure(
-      "DIRECT_ENDPOINT_MISSING",
-      `Branch "${branchName}" has ${branchEndpoints.length} endpoint(s) but no direct/non-pooler endpoint.`,
-      { retryable: false }
+      "ENDPOINTS_NOT_READY",
+      `Branch "${branchName}" has endpoints but no usable read/write endpoint yet.`,
+      { retryable: true }
     );
   }
 
-  if (requirePooled && !pooledEndpoint) {
+  if (!selected.directHost) {
+    throw new TaggedFailure(
+      "ENDPOINTS_NOT_READY",
+      `Branch "${branchName}" has endpoint(s) but no non-pooler host is available yet.`,
+      { retryable: true }
+    );
+  }
+
+  if (requirePooled && !selected.pooledHost) {
     throw new TaggedFailure(
       "ENDPOINTS_NOT_READY",
       `Branch "${branchName}" exists but pooled endpoint is not ready yet (NEON_REQUIRE_POOLED=true).`,
@@ -161,59 +227,57 @@ async function main() {
     );
   }
 
-  // DIRECT_URL (required for prisma migrate deploy)
-  const directUrl = await buildConnectionUri({
+  const baseUri = await buildConnectionUri({
     projectId,
     apiKey,
     branchId: branch.id,
-    endpointId: directEndpoint.id,
+    endpointId: selected.primaryEndpoint.id,
     databaseName,
     roleName,
   });
 
-  // DATABASE_URL (prefer pooled; fallback to direct)
+  const directUrl = replaceConnectionHost(baseUri, selected.directHost);
+  if (isPoolerHost(new URL(directUrl).hostname)) {
+    throw new TaggedFailure(
+      "DIRECT_URL_POOLER",
+      `Computed DIRECT_URL host "${new URL(directUrl).hostname}" is a pooler host, refusing to continue.`,
+      { retryable: false }
+    );
+  }
+
   let databaseUrl = directUrl;
-  if (pooledEndpoint) {
-    databaseUrl = await buildConnectionUri({
-      projectId,
-      apiKey,
-      branchId: branch.id,
-      endpointId: pooledEndpoint.id,
-      databaseName,
-      roleName,
-    });
+  if (selected.pooledHost) {
+    databaseUrl = replaceConnectionHost(baseUri, selected.pooledHost);
   } else {
-    // eslint-disable-next-line no-console
     console.warn(
       `WARN: No pooled endpoint found for branch "${branchName}". Falling back DATABASE_URL to DIRECT_URL. ` +
         `Set NEON_REQUIRE_POOLED=true to enforce pooled endpoints.`
     );
   }
 
-  // Mask in GitHub logs
   maskForGitHubActions(databaseUrl);
   maskForGitHubActions(directUrl);
 
-  // Output keys must match workflow:
-  // steps.neon-urls.outputs.database_url and steps.neon-urls.outputs.direct_url
   appendGitHubOutput("database_url", databaseUrl);
   appendGitHubOutput("direct_url", directUrl);
 
-  // eslint-disable-next-line no-console
   console.log(`set-env OK: connection URLs ready for Neon branch "${branchName}".`);
 }
 
-main().catch((err) => {
-  const projectId = resolvedProjectId || "";
-  const branchName = requestedBranchName || "";
-  const reasonTag = err instanceof TaggedFailure ? err.reasonTag : "OTHER";
-  const retryable = err instanceof TaggedFailure ? err.retryable : false;
-  const message = err?.message || String(err);
+const isEntrypoint = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 
-  // eslint-disable-next-line no-console
-  console.error(
-    `FAIL_REASON=${reasonTag} NEON_PROJECT_ID=${projectId || "<unset>"} PR_BRANCH_NAME=${branchName || "<unset>"} MESSAGE=${message}`
-  );
+if (isEntrypoint) {
+  main().catch((err) => {
+    const projectId = resolvedProjectId || "";
+    const branchName = requestedBranchName || "";
+    const reasonTag = err instanceof TaggedFailure ? err.reasonTag : "OTHER";
+    const retryable = err instanceof TaggedFailure ? err.retryable : false;
+    const message = err?.message || String(err);
 
-  process.exit(retryable ? RETRYABLE_EXIT_CODE : NON_RETRYABLE_EXIT_CODE);
-});
+    console.error(
+      `FAIL_REASON=${reasonTag} NEON_PROJECT_ID=${projectId || "<unset>"} PR_BRANCH_NAME=${branchName || "<unset>"} MESSAGE=${message}`
+    );
+
+    process.exit(retryable ? RETRYABLE_EXIT_CODE : NON_RETRYABLE_EXIT_CODE);
+  });
+}
