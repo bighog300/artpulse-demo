@@ -39,6 +39,12 @@ function pickEndpointForBranch(endpoints, { branchId, pooled }) {
   return filtered.find((e) => e.type === "read_write") || filtered[0];
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 async function buildConnectionUri({ projectId, apiKey, branchId, endpointId, databaseName, roleName }) {
   // Neon API: GET /projects/:id/connection_uri?branch_id=...&endpoint_id=...&database_name=...&role_name=...
   const result = await neonRequest({
@@ -91,15 +97,50 @@ async function main() {
   const pooledEndpoint = pickEndpointForBranch(branchEndpoints, { branchId: branch.id, pooled: true });
 
   if (branchEndpoints.length === 0) {
-    try {
-      await createEndpoint({ projectId, apiKey, branchId: branch.id });
-    } catch {
-      // best effort only
+    let lastCreateFailure = null;
+
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      try {
+        await createEndpoint({ projectId, apiKey, branchId: branch.id });
+        lastCreateFailure = null;
+        break;
+      } catch (error) {
+        lastCreateFailure = error;
+      }
+
+      if (attempt < 3) {
+        await sleep(2000);
+      }
     }
+
+    const refreshedEndpoints = await listEndpoints({
+      projectId,
+      apiKey,
+      branchId: branch.id,
+    });
+
+    if (refreshedEndpoints.length > 0) {
+      throw new TaggedFailure(
+        "ENDPOINTS_NOT_READY",
+        `Branch "${branchName}" endpoints appeared after create attempts; retry to continue URL generation.`,
+        { retryable: true }
+      );
+    }
+
+    const failureBits = [];
+    if (lastCreateFailure?.failReason) failureBits.push(`CREATE_FAIL_REASON=${lastCreateFailure.failReason}`);
+    if (lastCreateFailure?.createEndpointStatus) {
+      failureBits.push(`CREATE_STATUS=${lastCreateFailure.createEndpointStatus}`);
+    }
+    if (lastCreateFailure?.createEndpointBody) {
+      failureBits.push(`CREATE_BODY=${lastCreateFailure.createEndpointBody}`);
+    }
+
+    const failureSuffix = failureBits.length > 0 ? ` Last create failure: ${failureBits.join(" ")}` : "";
 
     throw new TaggedFailure(
       "ENDPOINTS_NOT_READY",
-      `Branch "${branchName}" exists but endpoints not ready yet. Found 0 endpoint(s) for this branch; requested endpoint creation.`,
+      `Branch "${branchName}" exists but endpoints not ready yet after 3 create attempts. Found 0 endpoint(s) for this branch.${failureSuffix}`,
       { retryable: true }
     );
   }
