@@ -15,6 +15,7 @@ const ITEMS = [
   { href: "/", label: "Home", icon: Home },
   { href: "/venues", label: "Venues", icon: MapPin },
   { href: "/artists", label: "Artists", icon: Palette },
+  { href: "/artwork", label: "Artwork", icon: Palette },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
 ] as const;
 

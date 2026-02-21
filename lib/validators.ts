@@ -35,6 +35,7 @@ export const slugParamSchema = z.object({ slug: slugSchema });
 export const idParamSchema = z.object({ id: z.string().uuid() });
 export const venueIdParamSchema = z.object({ id: z.string().uuid() });
 export const artistIdParamSchema = z.object({ id: z.string().uuid() });
+export const artworkIdParamSchema = z.object({ id: z.string().uuid() });
 export const eventIdParamSchema = z.object({ eventId: z.string().uuid() });
 export const venueEventSubmitParamSchema = z.object({ venueId: z.string().uuid(), eventId: z.string().uuid() });
 export const memberIdParamSchema = z.object({ memberId: z.string().uuid() });
@@ -80,6 +81,59 @@ export const artistImageReorderSchema = z.object({
 });
 
 export const artistCoverPatchSchema = z.object({
+  imageId: z.string().uuid().nullable(),
+});
+
+export const artworkListQuerySchema = z.object({
+  query: z.string().trim().min(1).max(120).optional(),
+  artistId: z.string().uuid().optional(),
+  venueId: z.string().uuid().optional(),
+  eventId: z.string().uuid().optional(),
+  medium: z.string().trim().min(1).max(120).optional(),
+  year: z.coerce.number().int().min(1000).max(3000).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(50).default(20),
+});
+
+const optionalNullableString = z.string().trim().max(4000).optional().nullable();
+
+export const myArtworkCreateSchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  description: optionalNullableString,
+  year: z.number().int().min(1000).max(3000).optional().nullable(),
+  medium: z.string().trim().max(200).optional().nullable(),
+  dimensions: z.string().trim().max(200).optional().nullable(),
+  priceAmount: z.number().int().min(0).optional().nullable(),
+  currency: z.string().trim().min(3).max(3).optional().nullable(),
+});
+
+export const myArtworkPatchSchema = myArtworkCreateSchema.partial().refine((value) => Object.keys(value).length > 0, {
+  message: "At least one field must be provided",
+});
+
+export const artworkPublishPatchSchema = z.object({
+  isPublished: z.boolean(),
+});
+
+export const artworkRelationsPutSchema = z.object({
+  venueIds: z.array(z.string().uuid()).optional(),
+  eventIds: z.array(z.string().uuid()).optional(),
+});
+
+export const artworkImageCreateSchema = z.object({
+  assetId: z.string().uuid(),
+  alt: z.string().trim().max(300).optional().nullable(),
+});
+
+export const artworkImageUpdateSchema = z.object({
+  alt: z.string().trim().max(300).optional().nullable(),
+});
+
+export const artworkImageReorderSchema = z.object({
+  imageIds: z.array(z.string().uuid()).min(1).refine((value) => new Set(value).size === value.length, "imageIds must be unique"),
+});
+
+export const artworkCoverPatchSchema = z.object({
   imageId: z.string().uuid().nullable(),
 });
 

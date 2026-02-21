@@ -24,6 +24,7 @@ const PRIMARY_LINKS: NavLink[] = [
   { label: "Following", href: "/following" },
   { label: "Venues", href: "/venues" },
   { label: "Artists", href: "/artists" },
+  { label: "Artwork", href: "/artwork" },
 ];
 
 const HIDE_NAV_PREFIXES = ["/admin"];
