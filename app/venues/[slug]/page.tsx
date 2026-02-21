@@ -5,6 +5,7 @@ import { EntityHeader } from "@/components/entities/entity-header";
 import { EntityTabs } from "@/components/entities/entity-tabs";
 import { EventCard } from "@/components/events/event-card";
 import { FollowButton } from "@/components/follows/follow-button";
+import { ArtworkRelatedSection } from "@/components/artwork/artwork-related-section";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageShell } from "@/components/ui/page-shell";
 import { PageViewTracker } from "@/components/analytics/page-view-tracker";
@@ -16,6 +17,7 @@ import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { buildVenueJsonLd, getDetailUrl } from "@/lib/seo.public-profiles";
 import { getVenueDescriptionExcerpt } from "@/lib/venues";
 import { resolveEntityPrimaryImage } from "@/lib/public-images";
+import { listPublishedArtworksByVenue } from "@/lib/artworks";
 
 export const revalidate = 300;
 
@@ -68,9 +70,11 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
 
   if (!venue) notFound();
 
-  const [followersCount, existingFollow] = await Promise.all([
+  const [followersCount, existingFollow, artworks, artworkCount] = await Promise.all([
     db.follow.count({ where: { targetType: "VENUE", targetId: venue.id } }),
     user ? db.follow.findUnique({ where: { userId_targetType_targetId: { userId: user.id, targetType: "VENUE", targetId: venue.id } }, select: { id: true } }) : Promise.resolve(null),
+    listPublishedArtworksByVenue(venue.id, 6),
+    db.artwork.count({ where: { isPublished: true, venues: { some: { venueId: venue.id } } } }),
   ]);
 
   const cover = resolveEntityPrimaryImage(venue);
@@ -111,6 +115,7 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
         upcoming={(
           <section className="space-y-3">
             <SectionHeader title="Upcoming events" subtitle="What’s happening at this venue next." />
+            <ArtworkRelatedSection title="Artworks shown here" subtitle="Published works linked to this venue." items={artworks} viewAllHref={artworkCount > 6 ? `/artwork?venueId=${venue.id}` : undefined} showArtistName />
             {events.length === 0 ? <EmptyState title="No upcoming events" description="Follow this venue and check back soon." /> : (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {events.map((event) => <EventCard key={event.id} href={`/events/${event.slug}`} title={event.title} startAt={event.startAt} endAt={event.endAt} venueName={venue.name} venueSlug={venue.slug} imageUrl={event.imageUrl} imageAlt={event.imageAlt} tags={event.tags} />)}

@@ -661,6 +661,7 @@ model Artwork {
 
   @@index([artistId])
   @@index([isPublished])
+  @@index([artistId, isPublished, updatedAt])
   @@index([featuredAssetId])
 }
 
@@ -691,6 +692,7 @@ model ArtworkVenue {
   @@unique([artworkId, venueId])
   @@index([artworkId])
   @@index([venueId])
+  @@index([venueId, artworkId])
 }
 
 model ArtworkEvent {
@@ -704,6 +706,7 @@ model ArtworkEvent {
   @@unique([artworkId, eventId])
   @@index([artworkId])
   @@index([eventId])
+  @@index([eventId, artworkId])
 }
 
 model Favorite {

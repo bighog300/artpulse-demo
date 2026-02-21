@@ -2,6 +2,7 @@ import { z } from "zod";
 import { normalizeAssociationRole } from "@/lib/association-roles";
 
 export const slugSchema = z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Must be lowercase and hyphenated");
+export const artworkSlugSchema = z.string().trim().min(2).max(80).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Must be lowercase and hyphenated");
 export const httpUrlSchema = z.url().refine((value) => value.startsWith("http://") || value.startsWith("https://"), {
   message: "Must be an http(s) URL",
 });
@@ -36,6 +37,7 @@ export const idParamSchema = z.object({ id: z.string().uuid() });
 export const venueIdParamSchema = z.object({ id: z.string().uuid() });
 export const artistIdParamSchema = z.object({ id: z.string().uuid() });
 export const artworkIdParamSchema = z.object({ id: z.string().uuid() });
+export const artworkRouteKeyParamSchema = z.object({ key: z.string().trim().min(1).max(120) });
 export const eventIdParamSchema = z.object({ eventId: z.string().uuid() });
 export const venueEventSubmitParamSchema = z.object({ venueId: z.string().uuid(), eventId: z.string().uuid() });
 export const memberIdParamSchema = z.object({ memberId: z.string().uuid() });
@@ -99,6 +101,7 @@ const optionalNullableString = z.string().trim().max(4000).optional().nullable()
 
 export const myArtworkCreateSchema = z.object({
   title: z.string().trim().min(1).max(200),
+  slug: artworkSlugSchema.optional().nullable(),
   description: optionalNullableString,
   year: z.number().int().min(1000).max(3000).optional().nullable(),
   medium: z.string().trim().max(200).optional().nullable(),

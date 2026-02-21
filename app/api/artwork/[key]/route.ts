@@ -1,21 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api";
-import { getSessionUser } from "@/lib/auth";
-import { idParamSchema, zodDetails } from "@/lib/validators";
+import { artworkRouteKeyParamSchema, zodDetails } from "@/lib/validators";
 import { resolveImageUrl } from "@/lib/assets";
+import { isArtworkIdKey } from "@/lib/artwork-route";
 
 export const runtime = "nodejs";
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const parsedId = idParamSchema.safeParse(await params);
-  if (!parsedId.success) return apiError(400, "invalid_request", "Invalid route parameter", zodDetails(parsedId.error));
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ key: string }> }) {
+  const parsedParams = artworkRouteKeyParamSchema.safeParse(await params);
+  if (!parsedParams.success) return apiError(400, "invalid_request", "Invalid route parameter", zodDetails(parsedParams.error));
 
-  const user = await getSessionUser();
-  const artwork = await db.artwork.findUnique({
-    where: { id: parsedId.data.id },
+  const key = parsedParams.data.key;
+  const artwork = await db.artwork.findFirst({
+    where: isArtworkIdKey(key) ? { id: key } : { slug: key },
     select: {
       id: true,
+      slug: true,
       title: true,
       description: true,
       year: true,
@@ -33,9 +34,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     },
   });
 
-  if (!artwork) return apiError(404, "not_found", "Artwork not found");
-  const canViewUnpublished = Boolean(user?.role === "ADMIN" || artwork.artist.userId === user?.id);
-  if (!artwork.isPublished && !canViewUnpublished) return apiError(404, "not_found", "Artwork not found");
+  if (!artwork || !artwork.isPublished) return apiError(404, "not_found", "Artwork not found");
 
   return NextResponse.json({
     artwork: {

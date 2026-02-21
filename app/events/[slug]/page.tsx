@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { EventDetailActions } from "@/components/events/event-detail-actions";
+import { ArtworkRelatedSection } from "@/components/artwork/artwork-related-section";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -16,6 +17,7 @@ import { PageShell } from "@/components/ui/page-shell";
 import { SectionHeader } from "@/components/ui/section-header";
 import { ContextualNudgeSlot } from "@/components/onboarding/contextual-nudge-slot";
 import { resolveEntityPrimaryImage } from "@/lib/public-images";
+import { listPublishedArtworksByEvent } from "@/lib/artworks";
 
 export const dynamic = "force-dynamic";
 
@@ -52,12 +54,16 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
   ]);
   if (!event) notFound();
 
-  const similarEvents = await db.event.findMany({
+  const [artworks, artworkCount, similarEvents] = await Promise.all([
+    listPublishedArtworksByEvent(event.id, 6),
+    db.artwork.count({ where: { isPublished: true, events: { some: { eventId: event.id } } } }),
+    db.event.findMany({
     where: { isPublished: true, id: { not: event.id }, OR: [{ venueId: event.venueId ?? undefined }, { eventArtists: { some: { artistId: { in: event.eventArtists.map((ea) => ea.artistId) } } } }] },
     include: { venue: { select: { name: true } }, images: { take: 1, orderBy: { sortOrder: "asc" }, include: { asset: { select: { url: true } } } } },
     orderBy: { startAt: "asc" },
     take: 4,
-  });
+  }),
+]);
 
   const isAuthenticated = Boolean(user);
   const initialSaved = user ? Boolean(await db.favorite.findUnique({ where: { userId_targetType_targetId: { userId: user.id, targetType: "EVENT", targetId: event.id } }, select: { id: true } })) : false;
@@ -107,6 +113,7 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
             <SectionHeader title="About this event" />
             <p className="type-caption whitespace-pre-wrap">{event.description || "Details coming soon."}</p>
           </article>
+          <ArtworkRelatedSection title="Artworks at this event" subtitle="Published works linked to this event." items={artworks} viewAllHref={artworkCount > 6 ? `/artwork?eventId=${event.id}` : undefined} showArtistName />
           {event.eventArtists.length ? <article className="section-stack"><SectionHeader title="Lineup" /><div className="flex flex-wrap gap-2">{event.eventArtists.map((entry) => <Badge key={entry.artistId} variant="secondary">{entry.artist.name}</Badge>)}</div></article> : null}
           {event.eventTags.length ? <article className="section-stack"><SectionHeader title="Tags" /><div className="flex flex-wrap gap-2">{event.eventTags.map((eventTag) => <Badge key={eventTag.tag.id} variant="outline">{eventTag.tag.name}</Badge>)}</div></article> : null}
         </div>
