@@ -1,19 +1,9 @@
-import Link from "next/link";
-import { db } from "@/lib/db";
+import { requireAdmin } from "@/lib/admin";
+import { AdminEntityManagerClient } from "../admin-entity-manager-client";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminVenues() {
-  const items = await db.venue.findMany({ orderBy: { createdAt: "desc" } });
-  return (
-    <main className="p-6">
-      <h1 className="text-2xl font-semibold">Manage Venues</h1>
-      <Link className="underline" href="/admin/venues/new">New Venue</Link>
-      <ul>
-        {items.map((v) => (
-          <li key={v.id}><Link className="underline" href={`/admin/venues/${v.id}`}>{v.name}</Link></li>
-        ))}
-      </ul>
-    </main>
-  );
+  await requireAdmin();
+  return <AdminEntityManagerClient entity="venues" title="Manage Venues" fields={["name", "slug", "addressLine1", "addressLine2", "city", "postcode", "country", "websiteUrl", "isPublished", "description", "featuredAssetId"]} defaultMatchBy="slug" />;
 }
