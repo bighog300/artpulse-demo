@@ -18,6 +18,14 @@ const completeVenue = {
   images: [{ id: "33333333-3333-4333-8333-333333333333" }],
 };
 
+function buildReq() {
+  return new NextRequest(`http://localhost/api/my/venues/${venueId}/submit`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ message: "Ready for review" }),
+  });
+}
+
 test("handleVenueSubmit returns unauthorized when user is anonymous", async () => {
   const req = new NextRequest(`http://localhost/api/my/venues/${venueId}/submit`, { method: "POST" });
   const res = await handleVenueSubmit(req, Promise.resolve({ id: venueId }), {
@@ -38,6 +46,54 @@ test("handleVenueSubmit returns forbidden when user is not venue member", async 
   const req = new NextRequest(`http://localhost/api/my/venues/${venueId}/submit`, { method: "POST" });
   const res = await handleVenueSubmit(req, Promise.resolve({ id: venueId }), {
     requireAuth: async () => ({ id: "user-1", email: "user@example.com" }),
+    requireVenueMembership: async () => { throw new Error("forbidden"); },
+    findVenueForSubmit: async () => completeVenue,
+    upsertSubmission: async () => ({ id: "sub-1", status: "SUBMITTED", createdAt: new Date(), submittedAt: new Date() }),
+    setVenuePublishedDraft: async () => undefined,
+    enqueueSubmissionNotification: async () => undefined,
+  });
+
+  assert.equal(res.status, 403);
+  const body = await res.json();
+  assert.equal(body.error.code, "forbidden");
+});
+
+test("handleVenueSubmit allows site ADMIN to publish without venue membership", async () => {
+  const req = buildReq();
+  const res = await handleVenueSubmit(req, Promise.resolve({ id: venueId }), {
+    requireAuth: async () => ({ id: "admin-1", email: "admin@example.com" }),
+    requireVenueMembership: async () => undefined,
+    findVenueForSubmit: async () => completeVenue,
+    upsertSubmission: async () => ({ id: "sub-admin", status: "SUBMITTED", createdAt: new Date(), submittedAt: new Date() }),
+    setVenuePublishedDraft: async () => undefined,
+    enqueueSubmissionNotification: async () => undefined,
+  });
+
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.submission.id, "sub-admin");
+});
+
+test("handleVenueSubmit allows venue OWNER to publish", async () => {
+  const req = buildReq();
+  const res = await handleVenueSubmit(req, Promise.resolve({ id: venueId }), {
+    requireAuth: async () => ({ id: "owner-1", email: "owner@example.com" }),
+    requireVenueMembership: async () => undefined,
+    findVenueForSubmit: async () => completeVenue,
+    upsertSubmission: async () => ({ id: "sub-owner", status: "SUBMITTED", createdAt: new Date(), submittedAt: new Date() }),
+    setVenuePublishedDraft: async () => undefined,
+    enqueueSubmissionNotification: async () => undefined,
+  });
+
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.submission.id, "sub-owner");
+});
+
+test("handleVenueSubmit blocks users who are not OWNER/EDITOR/ADMIN", async () => {
+  const req = buildReq();
+  const res = await handleVenueSubmit(req, Promise.resolve({ id: venueId }), {
+    requireAuth: async () => ({ id: "user-2", email: "user2@example.com" }),
     requireVenueMembership: async () => { throw new Error("forbidden"); },
     findVenueForSubmit: async () => completeVenue,
     upsertSubmission: async () => ({ id: "sub-1", status: "SUBMITTED", createdAt: new Date(), submittedAt: new Date() }),

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, requireVenueRole } from "@/lib/auth";
 import { handleVenueSubmit } from "@/lib/my-venue-submit-route";
 
 export const runtime = "nodejs";
@@ -8,9 +8,8 @@ export const runtime = "nodejs";
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   return handleVenueSubmit(req, params, {
     requireAuth,
-    requireVenueMembership: async (userId, venueId) => {
-      const membership = await db.venueMembership.findUnique({ where: { userId_venueId: { userId, venueId } }, select: { id: true } });
-      if (!membership) throw new Error("forbidden");
+    requireVenueMembership: async (_userId, venueId) => {
+      await requireVenueRole(venueId, "EDITOR");
     },
     findVenueForSubmit: async (venueId) => db.venue.findUnique({
       where: { id: venueId },
