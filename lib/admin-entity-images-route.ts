@@ -10,6 +10,10 @@ export type AdminImageItem = {
   id: string;
   url: string;
   alt: string | null;
+  width: number | null;
+  height: number | null;
+  contentType: string | null;
+  sizeBytes: number | null;
   sortOrder: number;
   isPrimary: boolean;
 };
@@ -49,8 +53,8 @@ async function ensureEntityExists(tx: Tx, entityType: AdminEntityType, entityId:
   return tx.artist.findUnique({ where: { id: entityId }, select: { id: true } });
 }
 
-function mapImage(row: { id: string; url: string; alt: string | null; sortOrder: number; isPrimary: boolean }): AdminImageItem {
-  return { id: row.id, url: row.url, alt: row.alt, sortOrder: row.sortOrder, isPrimary: row.isPrimary };
+function mapImage(row: { id: string; url: string; alt: string | null; width?: number | null; height?: number | null; contentType?: string | null; sizeBytes?: number | null; sortOrder: number; isPrimary: boolean }): AdminImageItem {
+  return { id: row.id, url: row.url, alt: row.alt, width: row.width ?? null, height: row.height ?? null, contentType: row.contentType ?? null, sizeBytes: row.sizeBytes ?? null, sortOrder: row.sortOrder, isPrimary: row.isPrimary };
 }
 
 async function listImages(tx: Tx, entityType: AdminEntityType, entityId: string) {
@@ -117,11 +121,14 @@ export async function addAdminEntityImage(input: {
   makePrimary?: boolean;
   setPrimary?: boolean;
   contentType?: string;
+  width?: number;
+  height?: number;
+  sizeBytes?: number;
   size?: number;
   actorEmail: string;
   req: Request;
 }) {
-  const { entityType, entityId, url, alt, makePrimary, setPrimary, contentType, size, actorEmail, req } = input;
+  const { entityType, entityId, url, alt, makePrimary, setPrimary, contentType, width, height, sizeBytes, size, actorEmail, req } = input;
   const created = await db.$transaction(async (tx) => {
     const entity = await ensureEntityExists(tx, entityType, entityId);
     if (!entity) return null;
@@ -132,7 +139,7 @@ export async function addAdminEntityImage(input: {
 
     if (shouldBePrimary) await setAllPrimaryFalse(tx, entityType, entityId);
 
-    const createData = { url, alt: alt ?? null, sortOrder: nextSortOrder, isPrimary: shouldBePrimary };
+    const createData = { url, alt: alt ?? null, contentType: contentType ?? null, width: width ?? null, height: height ?? null, sizeBytes: sizeBytes ?? size ?? null, sortOrder: nextSortOrder, isPrimary: shouldBePrimary };
     const item = entityType === "event"
       ? await tx.eventImage.create({ data: { ...createData, eventId: entityId } })
       : entityType === "venue"
@@ -150,7 +157,7 @@ export async function addAdminEntityImage(input: {
     action: `admin.${entityType}.image.add`,
     targetType: entityConfig[entityType].targetType,
     targetId: entityId,
-    metadata: { imageId: created.id, url: created.url, makePrimary: Boolean(makePrimary ?? setPrimary), size: size ?? null, contentType: contentType ?? null },
+    metadata: { imageId: created.id, url: created.url, makePrimary: Boolean(makePrimary ?? setPrimary), sizeBytes: sizeBytes ?? size ?? null, contentType: contentType ?? null, width: width ?? null, height: height ?? null },
     req,
   });
 
@@ -164,10 +171,15 @@ export async function patchAdminEntityImage(input: {
   url?: string;
   alt?: string | null;
   isPrimary?: true;
+  contentType?: string;
+  width?: number;
+  height?: number;
+  sizeBytes?: number;
+  size?: number;
   actorEmail: string;
   req: Request;
 }) {
-  const { entityType, entityId, imageId, url, alt, isPrimary, actorEmail, req } = input;
+  const { entityType, entityId, imageId, url, alt, isPrimary, contentType, width, height, sizeBytes, size, actorEmail, req } = input;
 
   const setPrimaryAttempt = async () => db.$transaction(async (tx) => {
     const entity = await ensureEntityExists(tx, entityType, entityId);
@@ -183,10 +195,14 @@ export async function patchAdminEntityImage(input: {
 
     const oldUrl = image.url;
     let next = image;
-    if (url !== undefined || alt !== undefined) {
-      const data: { url?: string; alt?: string | null } = {};
+    if (url !== undefined || alt !== undefined || contentType !== undefined || width !== undefined || height !== undefined || sizeBytes !== undefined || size !== undefined) {
+      const data: { url?: string; alt?: string | null; contentType?: string | null; width?: number | null; height?: number | null; sizeBytes?: number | null } = {};
       if (url !== undefined) data.url = url;
       if (alt !== undefined) data.alt = alt;
+      if (contentType !== undefined) data.contentType = contentType;
+      if (width !== undefined) data.width = width;
+      if (height !== undefined) data.height = height;
+      if (sizeBytes !== undefined || size !== undefined) data.sizeBytes = sizeBytes ?? size;
 
       next = entityType === "event"
         ? await tx.eventImage.update({ where: { id: imageId }, data })
@@ -238,7 +254,7 @@ export async function patchAdminEntityImage(input: {
     action,
     targetType: entityConfig[entityType].targetType,
     targetId: entityId,
-    metadata: url ? { imageId, oldUrl: updated.oldUrl, newUrl: updated.item.url } : { imageId },
+    metadata: url ? { imageId, oldUrl: updated.oldUrl, newUrl: updated.item.url, contentType: contentType ?? null, width: width ?? null, height: height ?? null, sizeBytes: sizeBytes ?? size ?? null } : { imageId },
     req,
   });
 

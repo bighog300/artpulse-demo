@@ -10,7 +10,7 @@ import { getRequestId } from "@/lib/request-id";
 import { captureException } from "@/lib/telemetry";
 import { collectGeoFilteredPage } from "@/lib/events-geo-pagination";
 import { RATE_LIMITS, enforceRateLimit, isRateLimitError, principalRateLimitKey, rateLimitErrorResponse } from "@/lib/rate-limit";
-import { getEventImageUrl } from "@/lib/images";
+import { resolveEntityPrimaryImage } from "@/lib/public-images";
 
 type EventWithJoin = {
   id: string;
@@ -146,11 +146,15 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       items: page.map((e) => {
-        const imageUrl = getEventImageUrl(e);
+        const image = resolveEntityPrimaryImage(e);
+        const imageUrl = image?.url ?? null;
         return {
           ...e,
           featuredImageUrl: imageUrl,
           primaryImageUrl: imageUrl,
+          primaryImageAlt: image?.alt ?? null,
+          primaryImageWidth: image?.width ?? null,
+          primaryImageHeight: image?.height ?? null,
           tags: (e.eventTags ?? []).map((et) => ({ name: et.tag.name, slug: et.tag.slug })),
           artistIds: (e.eventArtists ?? []).map((eventArtist) => eventArtist.artistId),
         };

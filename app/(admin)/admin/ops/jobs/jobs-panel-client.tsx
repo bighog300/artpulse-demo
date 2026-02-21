@@ -10,6 +10,7 @@ type JobRun = {
   trigger: string;
   actorEmail: string | null;
   message: string | null;
+  metadata?: Record<string, unknown> | null;
 };
 
 type JobMeta = {
@@ -23,10 +24,14 @@ export function JobsPanelClient({ initialRuns, jobs }: { initialRuns: JobRun[]; 
   const [statusFilter, setStatusFilter] = useState("");
   const [jobName, setJobName] = useState(jobs[0]?.name ?? "");
   const [params, setParams] = useState("{}");
+  const [dryRun, setDryRun] = useState(true);
+  const [olderThanDays, setOlderThanDays] = useState(2);
+  const [limit, setLimit] = useState(100);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const selectedJob = useMemo(() => jobs.find((job) => job.name === jobName), [jobName, jobs]);
+  const selectedRun = runs[0];
 
   async function refreshRuns() {
     setBusy(true);
@@ -50,7 +55,9 @@ export function JobsPanelClient({ initialRuns, jobs }: { initialRuns: JobRun[]; 
     setBusy(true);
     setError(null);
     try {
-      const parsedParams = params.trim() ? JSON.parse(params) : {};
+      const parsedParams = jobName === "blob.cleanup-orphans"
+        ? { dryRun, olderThanDays, limit }
+        : (params.trim() ? JSON.parse(params) : {});
       const res = await fetch("/api/admin/jobs/run", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -75,9 +82,22 @@ export function JobsPanelClient({ initialRuns, jobs }: { initialRuns: JobRun[]; 
               <option key={job.name} value={job.name}>{job.name}</option>
             ))}
           </select>
-          <input className="rounded border px-2 py-1 text-sm md:col-span-2" value={params} onChange={(event) => setParams(event.target.value)} placeholder='{"dryRun":true}' />
+          {jobName === "blob.cleanup-orphans" ? (
+            <>
+              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={dryRun} onChange={(event) => setDryRun(event.target.checked)} />Dry run</label>
+              <div className="flex gap-2">
+                <input className="w-full rounded border px-2 py-1 text-sm" type="number" min={1} max={365} value={olderThanDays} onChange={(event) => setOlderThanDays(Number(event.target.value) || 2)} placeholder="olderThanDays" />
+                <input className="w-full rounded border px-2 py-1 text-sm" type="number" min={1} max={500} value={limit} onChange={(event) => setLimit(Number(event.target.value) || 100)} placeholder="limit" />
+              </div>
+            </>
+          ) : (
+            <input className="rounded border px-2 py-1 text-sm md:col-span-2" value={params} onChange={(event) => setParams(event.target.value)} placeholder='{"dryRun":true}' />
+          )}
         </div>
         <p className="text-xs text-muted-foreground">{selectedJob?.description ?? "Select a job"}</p>
+        {selectedRun?.name === "blob.cleanup-orphans" && selectedRun.metadata ? (
+          <p className="text-xs text-muted-foreground">Latest: candidates {String(selectedRun.metadata.candidateCount ?? "0")}, deleted {String(selectedRun.metadata.deletedCount ?? "0")}, failed {String(selectedRun.metadata.failedCount ?? "0")}.</p>
+        ) : null}
         <button type="button" disabled={busy || !jobName} className="rounded border px-3 py-1 text-sm" onClick={runNow}>Run now</button>
       </section>
 

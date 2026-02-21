@@ -10,16 +10,17 @@ type EntityCardProps = {
   subtitle?: string | null;
   description?: string | null;
   imageUrl?: string | null;
+  imageAlt?: string | null;
   tags?: string[];
   action?: ReactNode;
 };
 
-export function EntityCard({ href, name, subtitle, description, imageUrl, tags = [], action }: EntityCardProps) {
+export function EntityCard({ href, name, subtitle, description, imageUrl, imageAlt, tags = [], action }: EntityCardProps) {
   return (
     <Card className="group overflow-hidden shadow-sm ui-hover-lift ui-press">
       <Link href={href} className="block focus-visible:rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-        <div className="relative aspect-[16/10] bg-muted">
-          {imageUrl ? <Image src={imageUrl} alt={name} fill className="object-cover ui-trans motion-safe:group-hover:scale-[1.02] motion-safe:group-focus-visible:scale-[1.02]" sizes="(max-width: 768px) 100vw, 33vw" /> : <div className="flex h-full items-center justify-center text-sm text-muted-foreground">No image</div>}
+        <div className="relative aspect-square bg-muted">
+          {imageUrl ? <Image src={imageUrl} alt={imageAlt ?? name} fill className="object-cover ui-trans motion-safe:group-hover:scale-[1.02] motion-safe:group-focus-visible:scale-[1.02]" sizes="(max-width: 768px) 100vw, 33vw" /> : <div className="flex h-full items-center justify-center text-sm text-muted-foreground">No image</div>}
         </div>
         <div className="space-y-2 p-4">
           <h3 className="text-lg font-semibold tracking-tight">{name}</h3>

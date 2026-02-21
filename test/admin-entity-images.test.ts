@@ -10,6 +10,10 @@ type VenueImageRow = {
   venueId: string;
   url: string;
   alt: string | null;
+  width: number | null;
+  height: number | null;
+  contentType: string | null;
+  sizeBytes: number | null;
   sortOrder: number;
   isPrimary: boolean;
   createdAt: Date;
@@ -66,6 +70,10 @@ function setupVenueImagesHarness() {
           venueId: data.venueId,
           url: data.url,
           alt: data.alt,
+          width: data.width ?? null,
+          height: data.height ?? null,
+          contentType: data.contentType ?? null,
+          sizeBytes: data.sizeBytes ?? null,
           sortOrder: data.sortOrder,
           isPrimary: data.isPrimary,
           createdAt: new Date(idCounter),
@@ -258,4 +266,44 @@ test("alt-required policy blocks set-primary when alt is blank", async () => {
     if (previous === undefined) delete process.env.ADMIN_IMAGE_ALT_REQUIRED;
     else process.env.ADMIN_IMAGE_ALT_REQUIRED = previous;
   }
+});
+
+
+test("create and replace persist metadata fields", async () => {
+  const { venue, images } = setupVenueImagesHarness();
+
+  await addAdminEntityImage({
+    entityType: "venue",
+    entityId: venue.id,
+    url: "https://example.com/meta.jpg",
+    width: 1200,
+    height: 800,
+    contentType: "image/jpeg",
+    sizeBytes: 2048,
+    actorEmail: "admin@example.com",
+    req: new Request("http://localhost"),
+  });
+
+  assert.equal(images[0]?.width, 1200);
+  assert.equal(images[0]?.height, 800);
+  assert.equal(images[0]?.contentType, "image/jpeg");
+
+  await patchAdminEntityImage({
+    entityType: "venue",
+    entityId: venue.id,
+    imageId: images[0]!.id,
+    url: "https://example.com/meta-replaced.jpg",
+    width: 640,
+    height: 360,
+    contentType: "image/webp",
+    sizeBytes: 1024,
+    actorEmail: "admin@example.com",
+    req: new Request("http://localhost"),
+  });
+
+  assert.equal(images[0]?.url, "https://example.com/meta-replaced.jpg");
+  assert.equal(images[0]?.width, 640);
+  assert.equal(images[0]?.height, 360);
+  assert.equal(images[0]?.contentType, "image/webp");
+  assert.equal(images[0]?.sizeBytes, 1024);
 });

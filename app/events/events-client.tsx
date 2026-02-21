@@ -14,7 +14,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { ErrorCard } from "@/components/ui/error-card";
 import type { UiFixtureEvent } from "@/lib/ui-fixtures";
-import { getEventImageUrl } from "@/lib/images";
+import { resolveEntityPrimaryImage } from "@/lib/public-images";
 
 type EventListItem = {
   id: string;
@@ -182,7 +182,8 @@ export function EventsClient({ isAuthenticated, fixtureItems, fallbackFixtureIte
                 startAt={event.startAt}
                 endAt={event.endAt}
                 venueName={event.venue?.name}
-                imageUrl={getEventImageUrl(event)}
+                imageUrl={resolveEntityPrimaryImage(event)?.url ?? null}
+                imageAlt={resolveEntityPrimaryImage(event)?.alt}
                 badges={(event.tags ?? []).map((tag) => tag.slug)}
                 action={<SaveEventButton eventId={event.id} initialSaved={favoriteIds.has(event.id)} nextUrl={`/events?${searchParams?.toString() ?? ""}`} isAuthenticated={isAuthenticated} analytics={{ eventSlug: event.slug }} />}
               /></div>
@@ -215,7 +216,8 @@ export function EventsClient({ isAuthenticated, fixtureItems, fallbackFixtureIte
                   startAt={event.startAt}
                   endAt={event.endAt}
                   venueName={event.venue?.name}
-                  imageUrl={getEventImageUrl(event)}
+                  imageUrl={resolveEntityPrimaryImage(event)?.url ?? null}
+                imageAlt={resolveEntityPrimaryImage(event)?.alt}
                 /></div>
               ))}
             </div>

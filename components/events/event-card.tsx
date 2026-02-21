@@ -12,6 +12,7 @@ type EventCardProps = {
   venueName?: string | null | undefined;
   venueSlug?: string | null | undefined;
   imageUrl?: string | null;
+  imageAlt?: string | null;
   href: string;
   badges?: string[];
   tags?: string[];
@@ -22,7 +23,7 @@ type EventCardProps = {
   onOpen?: () => void;
 };
 
-export function EventCard({ title, startAt, endAt, venueName, imageUrl, href, badges, tags, secondaryText, action, distanceLabel, className, onOpen }: EventCardProps) {
+export function EventCard({ title, startAt, endAt, venueName, imageUrl, imageAlt, href, badges, tags, secondaryText, action, distanceLabel, className, onOpen }: EventCardProps) {
   const start = typeof startAt === "string" ? new Date(startAt) : startAt;
   const end = endAt ? (typeof endAt === "string" ? new Date(endAt) : endAt) : undefined;
   const hasValidStart = !Number.isNaN(start.getTime());
@@ -42,7 +43,7 @@ export function EventCard({ title, startAt, endAt, venueName, imageUrl, href, ba
           {imageUrl ? (
             <Image
               src={imageUrl}
-              alt=""
+              alt={imageAlt ?? title}
               fill
               sizes="(max-width: 768px) 100vw, 33vw"
               className="object-cover ui-trans motion-safe:group-hover:scale-[1.02] motion-safe:group-focus-visible:scale-[1.02]"

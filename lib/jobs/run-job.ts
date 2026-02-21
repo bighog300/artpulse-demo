@@ -65,7 +65,7 @@ export async function runJobWithStore(name: string, options: RunJobOptions, stor
   });
 
   try {
-    const result = await definition.run({ params: options.params });
+    const result = await definition.run({ params: options.params, actorEmail: options.actorEmail ?? null });
     const finishedAt = new Date();
     const durationMs = finishedAt.getTime() - startedAt.getTime();
 

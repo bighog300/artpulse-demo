@@ -15,7 +15,7 @@ import { getSessionUser } from "@/lib/auth";
 import { PageShell } from "@/components/ui/page-shell";
 import { SectionHeader } from "@/components/ui/section-header";
 import { ContextualNudgeSlot } from "@/components/onboarding/contextual-nudge-slot";
-import { getEventImageUrl } from "@/lib/images";
+import { resolveEntityPrimaryImage } from "@/lib/public-images";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   try {
     const event = await db.event.findFirst({ where: { slug, isPublished: true }, include: { images: { include: { asset: { select: { url: true } } }, orderBy: { sortOrder: "asc" } } } });
     if (!event) return buildDetailMetadata({ kind: "event", slug });
-    const imageUrl = getEventImageUrl(event);
+    const imageUrl = resolveEntityPrimaryImage(event)?.url ?? null;
     return buildDetailMetadata({ kind: "event", slug, title: event.title, description: event.description, imageUrl });
   } catch {
     return buildDetailMetadata({ kind: "event", slug });
@@ -61,7 +61,7 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
 
   const isAuthenticated = Boolean(user);
   const initialSaved = user ? Boolean(await db.favorite.findUnique({ where: { userId_targetType_targetId: { userId: user.id, targetType: "EVENT", targetId: event.id } }, select: { id: true } })) : false;
-  const primaryImage = getEventImageUrl(event);
+  const primaryImage = resolveEntityPrimaryImage(event);
   const detailUrl = getDetailUrl("event", slug);
   const jsonLd = buildEventJsonLd({
     title: event.title,
@@ -69,7 +69,7 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
     startAt: event.startAt,
     endAt: event.endAt,
     detailUrl,
-    imageUrl: primaryImage,
+    imageUrl: primaryImage?.url ?? null,
     venue: event.venue ? { name: event.venue.name, address: event.venue.addressLine1 } : undefined,
   });
 
@@ -81,7 +81,7 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
 
       <section className="relative overflow-hidden rounded-2xl border border-border">
         <div className="relative h-64 md:h-80">
-          {primaryImage ? <Image src={primaryImage} alt={event.images[0]?.alt ?? event.title} fill sizes="100vw" className="object-cover" /> : <div className="flex h-full items-center justify-center bg-muted text-muted-foreground">No event image</div>}
+          {primaryImage ? <Image src={primaryImage.url} alt={primaryImage.alt ?? event.title} fill sizes="100vw" className="object-cover" /> : <div className="flex h-full items-center justify-center bg-muted text-muted-foreground">No event image</div>}
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent" />
           <div className="absolute bottom-0 left-0 w-full section-stack p-5 text-white">
             <h1 className="type-h2 text-white">{event.title}</h1>
@@ -131,7 +131,8 @@ export default async function EventDetail({ params }: { params: Promise<{ slug: 
                 title={similar.title}
                 startAt={similar.startAt}
                 venueName={similar.venue?.name}
-                imageUrl={getEventImageUrl(similar)}
+                imageUrl={resolveEntityPrimaryImage(similar)?.url ?? null}
+                imageAlt={resolveEntityPrimaryImage(similar)?.alt}
               />
             ))}
           </div>

@@ -6,6 +6,7 @@ import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { uiFixtureArtists, useUiFixtures as getUiFixturesEnabled } from "@/lib/ui-fixtures";
+import { resolveEntityPrimaryImage } from "@/lib/public-images";
 
 export const dynamic = "force-dynamic";
 const fixturesEnabled = getUiFixturesEnabled();
@@ -22,7 +23,7 @@ export default async function ArtistsPage() {
     );
   }
 
-  let artists: Array<{ id: string; name: string; slug: string; bio: string | null; avatarImageUrl: string | null; tags: string[]; followersCount: number; isFollowing: boolean }> = [];
+  let artists: Array<{ id: string; name: string; slug: string; bio: string | null; avatarImageUrl: string | null; imageAlt: string | null; tags: string[]; followersCount: number; isFollowing: boolean }> = [];
 
   if (hasDatabaseUrl()) {
     const dbArtists = await db.artist.findMany({
@@ -34,6 +35,8 @@ export default async function ArtistsPage() {
         slug: true,
         bio: true,
         avatarImageUrl: true,
+        featuredImageUrl: true,
+        images: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { url: true, alt: true, sortOrder: true, isPrimary: true, width: true, height: true, asset: { select: { url: true } } } },
         eventArtists: { where: { event: { isPublished: true } }, take: 8, select: { event: { select: { eventTags: { select: { tag: { select: { slug: true } } } } } } } },
       },
     });
@@ -49,13 +52,14 @@ export default async function ArtistsPage() {
       name: artist.name,
       slug: artist.slug,
       bio: artist.bio,
-      avatarImageUrl: artist.avatarImageUrl,
+      avatarImageUrl: resolveEntityPrimaryImage(artist)?.url ?? artist.avatarImageUrl,
+      imageAlt: resolveEntityPrimaryImage(artist)?.alt ?? artist.name,
       tags: Array.from(new Set(artist.eventArtists.flatMap((row) => row.event.eventTags.map(({ tag }) => tag.slug)))).slice(0, 6),
       followersCount: countById.get(artist.id) ?? 0,
       isFollowing: followedSet.has(artist.id),
     }));
   } else {
-    artists = uiFixtureArtists.map((artist) => ({ ...artist, tags: artist.tags ?? [], followersCount: 0, isFollowing: false }));
+    artists = uiFixtureArtists.map((artist) => ({ ...artist, avatarImageUrl: resolveEntityPrimaryImage(artist)?.url ?? artist.avatarImageUrl, imageAlt: resolveEntityPrimaryImage(artist)?.alt ?? artist.name, tags: artist.tags ?? [], followersCount: 0, isFollowing: false }));
   }
 
   return (

@@ -515,8 +515,12 @@ model ArtistImage {
   artistId  String   @db.Uuid
   assetId   String?  @db.Uuid
   url       String
-  alt       String?
-  sortOrder Int      @default(0)
+  alt         String?
+  width       Int?
+  height      Int?
+  contentType String?
+  sizeBytes   Int?
+  sortOrder   Int      @default(0)
   isPrimary Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -533,8 +537,12 @@ model EventImage {
   eventId   String   @db.Uuid
   assetId   String?  @db.Uuid
   url       String
-  alt       String?
-  sortOrder Int      @default(0)
+  alt         String?
+  width       Int?
+  height      Int?
+  contentType String?
+  sizeBytes   Int?
+  sortOrder   Int      @default(0)
   isPrimary Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -551,8 +559,12 @@ model VenueImage {
   venueId   String   @db.Uuid
   assetId   String?  @db.Uuid
   url       String
-  alt       String?
-  sortOrder Int      @default(0)
+  alt         String?
+  width       Int?
+  height      Int?
+  contentType String?
+  sizeBytes   Int?
+  sortOrder   Int      @default(0)
   isPrimary Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
