@@ -10,6 +10,14 @@ import {
   parseArgs,
 } from "./_neon-api.mjs";
 
+function isBranchLimitError(error) {
+  const status = Number(error?.status) || 0;
+  const message = String(error?.message || "").toLowerCase();
+  const body = String(error?.responseBody || "").toLowerCase();
+
+  return status === 422 && (message.includes("branches limit exceeded") || body.includes("branches limit exceeded"));
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const projectId = getProjectId(args);
@@ -23,6 +31,10 @@ async function main() {
 
   let branch = await getBranchByName({ projectId, apiKey, branchName });
   let created = false;
+
+  if (branch) {
+    console.log(`Branch exists, reusing: ${branch.name} (${branch.id})`);
+  }
 
   if (!branch) {
     const parentBranch = await getBranchByName({
@@ -51,6 +63,11 @@ async function main() {
       branch = response.branch;
       created = true;
     } catch (error) {
+      if (isBranchLimitError(error)) {
+        console.error("FAIL_REASON=NEON_BRANCH_LIMIT");
+        process.exit(1);
+      }
+
       const message = String(error?.message || "");
       const isAlreadyExistsError =
         message.includes("(409)") ||
@@ -67,6 +84,8 @@ async function main() {
           `Neon branch "${branchName}" already exists but could not be fetched afterwards.`
         );
       }
+
+      console.log(`Branch exists, reusing: ${branch.name} (${branch.id})`);
     }
   }
 

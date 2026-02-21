@@ -105,3 +105,8 @@ Set these env vars to enable private beta mode:
 - `BETA_REQUESTS_ENABLED=1` to show the request-access form on `/beta`.
 
 When beta mode is enabled, non-allowlisted users are redirected to `/beta`, where they can request access and send feedback. Admins can review requests and feedback at `/admin/beta`. Allowlist values are environment-driven and require redeploy to take effect.
+
+## Neon preview branch lifecycle
+
+- Preview Neon branches use a deterministic per-PR name (`pr-<number>`), so reruns reuse the same branch instead of creating duplicates.
+- When a pull request is closed, GitHub Actions automatically runs cleanup to delete that preview branch.

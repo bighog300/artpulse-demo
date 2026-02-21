@@ -1,0 +1,42 @@
+name: Cleanup Preview DB (Neon)
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  cleanup_preview_branch:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+      NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+      PR_BRANCH_NAME: pr-${{ github.event.pull_request.number }}
+      PARENT_NEON_BRANCH: main
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Skip when Neon secrets are unavailable
+        run: |
+          if [ -z "$NEON_API_KEY" ] || [ -z "$NEON_PROJECT_ID" ]; then
+            echo "NEON_API_KEY or NEON_PROJECT_ID is missing; skipping preview branch deletion."
+            exit 0
+          fi
+
+      - name: Delete preview Neon branch
+        run: node scripts/neon/delete-branch.mjs --branch-name "$PR_BRANCH_NAME" --parent-branch "$PARENT_NEON_BRANCH"

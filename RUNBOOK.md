@@ -77,3 +77,8 @@ curl -H "Authorization: Bearer $CRON_SECRET" "http://localhost:3000/api/cron/ret
 - Leave `BETA_REQUESTS_ENABLED=1` to collect access requests.
 - Review pending requests and feedback in `/admin/beta`.
 - Approving a request updates internal status only; you must add the email to `BETA_ALLOWLIST` and redeploy.
+
+## Neon preview branch lifecycle
+
+- Preview Neon branches use a deterministic per-PR name (`pr-<number>`), so reruns reuse the same branch instead of creating duplicates.
+- When a pull request is closed, GitHub Actions automatically runs cleanup to delete that preview branch.
