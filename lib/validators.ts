@@ -120,6 +120,11 @@ export const adminEntityImageCreateSchema = z.object({
   url: httpUrlSchema,
   alt: z.string().trim().max(300).optional().nullable(),
   makePrimary: z.boolean().optional(),
+  setPrimary: z.boolean().optional(),
+  contentType: z.enum(["image/jpeg", "image/png", "image/webp"]).optional(),
+  size: z.number().int().positive().max(10 * 1024 * 1024).optional(),
+}).refine((data) => !(data.makePrimary !== undefined && data.setPrimary !== undefined), {
+  message: "Provide only one of makePrimary or setPrimary",
 });
 
 export const adminEntityImagePatchSchema = z.object({

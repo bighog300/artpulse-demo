@@ -166,3 +166,96 @@ test("delete normalizes sort order and setPrimary keeps single primary invariant
   assert.equal(images.filter((x) => x.isPrimary).length, 1);
   assert.equal(venue.featuredImageUrl, images.find((x) => x.isPrimary)?.url ?? null);
 });
+
+
+test("create appends sortOrder and primary assignment semantics", async () => {
+  const { venue, images } = setupVenueImagesHarness();
+
+  const firstRes = await addAdminEntityImage({
+    entityType: "venue",
+    entityId: venue.id,
+    url: "https://example.com/first.jpg",
+    actorEmail: "admin@example.com",
+    req: new Request("http://localhost"),
+  });
+  assert.equal(firstRes.status, 201);
+  assert.equal(images[0]?.sortOrder, 0);
+  assert.equal(images[0]?.isPrimary, true);
+
+  const secondRes = await addAdminEntityImage({
+    entityType: "venue",
+    entityId: venue.id,
+    url: "https://example.com/second.jpg",
+    actorEmail: "admin@example.com",
+    req: new Request("http://localhost"),
+  });
+  assert.equal(secondRes.status, 201);
+  assert.equal(images[1]?.sortOrder, 1);
+  assert.equal(images[1]?.isPrimary, false);
+
+  const thirdRes = await addAdminEntityImage({
+    entityType: "venue",
+    entityId: venue.id,
+    url: "https://example.com/third.jpg",
+    setPrimary: true,
+    actorEmail: "admin@example.com",
+    req: new Request("http://localhost"),
+  });
+  assert.equal(thirdRes.status, 201);
+  assert.equal(images[2]?.sortOrder, 2);
+  assert.equal(images[2]?.isPrimary, true);
+  assert.equal(images.filter((row) => row.isPrimary).length, 1);
+});
+
+test("alt-required policy blocks set-primary when alt is blank", async () => {
+  const { venue, images } = setupVenueImagesHarness();
+  const previous = process.env.ADMIN_IMAGE_ALT_REQUIRED;
+  process.env.ADMIN_IMAGE_ALT_REQUIRED = "true";
+
+  try {
+    await addAdminEntityImage({
+      entityType: "venue",
+      entityId: venue.id,
+      url: "https://example.com/no-alt.jpg",
+      actorEmail: "admin@example.com",
+      req: new Request("http://localhost"),
+    });
+
+    await addAdminEntityImage({
+      entityType: "venue",
+      entityId: venue.id,
+      url: "https://example.com/with-alt.jpg",
+      alt: "Already set",
+      actorEmail: "admin@example.com",
+      req: new Request("http://localhost"),
+    });
+
+    const blocked = await patchAdminEntityImage({
+      entityType: "venue",
+      entityId: venue.id,
+      imageId: images[0]!.id,
+      isPrimary: true,
+      actorEmail: "admin@example.com",
+      req: new Request("http://localhost"),
+    });
+
+    assert.equal(blocked.status, 400);
+    const blockedBody = await blocked.json();
+    assert.equal(blockedBody.error.code, "invalid_request");
+    assert.equal(blockedBody.error.message, "alt_required");
+
+    const allowed = await patchAdminEntityImage({
+      entityType: "venue",
+      entityId: venue.id,
+      imageId: images[1]!.id,
+      isPrimary: true,
+      actorEmail: "admin@example.com",
+      req: new Request("http://localhost"),
+    });
+
+    assert.equal(allowed.status, 200);
+  } finally {
+    if (previous === undefined) delete process.env.ADMIN_IMAGE_ALT_REQUIRED;
+    else process.env.ADMIN_IMAGE_ALT_REQUIRED = previous;
+  }
+});

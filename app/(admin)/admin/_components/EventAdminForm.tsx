@@ -9,6 +9,7 @@ type Props = {
   endpoint: string;
   method: "POST" | "PATCH";
   eventId?: string;
+  altRequired?: boolean;
   initial: {
     title?: string;
     slug?: string;
@@ -23,7 +24,7 @@ type Props = {
   };
 };
 
-export default function EventAdminForm({ title, endpoint, method, eventId, initial }: Props) {
+export default function EventAdminForm({ title, endpoint, method, eventId, initial, altRequired = false }: Props) {
   const router = useRouter();
   const [form, setForm] = useState({ ...initial });
   const [tagSlugsText, setTagSlugsText] = useState((initial.tagSlugs || []).join(","));
@@ -87,7 +88,7 @@ export default function EventAdminForm({ title, endpoint, method, eventId, initi
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
         <button className="rounded border px-3 py-1">Save</button>
       </form>
-      {eventId ? <ImageGalleryManager entityType="event" entityId={eventId} /> : <p className="text-sm text-muted-foreground">Save this event first to add images.</p>}
+      {eventId ? <ImageGalleryManager entityType="event" entityId={eventId} altRequired={altRequired} /> : <p className="text-sm text-muted-foreground">Save this event first to add images.</p>}
     </main>
   );
 }

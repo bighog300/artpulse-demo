@@ -4,6 +4,7 @@ import { apiError } from "@/lib/api";
 import { db } from "@/lib/db";
 import { logAdminAction } from "@/lib/admin-audit";
 import { deleteBlobByUrl } from "@/lib/blob-delete";
+import { isAdminImageAltRequired } from "@/lib/admin-policy";
 
 export type AdminImageItem = {
   id: string;
@@ -114,17 +115,20 @@ export async function addAdminEntityImage(input: {
   url: string;
   alt?: string | null;
   makePrimary?: boolean;
+  setPrimary?: boolean;
+  contentType?: string;
+  size?: number;
   actorEmail: string;
   req: Request;
 }) {
-  const { entityType, entityId, url, alt, makePrimary, actorEmail, req } = input;
+  const { entityType, entityId, url, alt, makePrimary, setPrimary, contentType, size, actorEmail, req } = input;
   const created = await db.$transaction(async (tx) => {
     const entity = await ensureEntityExists(tx, entityType, entityId);
     if (!entity) return null;
 
     const current = await listImages(tx, entityType, entityId);
     const nextSortOrder = current.length ? Math.max(...current.map((x) => x.sortOrder)) + 1 : 0;
-    const shouldBePrimary = Boolean(makePrimary) || current.length === 0;
+    const shouldBePrimary = Boolean(makePrimary ?? setPrimary) || current.length === 0;
 
     if (shouldBePrimary) await setAllPrimaryFalse(tx, entityType, entityId);
 
@@ -146,7 +150,7 @@ export async function addAdminEntityImage(input: {
     action: `admin.${entityType}.image.add`,
     targetType: entityConfig[entityType].targetType,
     targetId: entityId,
-    metadata: { imageId: created.id, makePrimary: Boolean(makePrimary) },
+    metadata: { imageId: created.id, url: created.url, makePrimary: Boolean(makePrimary ?? setPrimary), size: size ?? null, contentType: contentType ?? null },
     req,
   });
 
@@ -192,6 +196,9 @@ export async function patchAdminEntityImage(input: {
     }
 
     if (isPrimary) {
+      if (isAdminImageAltRequired() && !next.alt?.trim()) {
+        return { type: "alt_required" as const };
+      }
       await setAllPrimaryFalse(tx, entityType, entityId);
       next = await setPrimaryImageById(tx, entityType, imageId);
     }
@@ -223,6 +230,7 @@ export async function patchAdminEntityImage(input: {
 
   if (updated.type === "entity_not_found") return apiError(404, "not_found", entityConfig[entityType].parentNotFoundMessage);
   if (updated.type === "image_not_found") return apiError(404, "not_found", "Image not found");
+  if (updated.type === "alt_required") return apiError(400, "invalid_request", "alt_required");
 
   const action = url ? `admin.${entityType}.image.replace` : isPrimary ? `admin.${entityType}.image.set_primary` : `admin.${entityType}.image.update`;
   await logAdminAction({

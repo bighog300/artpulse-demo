@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import AdminEntityForm from "@/app/(admin)/admin/_components/AdminEntityForm";
 import { db } from "@/lib/db";
+import { ADMIN_IMAGE_ALT_REQUIRED } from "@/lib/admin-policy";
 
 export default async function AdminArtist({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -26,6 +27,7 @@ export default async function AdminArtist({ params }: { params: Promise<{ id: st
         { name: "featuredImageUrl", label: "Featured Image URL" },
         { name: "featuredAssetId", label: "Featured Asset ID" },
       ]}
+      altRequired={ADMIN_IMAGE_ALT_REQUIRED}
     />
   );
 }

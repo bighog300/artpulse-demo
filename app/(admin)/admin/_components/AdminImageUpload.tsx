@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { upload } from "@vercel/blob/client";
+import { uploadToBlob } from "@/lib/admin-upload";
+import { validateImageFile } from "@/lib/image-validate";
 
 type Props = {
   targetType: "event" | "artist" | "venue";
@@ -38,12 +39,19 @@ export default function AdminImageUpload({
     try {
       for (let index = 0; index < nextFiles.length; index += 1) {
         const file = nextFiles[index]!;
-        const result = await upload(file.name, file, {
-          access: "public",
-          handleUploadUrl: "/api/admin/blob/upload",
-          clientPayload: JSON.stringify({ targetType, targetId, role }),
-          onUploadProgress: (event) => setProgress(((index + event.percentage / 100) / nextFiles.length) * 100),
+        const validation = await validateImageFile(file);
+        if (!validation.ok) {
+          setError(validation.reason);
+          continue;
+        }
+
+        const result = await uploadToBlob(file, {
+          targetType,
+          targetId,
+          role,
+          onUploadProgress: (percentage) => setProgress(((index + percentage / 100) / nextFiles.length) * 100),
         });
+
         onUploaded(result.url);
       }
 

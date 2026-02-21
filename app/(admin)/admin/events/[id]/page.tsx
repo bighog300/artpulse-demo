@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import EventAdminForm from "@/app/(admin)/admin/_components/EventAdminForm";
 import { db } from "@/lib/db";
+import { ADMIN_IMAGE_ALT_REQUIRED } from "@/lib/admin-policy";
 
 export default async function AdminEditEvent({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -28,6 +29,7 @@ export default async function AdminEditEvent({ params }: { params: Promise<{ id:
         artistSlugs: event.eventArtists.map((x) => x.artist.slug),
         isPublished: event.isPublished,
       }}
+      altRequired={ADMIN_IMAGE_ALT_REQUIRED}
     />
   );
 }

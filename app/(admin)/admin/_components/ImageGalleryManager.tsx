@@ -3,24 +3,31 @@
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AdminImageUpload from "@/app/(admin)/admin/_components/AdminImageUpload";
+import { uploadToBlob } from "@/lib/admin-upload";
+import { validateImageFile } from "@/lib/image-validate";
 import { enqueueToast } from "@/lib/toast";
 
 type EntityType = "event" | "venue" | "artist";
 type GalleryItem = { id: string; url: string; alt: string | null; sortOrder: number; isPrimary: boolean };
+type BulkUploadStatus = "queued" | "validating" | "uploading" | "saving" | "done" | "error";
+type BulkUploadItem = { id: string; fileName: string; progress: number; status: BulkUploadStatus; message?: string };
 
 type Props = {
   entityType: EntityType;
   entityId: string;
   initialItems?: GalleryItem[];
+  altRequired?: boolean;
 };
 
-export default function ImageGalleryManager({ entityType, entityId, initialItems }: Props) {
+export default function ImageGalleryManager({ entityType, entityId, initialItems, altRequired = false }: Props) {
   const [items, setItems] = useState<GalleryItem[]>(initialItems ?? []);
   const [loading, setLoading] = useState(!initialItems);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [replaceId, setReplaceId] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
+  const [uploadQueue, setUploadQueue] = useState<BulkUploadItem[]>([]);
+  const [isBulkUploading, setIsBulkUploading] = useState(false);
   const altTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const basePath = useMemo(() => `/api/admin/${entityType}s/${entityId}/images`, [entityType, entityId]);
@@ -43,15 +50,66 @@ export default function ImageGalleryManager({ entityType, entityId, initialItems
     void fetchImages();
   }, [fetchImages, initialItems]);
 
-  async function addImage(url: string) {
-    const res = await fetch(basePath, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url }) });
+  async function createImage(payload: { url: string; alt?: string | null; setPrimary?: boolean }) {
+    const res = await fetch(basePath, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) {
-      setError(body?.error?.message ?? "Failed to add image");
-      return;
+      throw new Error(body?.error?.message ?? "Failed to add image");
     }
-    setItems((prev) => [...prev, body.item as GalleryItem].sort((a, b) => a.sortOrder - b.sortOrder));
-    enqueueToast({ title: "Image added" });
+
+    const nextItem = body.item as GalleryItem;
+    setItems((prev) => [...prev, nextItem].sort((a, b) => a.sortOrder - b.sortOrder));
+    return nextItem;
+  }
+
+  async function handleBulkSelect(selectedFiles: File[]) {
+    if (!selectedFiles.length || isBulkUploading) return;
+
+    const queueItems = selectedFiles.map((file) => ({
+      id: `${file.name}-${crypto.randomUUID()}`,
+      fileName: file.name,
+      progress: 0,
+      status: "queued" as const,
+    }));
+
+    setUploadQueue(queueItems);
+    setIsBulkUploading(true);
+
+    for (let index = 0; index < selectedFiles.length; index += 1) {
+      const file = selectedFiles[index]!;
+      const queueId = queueItems[index]!.id;
+      const updateQueue = (patch: Partial<BulkUploadItem>) => {
+        setUploadQueue((curr) => curr.map((entry) => (entry.id === queueId ? { ...entry, ...patch } : entry)));
+      };
+
+      updateQueue({ status: "validating", progress: 0, message: undefined });
+      const validation = await validateImageFile(file);
+      if (!validation.ok) {
+        updateQueue({ status: "error", message: validation.reason });
+        enqueueToast({ title: `${file.name} rejected`, message: validation.reason, variant: "error" });
+        continue;
+      }
+
+      try {
+        updateQueue({ status: "uploading", progress: 0 });
+        const uploaded = await uploadToBlob(file, {
+          targetType: entityType,
+          targetId: entityId,
+          role: "gallery",
+          onUploadProgress: (percentage) => updateQueue({ progress: percentage }),
+        });
+
+        updateQueue({ status: "saving", progress: 100 });
+        const nextItem = await createImage({ url: uploaded.url, alt: "" });
+        updateQueue({ status: "done", progress: 100, message: nextItem.id });
+      } catch (uploadError) {
+        const message = uploadError instanceof Error ? uploadError.message : "Upload failed";
+        updateQueue({ status: "error", message });
+        enqueueToast({ title: `${file.name} failed`, message, variant: "error" });
+      }
+    }
+
+    setIsBulkUploading(false);
   }
 
   async function replaceImage(id: string, url: string) {
@@ -74,11 +132,23 @@ export default function ImageGalleryManager({ entityType, entityId, initialItems
 
   async function setPrimary(id: string) {
     if (busyId) return;
+    const selected = items.find((item) => item.id === id);
+    if (!selected) return;
+    if (altRequired && !selected.alt?.trim()) {
+      enqueueToast({ title: "Alt text required", message: "Add alt text before setting an image as featured.", variant: "error" });
+      return;
+    }
+
     setBusyId(id);
     const prev = items;
     setItems((curr) => curr.map((item) => ({ ...item, isPrimary: item.id === id })));
     const res = await fetch(`${basePath}/${id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ isPrimary: true }) });
-    if (!res.ok) setItems(prev);
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setItems(prev);
+      enqueueToast({ title: body?.error?.message ?? "Failed to set featured image", variant: "error" });
+      await fetchImages();
+    }
     setBusyId(null);
   }
 
@@ -139,57 +209,91 @@ export default function ImageGalleryManager({ entityType, entityId, initialItems
   return (
     <section className="space-y-3 rounded border p-4">
       <h2 className="text-lg font-semibold">Image gallery</h2>
-      <AdminImageUpload targetType={entityType} targetId={entityId} role="gallery" multiple onUploaded={(url) => void addImage(url)} />
+      <div className="space-y-2 rounded border p-3">
+        <p className="text-sm font-medium">Add images</p>
+        <input
+          type="file"
+          multiple
+          accept="image/*"
+          disabled={isBulkUploading}
+          onChange={(event) => {
+            const selectedFiles = Array.from(event.target.files ?? []);
+            void handleBulkSelect(selectedFiles);
+            event.currentTarget.value = "";
+          }}
+        />
+        {uploadQueue.length ? (
+          <ul className="space-y-1 text-xs text-muted-foreground">
+            {uploadQueue.map((entry) => (
+              <li key={entry.id} className="flex items-center justify-between gap-2">
+                <span>{entry.fileName}</span>
+                <span>{entry.status === "uploading" || entry.status === "saving" ? `${Math.round(entry.progress)}%` : entry.status}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
       {loading ? <p className="text-sm text-muted-foreground">Loading…</p> : null}
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       {!loading && items.length === 0 ? <p className="text-sm text-muted-foreground">No images yet.</p> : null}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {orderedItems.map((item, index) => (
-          <article
-            key={item.id}
-            className="space-y-2 rounded border p-2"
-            draggable
-            onDragStart={() => setDragId(item.id)}
-            onDragOver={(event) => event.preventDefault()}
-            onDrop={() => {
-              if (!dragId || dragId === item.id) return;
-              const ids = orderedItems.map((entry) => entry.id);
-              const from = ids.indexOf(dragId);
-              const to = ids.indexOf(item.id);
-              if (from < 0 || to < 0) return;
-              ids.splice(from, 1);
-              ids.splice(to, 0, dragId);
-              void reorder(ids);
-              setDragId(null);
-            }}
-            onDragEnd={() => setDragId(null)}
-          >
-            <div className="relative h-36 w-full overflow-hidden rounded bg-muted">
-              <Image src={item.url} alt={item.alt ?? "Gallery image"} fill className="object-cover" unoptimized />
-              {item.isPrimary ? <span className="absolute left-2 top-2 rounded bg-black/70 px-2 py-1 text-xs text-white">Featured</span> : null}
-            </div>
-            <div className="flex gap-2">
-              <button type="button" className="rounded border px-2 py-1 text-xs" onClick={() => void setPrimary(item.id)} disabled={busyId === item.id || item.isPrimary}>Set featured</button>
-              <button type="button" className="rounded border px-2 py-1 text-xs" onClick={() => void removeImage(item.id)} disabled={busyId === item.id}>Remove</button>
-              <button type="button" className="rounded border px-2 py-1 text-xs" onClick={() => setReplaceId((curr) => (curr === item.id ? null : item.id))} disabled={busyId === item.id}>Replace</button>
-            </div>
-            {replaceId === item.id ? (
-              <AdminImageUpload
-                targetType={entityType}
-                targetId={entityId}
-                role="gallery"
-                mode="standalone"
-                title="Upload replacement"
-                onUploaded={(url) => void replaceImage(item.id, url)}
-              />
-            ) : null}
-            <div className="flex gap-2">
-              <button type="button" className="rounded border px-2 py-1 text-xs" onClick={() => moveItem(item.id, -1)} disabled={index === 0}>Up</button>
-              <button type="button" className="rounded border px-2 py-1 text-xs" onClick={() => moveItem(item.id, 1)} disabled={index === items.length - 1}>Down</button>
-            </div>
-            <input className="w-full rounded border px-2 py-1 text-xs" placeholder="Alt text" value={item.alt ?? ""} onChange={(event) => onAltInput(item.id, event.target.value)} />
-          </article>
-        ))}
+        {orderedItems.map((item, index) => {
+          const missingAlt = !item.alt?.trim();
+          return (
+            <article
+              key={item.id}
+              className="space-y-2 rounded border p-2"
+              draggable
+              onDragStart={() => setDragId(item.id)}
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={() => {
+                if (!dragId || dragId === item.id) return;
+                const ids = orderedItems.map((entry) => entry.id);
+                const from = ids.indexOf(dragId);
+                const to = ids.indexOf(item.id);
+                if (from < 0 || to < 0) return;
+                ids.splice(from, 1);
+                ids.splice(to, 0, dragId);
+                void reorder(ids);
+                setDragId(null);
+              }}
+              onDragEnd={() => setDragId(null)}
+            >
+              <div className="relative h-36 w-full overflow-hidden rounded bg-muted">
+                <Image src={item.url} alt={item.alt ?? "Gallery image"} fill className="object-cover" unoptimized />
+                {item.isPrimary ? <span className="absolute left-2 top-2 rounded bg-black/70 px-2 py-1 text-xs text-white">Featured</span> : null}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="rounded border px-2 py-1 text-xs"
+                  onClick={() => void setPrimary(item.id)}
+                  disabled={busyId === item.id || item.isPrimary || (altRequired && missingAlt)}
+                >
+                  Set featured
+                </button>
+                <button type="button" className="rounded border px-2 py-1 text-xs" onClick={() => void removeImage(item.id)} disabled={busyId === item.id}>Remove</button>
+                <button type="button" className="rounded border px-2 py-1 text-xs" onClick={() => setReplaceId((curr) => (curr === item.id ? null : item.id))} disabled={busyId === item.id}>Replace</button>
+              </div>
+              {replaceId === item.id ? (
+                <AdminImageUpload
+                  targetType={entityType}
+                  targetId={entityId}
+                  role="gallery"
+                  mode="standalone"
+                  title="Upload replacement"
+                  onUploaded={(url) => void replaceImage(item.id, url)}
+                />
+              ) : null}
+              <div className="flex gap-2">
+                <button type="button" className="rounded border px-2 py-1 text-xs" onClick={() => moveItem(item.id, -1)} disabled={index === 0}>Up</button>
+                <button type="button" className="rounded border px-2 py-1 text-xs" onClick={() => moveItem(item.id, 1)} disabled={index === items.length - 1}>Down</button>
+              </div>
+              <input className="w-full rounded border px-2 py-1 text-xs" placeholder={altRequired ? "Alt text (required for featured)" : "Alt text"} value={item.alt ?? ""} onChange={(event) => onAltInput(item.id, event.target.value)} />
+              {altRequired && missingAlt ? <p className="text-xs text-amber-700">Alt text required before this image can be featured.</p> : null}
+            </article>
+          );
+        })}
       </div>
     </section>
   );

@@ -25,6 +25,8 @@ AUTH_GOOGLE_SECRET=
 ADMIN_EMAILS=admin@example.com
 # Optional domain allowlist
 ADMIN_EMAIL_DOMAINS=example.org
+# Optional admin image accessibility policy
+ADMIN_IMAGE_ALT_REQUIRED=false
 
 # Maps (optional, enables Nearby map view)
 NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=
@@ -50,6 +52,7 @@ Minimum required:
 - `AUTH_GOOGLE_SECRET`
 - `ADMIN_EMAILS` (required for admin panel access control, comma-separated email allowlist)
 - `ADMIN_EMAIL_DOMAINS` (optional, comma-separated admin email domains)
+- `ADMIN_IMAGE_ALT_REQUIRED` (optional; defaults to `false`, when `true` admin image alt text is required before setting an image as featured/primary)
 
 Optional:
 - `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` (enables `/nearby` map view)

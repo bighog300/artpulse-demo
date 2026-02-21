@@ -13,6 +13,7 @@ type Props = {
   redirectPath: string;
   uploadTargetType: "venue" | "artist";
   uploadTargetId: string;
+  altRequired?: boolean;
 };
 
 export default function AdminEntityForm({
@@ -24,6 +25,7 @@ export default function AdminEntityForm({
   redirectPath,
   uploadTargetType,
   uploadTargetId,
+  altRequired = false,
 }: Props) {
   const router = useRouter();
   const [form, setForm] = useState<Record<string, unknown>>(initial);
@@ -73,7 +75,7 @@ export default function AdminEntityForm({
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
         <button className="rounded border px-3 py-1">Save</button>
       </form>
-      {uploadTargetId === "new" ? <p className="text-sm text-muted-foreground">Save first to add images.</p> : <ImageGalleryManager entityType={uploadTargetType} entityId={uploadTargetId} />}
+      {uploadTargetId === "new" ? <p className="text-sm text-muted-foreground">Save first to add images.</p> : <ImageGalleryManager entityType={uploadTargetType} entityId={uploadTargetId} altRequired={altRequired} />}
     </main>
   );
 }
