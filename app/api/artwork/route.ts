@@ -29,6 +29,7 @@ export async function GET(req: NextRequest) {
       take: pageSize,
       select: {
         id: true,
+        slug: true,
         title: true,
         year: true,
         medium: true,
@@ -43,6 +44,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     items: items.map((item) => ({
       id: item.id,
+      slug: item.slug,
       title: item.title,
       artist: item.artist,
       coverUrl: resolveImageUrl(item.featuredAsset?.url, item.images[0]?.asset?.url),

@@ -5,6 +5,7 @@ import { EntityHeader } from "@/components/entities/entity-header";
 import { EntityTabs } from "@/components/entities/entity-tabs";
 import { EventCard } from "@/components/events/event-card";
 import { FollowButton } from "@/components/follows/follow-button";
+import { ArtworkRelatedSection } from "@/components/artwork/artwork-related-section";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageShell } from "@/components/ui/page-shell";
 import { PageViewTracker } from "@/components/analytics/page-view-tracker";
@@ -15,6 +16,7 @@ import { db } from "@/lib/db";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { buildArtistJsonLd, getDetailUrl } from "@/lib/seo.public-profiles";
 import { resolveEntityPrimaryImage } from "@/lib/public-images";
+import { listPublishedArtworksByArtist } from "@/lib/artworks";
 
 const FALLBACK_METADATA = { title: "Artist | Artpulse", description: "Browse artist profiles and related events on Artpulse." };
 
@@ -72,9 +74,11 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
 
   if (!artist) notFound();
 
-  const [followersCount, existingFollow] = await Promise.all([
+  const [followersCount, existingFollow, artworks, artworkCount] = await Promise.all([
     db.follow.count({ where: { targetType: "ARTIST", targetId: artist.id } }),
     user ? db.follow.findUnique({ where: { userId_targetType_targetId: { userId: user.id, targetType: "ARTIST", targetId: artist.id } }, select: { id: true } }) : Promise.resolve(null),
+    listPublishedArtworksByArtist(artist.id, 6),
+    db.artwork.count({ where: { artistId: artist.id, isPublished: true } }),
   ]);
 
   const imageUrl = resolveEntityPrimaryImage(artist)?.url ?? null;
@@ -113,6 +117,7 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
         upcoming={(
           <section className="space-y-3">
             <SectionHeader title="Upcoming events" subtitle="Catch this artist's next exhibitions and shows." />
+            <ArtworkRelatedSection title={`Artworks by ${artist.name}`} subtitle="Published works from this artist." items={artworks} viewAllHref={artworkCount > 6 ? `/artwork?artistId=${artist.id}` : undefined} />
             {events.length === 0 ? <EmptyState title="No upcoming events" description="Follow this artist and we’ll keep you posted." /> : (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {events.map((event) => <EventCard key={event.id} href={`/events/${event.slug}`} title={event.title} startAt={event.startAt} endAt={event.endAt} venueName={event.venueName} venueSlug={event.venueSlug} imageUrl={event.imageUrl} imageAlt={event.imageAlt} tags={event.tags} />)}
