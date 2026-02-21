@@ -24,6 +24,16 @@ const hasAuthConfig = Boolean(authSecret && googleClientId && googleClientSecret
 const authFailureWindowMs = 60_000;
 const authFailureState = { windowStart: 0, count: 0 };
 
+function isAllowlistedAdminEmail(email: string) {
+  const betaConfig = getBetaConfig();
+  return betaConfig.adminEmails.has(normalizeEmail(email));
+}
+
+function getEffectiveRole(email: string, role: SessionUser["role"]) {
+  if (isAllowlistedAdminEmail(email)) return "ADMIN" as const;
+  return role;
+}
+
 function logRateLimitedAuthFailure() {
   const now = Date.now();
   if (now - authFailureState.windowStart >= authFailureWindowMs) {
@@ -65,6 +75,7 @@ export const authOptions: NextAuthOptions = {
       if (!user.email) return false;
       const betaConfig = getBetaConfig();
       const normalizedEmail = normalizeEmail(user.email);
+      const isAdminEmail = betaConfig.adminEmails.has(normalizedEmail);
 
       if (betaConfig.betaMode && !isEmailAllowed(normalizedEmail, betaConfig)) {
         return false;
@@ -75,23 +86,27 @@ export const authOptions: NextAuthOptions = {
         update: {
           name: user.name ?? undefined,
           imageUrl: user.image ?? undefined,
+          ...(isAdminEmail ? { role: "ADMIN" } : {}),
         },
         create: {
           email: normalizedEmail,
           name: user.name,
           imageUrl: user.image,
-          role: "USER",
+          role: isAdminEmail ? "ADMIN" : "USER",
         },
       });
       return true;
     },
     async jwt({ token }) {
       if (!token.email) return token;
-      const dbUser = await db.user.findUnique({ where: { email: token.email.toLowerCase() } });
+      const normalizedEmail = normalizeEmail(token.email);
+      const dbUser = await db.user.findUnique({ where: { email: normalizedEmail } });
       if (dbUser) {
         token.sub = dbUser.id;
-        token.role = dbUser.role;
+        token.role = getEffectiveRole(normalizedEmail, dbUser.role as SessionUser["role"]);
         token.name = dbUser.name ?? token.name;
+      } else {
+        token.role = getEffectiveRole(normalizedEmail, "USER");
       }
       return token;
     },

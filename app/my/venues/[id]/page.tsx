@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { redirectToLogin } from "@/lib/auth-redirect";
@@ -26,99 +27,108 @@ export default async function MyVenueEditPage({ params }: { params: Promise<{ id
     );
   }
 
+  const venueSelect = Prisma.validator<Prisma.VenueSelect>()({
+    id: true,
+    featuredImageUrl: true,
+    featuredAssetId: true,
+    isPublished: true,
+    slug: true,
+    featuredAsset: { select: { url: true } },
+    images: { select: { id: true, url: true, alt: true, sortOrder: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
+    targetSubmissions: {
+      where: { type: "VENUE" },
+      orderBy: { createdAt: "desc" },
+      take: 1,
+    },
+    memberships: {
+      include: {
+        user: {
+          select: { id: true, email: true, name: true },
+        },
+      },
+      orderBy: [{ role: "desc" }, { createdAt: "asc" }],
+    },
+    name: true,
+    description: true,
+    addressLine1: true,
+    addressLine2: true,
+    city: true,
+    region: true,
+    country: true,
+    postcode: true,
+    lat: true,
+    lng: true,
+    websiteUrl: true,
+    instagramUrl: true,
+    artistAssociations: {
+      where: { status: "PENDING" },
+      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        role: true,
+        message: true,
+        artist: { select: { id: true, name: true, slug: true } },
+      },
+    },
+  });
+
   const membership = await db.venueMembership.findUnique({
     where: { userId_venueId: { userId: user.id, venueId: id } },
     select: {
       role: true,
       venue: {
-        select: {
-          id: true,
-          featuredImageUrl: true,
-          featuredAssetId: true,
-          isPublished: true,
-          slug: true,
-          featuredAsset: { select: { url: true } },
-          images: { select: { id: true, url: true, alt: true, sortOrder: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
-          targetSubmissions: {
-            where: { type: "VENUE" },
-            orderBy: { createdAt: "desc" },
-            take: 1,
-          },
-          memberships: {
-            include: {
-              user: {
-                select: { id: true, email: true, name: true },
-              },
-            },
-            orderBy: [{ role: "desc" }, { createdAt: "asc" }],
-          },
-          name: true,
-          description: true,
-          addressLine1: true,
-          addressLine2: true,
-          city: true,
-          region: true,
-          country: true,
-          postcode: true,
-          lat: true,
-          lng: true,
-          websiteUrl: true,
-          instagramUrl: true,
-          artistAssociations: {
-            where: { status: "PENDING" },
-            orderBy: { createdAt: "asc" },
-            select: {
-              id: true,
-              role: true,
-              message: true,
-              artist: { select: { id: true, name: true, slug: true } },
-            },
-          },
-        },
+        select: venueSelect,
       },
     },
   });
 
-  if (!membership) notFound();
+  const adminVenue = !membership && user.role === "ADMIN"
+    ? await db.venue.findUnique({ where: { id }, select: venueSelect })
+    : null;
 
-  const submission = membership.venue.targetSubmissions[0] ?? null;
+  const venue = membership?.venue ?? adminVenue;
+  const memberRole = membership?.role ?? null;
+
+  if (!venue) notFound();
+
+  const submission = venue.targetSubmissions[0] ?? null;
 
   return (
     <main className="space-y-6 p-6">
       <PageHeader title="Edit Venue" subtitle="Update venue details and team access settings." />
 
       <VenuePublishPanel
-        venueId={membership.venue.id}
-        venueSlug={membership.venue.slug}
-        isOwner={membership.role === "OWNER" || user.role === "ADMIN"}
-        isPublished={membership.venue.isPublished}
+        venueId={venue.id}
+        venueSlug={venue.slug}
+        isOwner={memberRole === "OWNER" || user.role === "ADMIN"}
+        isPublished={venue.isPublished}
         submissionStatus={submission?.status ?? null}
         submittedAt={submission?.submittedAt?.toISOString() ?? null}
         decisionReason={submission?.decisionReason ?? null}
         initialIssues={getVenuePublishIssues({
-          name: membership.venue.name,
-          description: membership.venue.description,
-          featuredAssetId: membership.venue.featuredAssetId,
-          featuredImageUrl: membership.venue.featuredImageUrl,
-          addressLine1: membership.venue.addressLine1,
-          city: membership.venue.city,
-          country: membership.venue.country,
-          websiteUrl: membership.venue.websiteUrl,
-          images: membership.venue.images.map((image) => ({ id: image.id })),
+          name: venue.name,
+          description: venue.description,
+          featuredAssetId: venue.featuredAssetId,
+          featuredImageUrl: venue.featuredImageUrl,
+          addressLine1: venue.addressLine1,
+          city: venue.city,
+          country: venue.country,
+          websiteUrl: venue.websiteUrl,
+          images: venue.images.map((image) => ({ id: image.id })),
         })}
       />
 
-      <VenueSelfServeForm venue={membership.venue} submissionStatus={submission?.status ?? null} />
+      <VenueSelfServeForm venue={venue} submissionStatus={submission?.status ?? null} />
 
       <VenueGalleryManager
-        venueId={membership.venue.id}
-        initialImages={membership.venue.images}
-        initialCover={{ featuredImageUrl: resolveImageUrl(membership.venue.featuredAsset?.url, membership.venue.featuredImageUrl) }}
+        venueId={venue.id}
+        initialImages={venue.images}
+        initialCover={{ featuredImageUrl: resolveImageUrl(venue.featuredAsset?.url, venue.featuredImageUrl) }}
       />
 
       <VenueArtistRequestsPanel
-        venueId={membership.venue.id}
-        initialRequests={membership.venue.artistAssociations.map((row) => ({
+        venueId={venue.id}
+        initialRequests={venue.artistAssociations.map((row) => ({
           id: row.id,
           role: row.role,
           message: row.message,
@@ -126,10 +136,10 @@ export default async function MyVenueEditPage({ params }: { params: Promise<{ id
         }))}
       />
 
-      {(membership.role === "OWNER" || user.role === "ADMIN") ? (
+      {(memberRole === "OWNER" || user.role === "ADMIN") ? (
         <VenueMembersManager
-          venueId={membership.venue.id}
-          members={membership.venue.memberships.map((m) => ({
+          venueId={venue.id}
+          members={venue.memberships.map((m) => ({
             id: m.id,
             role: m.role,
             user: m.user,

@@ -108,7 +108,7 @@ export async function handleVenueSubmit(req: NextRequest, params: Promise<{ id: 
   } catch (error) {
     if (isRateLimitError(error)) return rateLimitErrorResponse(error);
     if (error instanceof Error && error.message === "unauthorized") return apiError(401, "unauthorized", "Authentication required");
-    if (error instanceof Error && error.message === "forbidden") return apiError(403, "forbidden", "Venue membership required");
+    if (error instanceof Error && error.message === "forbidden") return apiError(403, "forbidden", "Venue editor role required");
     return apiError(500, "internal_error", "Unexpected server error");
   }
 }
