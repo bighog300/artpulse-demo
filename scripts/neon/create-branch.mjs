@@ -33,20 +33,39 @@ async function main() {
       throw new Error(`Parent branch \"${parentBranchName}\" not found in Neon project.`);
     }
 
-    const response = await neonRequest({
-      method: "POST",
-      path: `/projects/${projectId}/branches`,
-      apiKey,
-      body: {
-        branch: {
-          name: branchName,
-          parent_id: parentBranch.id,
+    try {
+      const response = await neonRequest({
+        method: "POST",
+        path: `/projects/${projectId}/branches`,
+        apiKey,
+        body: {
+          branch: {
+            name: branchName,
+            parent_id: parentBranch.id,
+          },
         },
-      },
-    });
+      });
 
-    branch = response.branch;
-    created = true;
+      branch = response.branch;
+      created = true;
+    } catch (error) {
+      const message = String(error?.message || "");
+      const isAlreadyExistsError =
+        message.includes("(409)") ||
+        message.toLowerCase().includes("already exists") ||
+        message.toLowerCase().includes("branch already exists");
+
+      if (!isAlreadyExistsError) {
+        throw error;
+      }
+
+      branch = await getBranchByName({ projectId, apiKey, branchName });
+      if (!branch) {
+        throw new Error(
+          `Neon branch "${branchName}" already exists but could not be fetched afterwards.`
+        );
+      }
+    }
   }
 
   appendGitHubOutput("branch_id", branch.id);
