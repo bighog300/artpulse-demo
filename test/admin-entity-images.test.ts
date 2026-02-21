@@ -15,6 +15,13 @@ type VenueImageRow = {
   createdAt: Date;
 };
 
+test("withAdminRoute returns 401 when unauthenticated", async () => {
+  const res = await withAdminRoute(async () => Response.json({ ok: true }), {
+    requireAdminFn: async () => { throw new AdminAccessError(401); },
+  });
+  assert.equal((res as Response).status, 401);
+});
+
 test("withAdminRoute returns 403 for non-admin", async () => {
   const res = await withAdminRoute(async () => Response.json({ ok: true }), {
     requireAdminFn: async () => { throw new AdminAccessError(403); },
@@ -25,9 +32,15 @@ test("withAdminRoute returns 403 for non-admin", async () => {
 function setupVenueImagesHarness() {
   const venue = { id: "11111111-1111-4111-8111-111111111111", featuredImageUrl: null as string | null, featuredAssetId: null as string | null };
   const images: VenueImageRow[] = [];
+  const auditLogs: Array<{ action: string; metadata: Record<string, unknown> }> = [];
   let idCounter = 1;
 
-  (db as any).adminAuditLog = { create: async () => undefined };
+  (db as any).adminAuditLog = {
+    create: async ({ data }: any) => {
+      auditLogs.push({ action: data.action, metadata: data.metadata ?? {} });
+      return undefined;
+    },
+  };
   (db as any).$transaction = async (cb: any) => cb({
     venue: {
       findUnique: async ({ where }: any) => (where.id === venue.id ? { id: venue.id } : null),
@@ -74,7 +87,7 @@ function setupVenueImagesHarness() {
     },
   });
 
-  return { venue, images };
+  return { venue, images, auditLogs };
 }
 
 test("reorder rejects stale/malformed payloads with strict validation", async () => {
@@ -105,6 +118,34 @@ test("reorder rejects stale/malformed payloads with strict validation", async ()
 
   assert.equal(duplicateId.status, 400);
   assert.equal((await duplicateId.json()).error.message, "Order payload must include every image id exactly once.");
+});
+
+test("replace updates URL while preserving order/primary and writes audit metadata", async () => {
+  const { venue, images, auditLogs } = setupVenueImagesHarness();
+
+  await addAdminEntityImage({ entityType: "venue", entityId: venue.id, url: "https://example.com/old.jpg", alt: "Existing alt", actorEmail: "admin@example.com", req: new Request("http://localhost") });
+  const before = { ...images[0]! };
+
+  const response = await patchAdminEntityImage({
+    entityType: "venue",
+    entityId: venue.id,
+    imageId: before.id,
+    url: "https://example.com/new.jpg",
+    actorEmail: "admin@example.com",
+    req: new Request("http://localhost"),
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(images[0]!.url, "https://example.com/new.jpg");
+  assert.equal(images[0]!.sortOrder, before.sortOrder);
+  assert.equal(images[0]!.isPrimary, before.isPrimary);
+  assert.equal(images[0]!.alt, before.alt);
+
+  const replaceLog = auditLogs.find((entry) => entry.action === "admin.venue.image.replace");
+  assert.ok(replaceLog);
+  assert.equal(replaceLog?.metadata.imageId, before.id);
+  assert.equal(replaceLog?.metadata.oldUrl, "https://example.com/old.jpg");
+  assert.equal(replaceLog?.metadata.newUrl, "https://example.com/new.jpg");
 });
 
 test("delete normalizes sort order and setPrimary keeps single primary invariant", async () => {

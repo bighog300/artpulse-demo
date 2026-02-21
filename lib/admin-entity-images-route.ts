@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { apiError } from "@/lib/api";
 import { db } from "@/lib/db";
 import { logAdminAction } from "@/lib/admin-audit";
+import { deleteBlobByUrl } from "@/lib/blob-delete";
 
 export type AdminImageItem = {
   id: string;
@@ -156,12 +157,13 @@ export async function patchAdminEntityImage(input: {
   entityType: AdminEntityType;
   entityId: string;
   imageId: string;
+  url?: string;
   alt?: string | null;
   isPrimary?: true;
   actorEmail: string;
   req: Request;
 }) {
-  const { entityType, entityId, imageId, alt, isPrimary, actorEmail, req } = input;
+  const { entityType, entityId, imageId, url, alt, isPrimary, actorEmail, req } = input;
 
   const setPrimaryAttempt = async () => db.$transaction(async (tx) => {
     const entity = await ensureEntityExists(tx, entityType, entityId);
@@ -175,22 +177,30 @@ export async function patchAdminEntityImage(input: {
 
     if (!image) return { type: "image_not_found" as const };
 
+    const oldUrl = image.url;
     let next = image;
-    if (alt !== undefined) {
+    if (url !== undefined || alt !== undefined) {
+      const data: { url?: string; alt?: string | null } = {};
+      if (url !== undefined) data.url = url;
+      if (alt !== undefined) data.alt = alt;
+
       next = entityType === "event"
-        ? await tx.eventImage.update({ where: { id: imageId }, data: { alt } })
+        ? await tx.eventImage.update({ where: { id: imageId }, data })
         : entityType === "venue"
-          ? await tx.venueImage.update({ where: { id: imageId }, data: { alt } })
-          : await tx.artistImage.update({ where: { id: imageId }, data: { alt } });
+          ? await tx.venueImage.update({ where: { id: imageId }, data })
+          : await tx.artistImage.update({ where: { id: imageId }, data });
     }
 
     if (isPrimary) {
       await setAllPrimaryFalse(tx, entityType, entityId);
       next = await setPrimaryImageById(tx, entityType, imageId);
+    }
+
+    if (next.isPrimary) {
       await updateFeaturedImageUrl(tx, entityType, entityId, next.url);
     }
 
-    return { type: "ok" as const, item: mapImage(next) };
+    return { type: "ok" as const, item: mapImage(next), oldUrl };
   });
 
   let updated: Awaited<ReturnType<typeof setPrimaryAttempt>>;
@@ -214,14 +224,19 @@ export async function patchAdminEntityImage(input: {
   if (updated.type === "entity_not_found") return apiError(404, "not_found", entityConfig[entityType].parentNotFoundMessage);
   if (updated.type === "image_not_found") return apiError(404, "not_found", "Image not found");
 
+  const action = url ? `admin.${entityType}.image.replace` : isPrimary ? `admin.${entityType}.image.set_primary` : `admin.${entityType}.image.update`;
   await logAdminAction({
     actorEmail,
-    action: isPrimary ? `admin.${entityType}.image.set_primary` : `admin.${entityType}.image.update`,
+    action,
     targetType: entityConfig[entityType].targetType,
     targetId: entityId,
-    metadata: { imageId },
+    metadata: url ? { imageId, oldUrl: updated.oldUrl, newUrl: updated.item.url } : { imageId },
     req,
   });
+
+  if (url && updated.oldUrl !== updated.item.url) {
+    await deleteBlobByUrl(updated.oldUrl).catch(() => undefined);
+  }
 
   return NextResponse.json({ item: updated.item });
 }
@@ -303,12 +318,13 @@ export async function deleteAdminEntityImage(input: {
       await updateFeaturedImageUrl(tx, entityType, entityId, nextPrimary?.url ?? null);
     }
 
-    return { type: "ok" as const };
+    return { type: "ok" as const, deletedUrl: image.url };
   });
 
   if (result.type === "entity_not_found") return apiError(404, "not_found", entityConfig[entityType].parentNotFoundMessage);
   if (result.type === "image_not_found") return apiError(404, "not_found", "Image not found");
 
   await logAdminAction({ actorEmail, action: `admin.${entityType}.image.delete`, targetType: entityConfig[entityType].targetType, targetId: entityId, metadata: { imageId }, req });
+  await deleteBlobByUrl(result.deletedUrl).catch(() => undefined);
   return NextResponse.json({ ok: true });
 }
