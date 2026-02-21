@@ -1,7 +1,7 @@
 # Artpulse
 
 Artpulse is an art community web app focused on discovering, publishing, and following art events from galleries, museums, artists and artworks.
-test
+test 2
 ## What Artpulse Does (MVP)
 
 - Discover upcoming art events by location and date
