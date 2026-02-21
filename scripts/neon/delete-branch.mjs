@@ -27,11 +27,23 @@ async function main() {
     throw new Error(`Branch \"${branchName}\" not found.`);
   }
 
-  await neonRequest({
-    method: "DELETE",
-    path: `/projects/${projectId}/branches/${branch.id}`,
-    apiKey,
-  });
+  try {
+    await neonRequest({
+      method: "DELETE",
+      path: `/projects/${projectId}/branches/${branch.id}`,
+      apiKey,
+    });
+  } catch (error) {
+    const message = String(error?.message || "").toLowerCase();
+    const isNotFound = message.includes("(404)") || message.includes("not found");
+
+    if (!isNotFound) {
+      throw error;
+    }
+
+    console.log(`set-env OK: Neon branch \"${branchName}\" already absent.`);
+    return;
+  }
 
   console.log(`set-env OK: Neon branch \"${branchName}\" deleted.`);
 }

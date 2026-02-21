@@ -9,7 +9,7 @@ on:
     types: [opened, synchronize, reopened, closed]
 
 jobs:
-  provision-preview-db:
+  migrate_preview_db:
     if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     permissions:
@@ -17,7 +17,7 @@ jobs:
     env:
       NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
       NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
-      PREVIEW_BRANCH_NAME: pr-${{ github.event.pull_request.number }}
+      PR_BRANCH_NAME: pr-${{ github.event.pull_request.number }}
       PARENT_NEON_BRANCH: main
       AUTH_SECRET: ci-preview-auth-secret
     outputs:
@@ -43,11 +43,31 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Ensure preview Neon branch exists
-        run: node scripts/neon/create-branch.mjs --branch-name "$PREVIEW_BRANCH_NAME" --parent-branch "$PARENT_NEON_BRANCH"
+        run: node scripts/neon/create-branch.mjs --branch-name "$PR_BRANCH_NAME" --parent-branch "$PARENT_NEON_BRANCH"
 
       - name: Fetch preview DB connection URLs
         id: neon-urls
-        run: node scripts/neon/get-connection-urls.mjs --branch-name "$PREVIEW_BRANCH_NAME"
+        run: |
+          max_attempts=10
+          for attempt in $(seq 1 "$max_attempts"); do
+            echo "Fetching Neon connection URLs attempt ${attempt}/${max_attempts}..."
+
+            if node scripts/neon/get-connection-urls.mjs --branch-name "$PR_BRANCH_NAME"; then
+              if grep -q '^database_url=' "$GITHUB_OUTPUT" && grep -q '^direct_url=' "$GITHUB_OUTPUT"; then
+                echo "Connection URLs retrieved successfully."
+                exit 0
+              fi
+              echo "get-connection-urls succeeded but required outputs were not set yet."
+            fi
+
+            if [ "$attempt" -lt "$max_attempts" ]; then
+              echo "Connection URLs not ready yet; retrying in 5s..."
+              sleep 5
+            fi
+          done
+
+          echo "Failed to fetch Neon connection URLs (database_url/direct_url) after ${max_attempts} attempts."
+          exit 1
 
       - name: Deploy migrations to preview DB
         env:
@@ -129,19 +149,19 @@ jobs:
         if: ${{ !(secrets.VERCEL_TOKEN != '' && secrets.VERCEL_ORG_ID != '' && secrets.VERCEL_PROJECT_ID != '') }}
         run: echo "VERCEL_TOKEN / VERCEL_ORG_ID / VERCEL_PROJECT_ID not configured; use workflow outputs to set Preview env vars manually."
 
-  cleanup-preview-db:
-    if: github.event.action == 'closed' && !contains(join(github.event.pull_request.labels.*.name, ','), 'keep-preview-db')
+  delete_preview_db:
+    if: github.event.action == 'closed'
     runs-on: ubuntu-latest
     permissions:
       contents: read
     env:
       NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
       NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
-      PREVIEW_BRANCH_NAME: pr-${{ github.event.pull_request.number }}
+      PR_BRANCH_NAME: pr-${{ github.event.pull_request.number }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Delete preview Neon branch
-        run: node scripts/neon/delete-branch.mjs --branch-name "$PREVIEW_BRANCH_NAME" --if-exists
+        run: node scripts/neon/delete-branch.mjs --branch-name "$PR_BRANCH_NAME" --if-exists
