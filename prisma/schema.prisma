@@ -274,6 +274,7 @@ model Venue {
   targetSubmissions Submission[]      @relation("SubmissionTargetVenue")
   featuredAsset     Asset?            @relation("VenueFeaturedAsset", fields: [featuredAssetId], references: [id], onDelete: SetNull)
   artistAssociations ArtistVenueAssociation[]
+  artworkVenues      ArtworkVenue[]
 
   @@index([isPublished])
   @@index([featuredAssetId])
@@ -299,6 +300,7 @@ model Artist {
   targetSubmissions Submission[]  @relation("SubmissionTargetArtist")
   featuredAsset    Asset?        @relation("ArtistFeaturedAsset", fields: [featuredAssetId], references: [id], onDelete: SetNull)
   venueAssociations ArtistVenueAssociation[]
+  artworks          Artwork[]
 
   @@index([isPublished])
   @@index([featuredAssetId])
@@ -349,6 +351,7 @@ model Event {
   eventTags     EventTag[]
   eventArtists  EventArtist[]
   submissions   Submission[]
+  artworkEvents ArtworkEvent[]
 
   @@index([startAt])
   @@index([isPublished])
@@ -628,9 +631,79 @@ model Asset {
   artistImages      ArtistImage[]
   venueFeaturedFor  Venue[]       @relation("VenueFeaturedAsset")
   artistFeaturedFor Artist[]      @relation("ArtistFeaturedAsset")
+  artworkFeaturedFor Artwork[]    @relation("ArtworkFeaturedAsset")
+  artworkImages      ArtworkImage[]
 
   @@index([ownerUserId])
   @@index([createdAt])
+}
+
+model Artwork {
+  id              String         @id @default(uuid()) @db.Uuid
+  artistId        String         @db.Uuid
+  title           String
+  slug            String?        @unique
+  description     String?
+  year            Int?
+  medium          String?
+  dimensions      String?
+  priceAmount     Int?
+  currency        String?
+  isPublished     Boolean        @default(false)
+  featuredAssetId String?        @db.Uuid
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  artist          Artist         @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  featuredAsset   Asset?         @relation("ArtworkFeaturedAsset", fields: [featuredAssetId], references: [id], onDelete: SetNull)
+  images          ArtworkImage[]
+  venues          ArtworkVenue[]
+  events          ArtworkEvent[]
+
+  @@index([artistId])
+  @@index([isPublished])
+  @@index([featuredAssetId])
+}
+
+model ArtworkImage {
+  id        String   @id @default(uuid()) @db.Uuid
+  artworkId String   @db.Uuid
+  assetId   String   @db.Uuid
+  alt       String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  artwork   Artwork  @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  asset     Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@unique([artworkId, assetId])
+  @@index([artworkId])
+  @@index([assetId])
+  @@index([artworkId, sortOrder])
+}
+
+model ArtworkVenue {
+  id        String   @id @default(uuid()) @db.Uuid
+  artworkId String   @db.Uuid
+  venueId   String   @db.Uuid
+  createdAt DateTime @default(now())
+  artwork   Artwork  @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  venue     Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@unique([artworkId, venueId])
+  @@index([artworkId])
+  @@index([venueId])
+}
+
+model ArtworkEvent {
+  id        String   @id @default(uuid()) @db.Uuid
+  artworkId String   @db.Uuid
+  eventId   String   @db.Uuid
+  createdAt DateTime @default(now())
+  artwork   Artwork  @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([artworkId, eventId])
+  @@index([artworkId])
+  @@index([eventId])
 }
 
 model Favorite {
