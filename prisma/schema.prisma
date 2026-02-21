@@ -151,6 +151,7 @@ model User {
   locationRadiusKm     Int               @default(25)
   betaAccessRequests   BetaAccessRequest[]
   betaFeedbackEntries  BetaFeedback[]
+  adminInvitesCreated  AdminInvite[]      @relation("AdminInviteCreatedBy")
 
   @@index([locationLat, locationLng])
 }
@@ -390,6 +391,24 @@ model Submission {
   @@index([type, status])
   @@index([decidedAt])
   @@index([submitterUserId, createdAt])
+}
+
+
+model AdminInvite {
+  id              String   @id @default(uuid()) @db.Uuid
+  email           String
+  normalizedEmail String   @unique
+  intendedRole    Role     @default(EDITOR)
+  tokenHash       String   @unique
+  createdById     String   @db.Uuid
+  createdAt       DateTime @default(now())
+  expiresAt       DateTime
+  acceptedAt      DateTime?
+  revokedAt       DateTime?
+  createdBy       User     @relation("AdminInviteCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([normalizedEmail, createdAt])
+  @@index([expiresAt])
 }
 
 model VenueInvite {
