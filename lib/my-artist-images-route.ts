@@ -257,6 +257,14 @@ export async function handleSetArtistCover(
     const parsedBody = artistCoverPatchSchema.safeParse(await parseBody(req));
     if (!parsedBody.success) return withNoStore(apiError(400, "invalid_request", "Invalid payload", zodDetails(parsedBody.error)));
 
+    if (parsedBody.data.imageId === null) {
+      const cover = await deps.updateArtistCover(artistId, {
+        featuredAssetId: null,
+        featuredImageUrl: null,
+      });
+      return withNoStore(NextResponse.json({ cover }, { headers: NO_STORE_HEADERS }));
+    }
+
     const image = await deps.findArtistImageById(artistId, parsedBody.data.imageId);
     if (!image) return withNoStore(apiError(400, "invalid_request", "Image does not belong to this artist"));
 

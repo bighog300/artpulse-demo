@@ -146,6 +146,35 @@ export function VenueGalleryManager({
     enqueueToast({ title: "Image deleted", variant: "success" });
   }
 
+
+  async function clearCover() {
+    if (!coverImageUrl || !window.confirm("Clear current cover image?")) return;
+
+    const previous = coverImageUrl;
+    setCoverImageUrl(null);
+    setLoadingMap((prev) => ({ ...prev, clearCover: true }));
+
+    try {
+      const res = await fetch(`/api/my/venues/${venueId}/cover`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ imageId: null }),
+      });
+
+      if (handleAuth(res)) return;
+      if (!res.ok) {
+        setCoverImageUrl(previous);
+        enqueueToast({ title: "Failed to clear cover", variant: "error" });
+        return;
+      }
+
+      enqueueToast({ title: "Cover cleared", variant: "success" });
+      router.refresh();
+    } finally {
+      setLoadingMap((prev) => ({ ...prev, clearCover: false }));
+    }
+  }
+
   async function setAsCover(image: VenueImage) {
     const previous = coverImageUrl;
     setCoverImageUrl(image.url);
@@ -178,6 +207,9 @@ export function VenueGalleryManager({
     <section className="space-y-3 rounded border p-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Gallery</h2>
+        {coverImageUrl ? (
+          <button className="rounded border px-2 py-1 text-sm" disabled={Boolean(loadingMap.clearCover)} onClick={clearCover}>Clear cover</button>
+        ) : null}
         <input
           type="file"
           accept="image/jpeg,image/png,image/webp"

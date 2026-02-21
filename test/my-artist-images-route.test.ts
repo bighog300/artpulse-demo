@@ -130,3 +130,25 @@ test("artist upload payload validator rejects bad MIME and size", () => {
   const parsed = artistUploadRequestSchema.safeParse({ fileName: "file.gif", contentType: "image/gif", size: 6 * 1024 * 1024 });
   assert.equal(parsed.success, false);
 });
+
+test("artist cover clears when imageId is null", async () => {
+  const req = new NextRequest("http://localhost/api/my/artist/cover", {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ imageId: null }),
+  });
+
+  const res = await handleSetArtistCover(req, {
+    requireAuth: async () => ({ id: "user-1" }),
+    getOwnedArtistId: async () => "artist-1",
+    findArtistImageById: async () => {
+      throw new Error("should_not_lookup_image");
+    },
+    updateArtistCover: async (_artistId, payload) => {
+      assert.deepEqual(payload, { featuredAssetId: null, featuredImageUrl: null });
+      return payload;
+    },
+  });
+
+  assert.equal(res.status, 200);
+});

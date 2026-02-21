@@ -178,3 +178,25 @@ test("set venue cover sets featuredImageUrl when selected image has no asset", a
   assert.equal(body.cover.featuredAssetId, null);
   assert.equal(body.cover.featuredImageUrl, "https://example.com/no-asset.jpg");
 });
+
+test("set venue cover clears cover when imageId is null", async () => {
+  const req = new NextRequest(`http://localhost/api/my/venues/${venueId}/cover`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ imageId: null }),
+  });
+
+  const res = await handleSetVenueCover(req, Promise.resolve({ id: venueId }), {
+    requireAuth: async () => ({ id: "user-1" }),
+    requireVenueMembership: async () => undefined,
+    findVenueImageById: async () => {
+      throw new Error("should_not_lookup_image");
+    },
+    updateVenueCover: async (_venueId, payload) => {
+      assert.deepEqual(payload, { featuredAssetId: null, featuredImageUrl: null });
+      return payload;
+    },
+  });
+
+  assert.equal(res.status, 200);
+});

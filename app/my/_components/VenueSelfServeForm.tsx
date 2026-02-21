@@ -44,6 +44,26 @@ export default function VenueSelfServeForm({ venue, submissionStatus }: { venue:
     router.refresh();
   }
 
+  async function removeFeaturedImage() {
+    setError(null);
+    const payload = { featuredAssetId: null, featuredImageUrl: null };
+    setForm((p) => ({ ...p, ...payload }));
+
+    const res = await fetch(`/api/my/venues/${venue.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setError(body?.error?.message || "Failed to remove featured image");
+      return;
+    }
+
+    router.refresh();
+  }
+
   return (
     <form onSubmit={onSubmit} className="space-y-3 max-w-2xl">
       <label className="block"><span className="text-sm">Name</span><input className="border rounded p-2 w-full" value={String(form.name ?? "")} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} /></label>
@@ -56,7 +76,8 @@ export default function VenueSelfServeForm({ venue, submissionStatus }: { venue:
       <ImageUploader
         label="Upload featured image"
         initialUrl={venue.featuredAsset?.url ?? venue.featuredImageUrl}
-        onUploaded={({ assetId, url }) => setForm((p) => ({ ...p, featuredAssetId: assetId, featuredImageUrl: url }))}
+        onUploaded={({ assetId }) => setForm((p) => ({ ...p, featuredAssetId: assetId, featuredImageUrl: null }))}
+        onRemove={removeFeaturedImage}
       />
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       <button className="rounded border px-3 py-1">Save venue</button>
