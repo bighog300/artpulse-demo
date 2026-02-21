@@ -6,6 +6,10 @@ export const httpUrlSchema = z.url().refine((value) => value.startsWith("http://
   message: "Must be an http(s) URL",
 });
 
+export const httpsUrlSchema = z.url().refine((value) => value.startsWith("https://"), {
+  message: "Must be an https URL",
+});
+
 const isoDatetimeSchema = z.iso.datetime({ offset: true }).or(z.iso.datetime({ local: true }));
 const isoDateSchema = z.iso.date();
 
@@ -119,9 +123,10 @@ export const adminEntityImageCreateSchema = z.object({
 });
 
 export const adminEntityImagePatchSchema = z.object({
+  url: httpsUrlSchema.optional(),
   alt: z.string().trim().max(300).optional().nullable(),
   isPrimary: z.literal(true).optional(),
-}).refine((data) => data.alt !== undefined || data.isPrimary === true, {
+}).refine((data) => data.alt !== undefined || data.isPrimary === true || data.url !== undefined, {
   message: "At least one field must be provided",
 });
 
