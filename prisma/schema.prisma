@@ -523,7 +523,7 @@ model ArtistImage {
   sortOrder   Int      @default(0)
   isPrimary Boolean  @default(false)
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime @updatedAt @default(now())
   artist    Artist   @relation(fields: [artistId], references: [id], onDelete: Cascade)
   asset     Asset?   @relation(fields: [assetId], references: [id], onDelete: SetNull)
 
@@ -545,7 +545,7 @@ model EventImage {
   sortOrder   Int      @default(0)
   isPrimary Boolean  @default(false)
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime @updatedAt @default(now())
   event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   asset     Asset?   @relation(fields: [assetId], references: [id], onDelete: SetNull)
 
@@ -567,7 +567,7 @@ model VenueImage {
   sortOrder   Int      @default(0)
   isPrimary Boolean  @default(false)
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime @updatedAt @default(now())
   venue     Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
   asset     Asset?   @relation(fields: [assetId], references: [id], onDelete: SetNull)
 
