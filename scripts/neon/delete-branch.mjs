@@ -7,24 +7,42 @@ import {
   parseArgs,
 } from "./_neon-api.mjs";
 
+const HARD_PROTECTED_BRANCHES = new Set(["main", "staging", "production"]);
+
+function getProtectedBranchNames(args) {
+  const protectedBranches = new Set(HARD_PROTECTED_BRANCHES);
+  const parentBranchName =
+    args["parent-branch"] ||
+    process.env.PARENT_NEON_BRANCH ||
+    process.env.STAGING_PARENT_BRANCH ||
+    process.env.NEON_PARENT_BRANCH;
+
+  if (parentBranchName) {
+    protectedBranches.add(parentBranchName);
+  }
+
+  return protectedBranches;
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const projectId = getProjectId(args);
   const apiKey = getApiKey(args);
   const branchName = args["branch-name"];
-  const ifExists = Boolean(args["if-exists"]);
 
   if (!branchName) {
     throw new Error("Missing required --branch-name");
   }
 
+  const protectedBranchNames = getProtectedBranchNames(args);
+  if (protectedBranchNames.has(branchName)) {
+    throw new Error(`Refusing to delete protected branch \"${branchName}\".`);
+  }
+
   const branch = await getBranchByName({ projectId, apiKey, branchName });
   if (!branch) {
-    if (ifExists) {
-      console.log(`set-env OK: Neon branch \"${branchName}\" already absent.`);
-      return;
-    }
-    throw new Error(`Branch \"${branchName}\" not found.`);
+    console.log(`Neon branch "${branchName}" not found, nothing to delete.`);
+    return;
   }
 
   try {
@@ -41,11 +59,11 @@ async function main() {
       throw error;
     }
 
-    console.log(`set-env OK: Neon branch \"${branchName}\" already absent.`);
+    console.log(`Neon branch "${branchName}" not found, nothing to delete.`);
     return;
   }
 
-  console.log(`set-env OK: Neon branch \"${branchName}\" deleted.`);
+  console.log(`Deleted preview branch ${branch.name} (${branch.id})`);
 }
 
 main().catch((error) => {

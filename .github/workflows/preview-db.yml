@@ -1,12 +1,12 @@
 name: Preview DB (Neon)
 
 concurrency:
-  group: preview-db-${{ github.ref }}
+  group: preview-db-pr-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, closed]
+    types: [opened, synchronize, reopened]
 
 jobs:
   migrate_preview_db:
@@ -173,32 +173,3 @@ jobs:
       - name: Skip Vercel steps (missing secrets)
         if: ${{ steps.vercel_secrets.outputs.has_vercel_secrets != 'true' }}
         run: echo "Skipping Vercel-related steps because Vercel secrets are not available."
-
-  delete_preview_db:
-    if: github.event.action == 'closed'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    env:
-      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
-      NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
-      PR_BRANCH_NAME: pr-${{ github.event.pull_request.number }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Skip when Neon secrets are unavailable
-        run: |
-          if [ -z "$NEON_API_KEY" ] || [ -z "$NEON_PROJECT_ID" ]; then
-            echo "NEON_API_KEY or NEON_PROJECT_ID is missing; skipping preview branch deletion."
-            exit 0
-          fi
-
-      - name: Delete preview Neon branch
-        run: node scripts/neon/delete-branch.mjs --branch-name "$PR_BRANCH_NAME" --if-exists
