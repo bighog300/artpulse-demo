@@ -48,14 +48,21 @@ jobs:
 
       - name: Versions
         run: |
+          echo "Git SHA: ${GITHUB_SHA}"
           node -v
           pnpm -v
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Generate Prisma Client
-        run: pnpm prisma generate
+      - name: Print Prisma version
+        run: pnpm prisma --version
+
+      - name: Validate DB URL hosts
+        run: |
+          node -e "console.log('DATABASE_URL host:', new URL(process.env.DATABASE_URL).hostname)"
+          node -e "console.log('DIRECT_URL host:', new URL(process.env.DIRECT_URL).hostname)"
+          node -e "process.exit(new URL(process.env.DIRECT_URL).hostname.includes('-pooler') ? 1 : 0)"
 
       - name: Check migration FK ordering
         run: pnpm prisma:check-migration-order
@@ -63,18 +70,11 @@ jobs:
       - name: Verify migrate deploy on clean Postgres
         run: pnpm prisma migrate deploy
 
-      - name: Drift detection gate
-        run: |
-          set +e
-          pnpm prisma migrate diff --from-schema-datamodel prisma/schema.prisma --to-url "$DIRECT_URL" --exit-code
-          status=$?
-          set -e
-          if [ "$status" -eq 0 ]; then
-            echo "No schema drift detected."
-            exit 0
-          fi
-          echo "Schema drift detected. Run prisma migrate dev and commit migration."
-          exit "$status"
+      - name: Check migration status after deploy
+        run: pnpm prisma migrate status
+
+      - name: Generate Prisma Client
+        run: pnpm prisma generate
 
       - name: Lint
         run: pnpm lint

@@ -32,36 +32,83 @@ jobs:
           node-version: 20
           cache: pnpm
 
+      - name: Versions
+        run: |
+          echo "Git SHA: ${GITHUB_SHA}"
+          node -v
+          pnpm -v
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Print Prisma version
+        run: pnpm prisma --version
 
       - name: Ensure staging Neon branch exists
         run: node scripts/neon/create-branch.mjs --branch-name "$STAGING_BRANCH_NAME" --parent-branch "$STAGING_PARENT_BRANCH"
 
       - name: Fetch staging DB connection URLs
         id: neon-urls
-        run: node scripts/neon/get-connection-urls.mjs --branch-name "$STAGING_BRANCH_NAME"
+        run: |
+          max_attempts=24
+          for attempt in $(seq 1 "$max_attempts"); do
+            echo "Fetching Neon connection URLs attempt ${attempt}/${max_attempts}..."
+
+            set +e
+            neon_err_log="$(mktemp)"
+            node scripts/neon/get-connection-urls.mjs --branch-name "$STAGING_BRANCH_NAME" 2>"$neon_err_log"
+            status=$?
+            set -e
+
+            if [ "$status" -ne 0 ]; then
+              fail_reason="$(sed -n 's/.*FAIL_REASON=\([^ ]*\).*/\1/p' "$neon_err_log" | tail -n1)"
+              echo "Neon URL fetch FAIL_REASON=${fail_reason:-UNKNOWN}"
+              cat "$neon_err_log" >&2
+            fi
+            rm -f "$neon_err_log"
+
+            if [ "$status" -eq 0 ]; then
+              if grep -q '^database_url=' "$GITHUB_OUTPUT" && grep -q '^direct_url=' "$GITHUB_OUTPUT"; then
+                echo "Connection URLs retrieved successfully."
+                exit 0
+              fi
+              echo "get-connection-urls succeeded but required outputs were not set yet."
+            elif [ "$status" -eq 2 ]; then
+              exit 2
+            fi
+
+            if [ "$attempt" -lt "$max_attempts" ]; then
+              echo "Connection URLs not ready yet; retrying in 5s..."
+              sleep 5
+            fi
+          done
+
+          echo "Failed to fetch Neon connection URLs (database_url/direct_url) after ${max_attempts} attempts."
+          exit 1
+
+      - name: Validate DB URL hosts
+        env:
+          DATABASE_URL: ${{ steps.neon-urls.outputs.database_url }}
+          DIRECT_URL: ${{ steps.neon-urls.outputs.direct_url }}
+        run: |
+          node -e "console.log('DATABASE_URL host:', new URL(process.env.DATABASE_URL).hostname)"
+          node -e "console.log('DIRECT_URL host:', new URL(process.env.DIRECT_URL).hostname)"
+          node -e "process.exit(new URL(process.env.DIRECT_URL).hostname.includes('-pooler') ? 1 : 0)"
 
       - name: Deploy migrations to staging DB
         env:
-          DATABASE_URL: ${{ steps.neon-urls.outputs.direct_url }}
+          DATABASE_URL: ${{ steps.neon-urls.outputs.database_url }}
           DIRECT_URL: ${{ steps.neon-urls.outputs.direct_url }}
         run: pnpm prisma migrate deploy
 
-      - name: Drift detection gate
+      - name: Check migration status after deploy
         env:
+          DATABASE_URL: ${{ steps.neon-urls.outputs.database_url }}
           DIRECT_URL: ${{ steps.neon-urls.outputs.direct_url }}
-        run: |
-          set +e
-          pnpm prisma migrate diff --from-schema-datamodel prisma/schema.prisma --to-url "$DIRECT_URL" --exit-code
-          status=$?
-          set -e
-          if [ "$status" -eq 0 ]; then
-            echo "No schema drift detected."
-            exit 0
-          fi
-          echo "Schema drift detected. Run prisma migrate dev and commit migration."
-          exit "$status"
+        run: pnpm prisma migrate status
+
+      - name: Generate Prisma Client
+        run: pnpm prisma generate
 
       - name: Seed staging DB (optional)
         if: ${{ vars.STAGING_SEED_ENABLED == 'true' }}

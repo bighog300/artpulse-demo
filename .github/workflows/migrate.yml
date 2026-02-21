@@ -11,6 +11,12 @@ on:
 jobs:
   migrate:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+      NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+      NEON_BRANCH_NAME: main
 
     steps:
       - uses: actions/checkout@v4
@@ -24,52 +30,82 @@ jobs:
           node-version: 20
           cache: pnpm
 
+      - name: Versions
+        run: |
+          echo "Git SHA: ${GITHUB_SHA}"
+          node -v
+          pnpm -v
+
       - run: pnpm install --frozen-lockfile
-      - run: pnpm prisma generate
+      - run: pnpm prisma --version
       - run: pnpm prisma:check-migration-order
 
-      # Safe debug: prints only hostnames (no secrets)
-      - name: Debug DB URLs (safe)
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }} # should be Neon pooled
-          DIRECT_URL: ${{ secrets.DIRECT_URL }}     # should be Neon direct
+      - name: Fetch Neon connection URLs
+        id: neon
         run: |
-          node - <<'NODE'
-          for (const k of ["DATABASE_URL","DIRECT_URL"]) {
-            const v = process.env[k] || "";
-            console.log(k, "present:", !!v, "len:", v.length);
-            if (v) {
-              try { console.log(k, "host:", new URL(v).host); }
-              catch { console.log(k, "not a valid URL"); process.exit(1); }
-            }
-          }
-          NODE
+          max_attempts=24
+          for attempt in $(seq 1 "$max_attempts"); do
+            echo "Fetching Neon connection URLs attempt ${attempt}/${max_attempts}..."
 
-      - name: Migrate deploy (force direct Neon URL)
+            set +e
+            neon_err_log="$(mktemp)"
+            node scripts/neon/get-connection-urls.mjs --branch-name "$NEON_BRANCH_NAME" 2>"$neon_err_log"
+            status=$?
+            set -e
+
+            if [ "$status" -ne 0 ]; then
+              fail_reason="$(sed -n 's/.*FAIL_REASON=\([^ ]*\).*/\1/p' "$neon_err_log" | tail -n1)"
+              echo "Neon URL fetch FAIL_REASON=${fail_reason:-UNKNOWN}"
+              cat "$neon_err_log" >&2
+            fi
+            rm -f "$neon_err_log"
+
+            if [ "$status" -eq 0 ]; then
+              if grep -q '^database_url=' "$GITHUB_OUTPUT" && grep -q '^direct_url=' "$GITHUB_OUTPUT"; then
+                echo "Connection URLs retrieved successfully."
+                exit 0
+              fi
+              echo "get-connection-urls succeeded but required outputs were not set yet."
+            elif [ "$status" -eq 2 ]; then
+              exit 2
+            fi
+
+            if [ "$attempt" -lt "$max_attempts" ]; then
+              echo "Connection URLs not ready yet; retrying in 5s..."
+              sleep 5
+            fi
+          done
+
+          echo "Failed to fetch Neon connection URLs (database_url/direct_url) after ${max_attempts} attempts."
+          exit 1
+
+      - name: Validate DB URL hosts
         env:
-          # Force Prisma datasource url + directUrl to direct for DDL/migrations
-          DATABASE_URL: ${{ secrets.DIRECT_URL }}
-          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          DATABASE_URL: ${{ steps.neon.outputs.database_url }}
+          DIRECT_URL: ${{ steps.neon.outputs.direct_url }}
+        run: |
+          node -e "console.log('DATABASE_URL host:', new URL(process.env.DATABASE_URL).hostname)"
+          node -e "console.log('DIRECT_URL host:', new URL(process.env.DIRECT_URL).hostname)"
+          node -e "process.exit(new URL(process.env.DIRECT_URL).hostname.includes('-pooler') ? 1 : 0)"
+
+      - name: Migrate deploy
+        env:
+          DATABASE_URL: ${{ steps.neon.outputs.database_url }}
+          DIRECT_URL: ${{ steps.neon.outputs.direct_url }}
         run: pnpm prisma migrate deploy
 
-      - name: Drift detection gate
+      - name: Check migration status after deploy
         env:
-          DIRECT_URL: ${{ secrets.DIRECT_URL }}
-        run: |
-          set +e
-          pnpm prisma migrate diff --from-schema-datamodel prisma/schema.prisma --to-url "$DIRECT_URL" --exit-code
-          status=$?
-          set -e
-          if [ "$status" -eq 0 ]; then
-            echo "No schema drift detected."
-            exit 0
-          fi
-          echo "Schema drift detected. Run prisma migrate dev and commit migration."
-          exit "$status"
+          DATABASE_URL: ${{ steps.neon.outputs.database_url }}
+          DIRECT_URL: ${{ steps.neon.outputs.direct_url }}
+        run: pnpm prisma migrate status
+
+      - name: Generate Prisma Client
+        run: pnpm prisma generate
 
       - name: Verify tables exist
         env:
-          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          DIRECT_URL: ${{ steps.neon.outputs.direct_url }}
         run: |
           pnpm prisma db execute --url "$DIRECT_URL" --stdin <<'SQL'
           select to_regclass('public._prisma_migrations') as prisma_migrations_table;

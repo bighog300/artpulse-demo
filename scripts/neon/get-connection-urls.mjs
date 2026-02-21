@@ -87,7 +87,7 @@ export function selectConnectionHosts(endpoints, branchId) {
   const primaryEndpoint = pickReadWriteEndpoint(endpoints, branchId);
 
   const primaryHost = endpointHost(primaryEndpoint);
-  const directHost = endpointHost(directEndpoint) || toNonPoolerHost(primaryHost);
+  const directHost = endpointHost(directEndpoint) || (isPoolerHost(primaryHost) ? "" : primaryHost);
   const pooledHost = endpointHost(pooledEndpoint) || (directHost ? toPoolerHost(directHost) : "");
 
   return {
@@ -213,8 +213,8 @@ async function main() {
 
   if (!selected.directHost) {
     throw new TaggedFailure(
-      "ENDPOINTS_NOT_READY",
-      `Branch "${branchName}" has endpoint(s) but no non-pooler host is available yet.`,
+      "DIRECT_ENDPOINT_NOT_AVAILABLE",
+      `Branch "${branchName}" has endpoint(s) but no direct (non-pooler) host is available yet.`,
       { retryable: true }
     );
   }
@@ -239,9 +239,9 @@ async function main() {
   const directUrl = replaceConnectionHost(baseUri, selected.directHost);
   if (isPoolerHost(new URL(directUrl).hostname)) {
     throw new TaggedFailure(
-      "DIRECT_URL_POOLER",
+      "DIRECT_ENDPOINT_NOT_AVAILABLE",
       `Computed DIRECT_URL host "${new URL(directUrl).hostname}" is a pooler host, refusing to continue.`,
-      { retryable: false }
+      { retryable: true }
     );
   }
 
