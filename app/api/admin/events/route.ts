@@ -1,10 +1,15 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { requireAdmin, requireEditor } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api";
-import { requireEditor } from "@/lib/auth";
 import { adminEventCreateSchema, parseBody, zodDetails } from "@/lib/validators";
+import { handleAdminEntityList } from "@/lib/admin-entities-route";
 
 export const runtime = "nodejs";
+
+export async function GET(req: NextRequest) {
+  return handleAdminEntityList(req, "events", { requireAdminUser: requireAdmin, appDb: db });
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -26,7 +31,7 @@ export async function POST(req: NextRequest) {
       },
       include: { eventTags: { include: { tag: true } }, eventArtists: { include: { artist: true } }, images: true },
     });
-    return NextResponse.json(item, { status: 201 });
+    return Response.json(item, { status: 201 });
   } catch {
     return apiError(403, "forbidden", "Editor role required");
   }

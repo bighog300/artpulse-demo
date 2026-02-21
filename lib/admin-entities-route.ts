@@ -1,0 +1,480 @@
+import type { Artist, Event, Prisma, Venue } from "@prisma/client";
+import { NextResponse, type NextRequest } from "next/server";
+import { z } from "zod";
+import { apiError } from "@/lib/api";
+import { db } from "@/lib/db";
+
+type AdminActor = { id: string; email: string; role: "USER" | "EDITOR" | "ADMIN" };
+
+type EntityName = "venues" | "events" | "artists";
+
+type AdminEntitiesDeps = {
+  requireAdminUser: () => Promise<AdminActor>;
+  appDb: typeof db;
+};
+
+const PAGE_SIZE = 20;
+
+const listQuerySchema = z.object({
+  query: z.string().trim().max(120).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+});
+
+const entityIdSchema = z.object({ id: z.string().uuid() });
+
+const venuePatchSchema = z.object({
+  name: z.string().trim().min(1).optional(),
+  slug: z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).optional(),
+  addressLine1: z.string().trim().max(200).nullable().optional(),
+  addressLine2: z.string().trim().max(200).nullable().optional(),
+  city: z.string().trim().max(120).nullable().optional(),
+  postcode: z.string().trim().max(40).nullable().optional(),
+  country: z.string().trim().max(120).nullable().optional(),
+  websiteUrl: z.string().trim().url().nullable().optional(),
+  isPublished: z.boolean().optional(),
+  description: z.string().trim().max(5000).nullable().optional(),
+  featuredAssetId: z.string().uuid().nullable().optional(),
+}).strict();
+
+const eventPatchSchema = z.object({
+  title: z.string().trim().min(1).optional(),
+  startAt: z.string().datetime({ offset: true }).optional(),
+  endAt: z.string().datetime({ offset: true }).nullable().optional(),
+  venueId: z.string().uuid().nullable().optional(),
+  ticketUrl: z.string().trim().url().nullable().optional(),
+  isPublished: z.boolean().optional(),
+}).strict().superRefine((data, ctx) => {
+  if (data.startAt && data.endAt && new Date(data.endAt) < new Date(data.startAt)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["endAt"], message: "endAt must be >= startAt" });
+  }
+});
+
+const artistPatchSchema = z.object({
+  name: z.string().trim().min(1).optional(),
+  websiteUrl: z.string().trim().url().nullable().optional(),
+  bio: z.string().trim().max(5000).nullable().optional(),
+  featuredAssetId: z.string().uuid().nullable().optional(),
+  isPublished: z.boolean().optional(),
+}).strict();
+
+const importPreviewBodySchema = z.object({
+  mapping: z.record(z.string(), z.string()).default({}),
+  options: z.object({
+    createMissing: z.boolean().optional(),
+    matchBy: z.enum(["id", "slug", "name"]).optional(),
+    dryRun: z.boolean().optional(),
+  }).optional(),
+  csvText: z.string().optional(),
+  fileName: z.string().optional(),
+});
+
+const defaultFields = {
+  venues: ["id", "name", "slug", "addressLine1", "addressLine2", "city", "postcode", "country", "websiteUrl", "isPublished", "description", "featuredAssetId"] as const,
+  events: ["id", "title", "startAt", "endAt", "venueId", "ticketUrl", "isPublished"] as const,
+  artists: ["id", "name", "websiteUrl", "bio", "featuredAssetId", "isPublished"] as const,
+};
+
+function parseCsv(text: string): { headers: string[]; rows: string[][] } {
+  const lines = text.replace(/\r\n?/g, "\n").split("\n").filter((line) => line.length > 0);
+  if (lines.length === 0) return { headers: [], rows: [] };
+  const parseLine = (line: string) => {
+    const out: string[] = [];
+    let current = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i += 1) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          current += '"';
+          i += 1;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (ch === "," && !inQuotes) {
+        out.push(current);
+        current = "";
+      } else {
+        current += ch;
+      }
+    }
+    out.push(current);
+    return out.map((value) => value.trim());
+  };
+
+  const headers = parseLine(lines[0]);
+  const rows = lines.slice(1).map(parseLine);
+  return { headers, rows };
+}
+
+function toCsvValue(value: unknown) {
+  if (value === null || value === undefined) return "";
+  const raw = value instanceof Date ? value.toISOString() : String(value);
+  if (raw.includes(",") || raw.includes('"') || raw.includes("\n")) return `"${raw.replaceAll('"', '""')}"`;
+  return raw;
+}
+
+function getRequestDetails(req: NextRequest) {
+  const forwardedFor = req.headers.get("x-forwarded-for");
+  const ip = forwardedFor ? forwardedFor.split(",")[0]?.trim() : req.headers.get("x-real-ip");
+  return { ip: ip || null, userAgent: req.headers.get("user-agent") || null };
+}
+
+function getEntitySchema(entity: EntityName) {
+  if (entity === "venues") return venuePatchSchema;
+  if (entity === "events") return eventPatchSchema;
+  return artistPatchSchema;
+}
+
+function normalizeMappedValue(field: string, value: string): unknown {
+  const trimmed = value.trim();
+  if (trimmed === "") return null;
+  if (field === "isPublished") return trimmed.toLowerCase() === "true";
+  return trimmed;
+}
+
+async function getCsvTextFromRequest(req: NextRequest): Promise<{ csvText: string; fileName: string | null; mapping: Record<string, string>; options: Record<string, unknown> }> {
+  const type = req.headers.get("content-type") || "";
+  if (type.includes("multipart/form-data")) {
+    const form = await req.formData();
+    const file = form.get("file");
+    const mappingRaw = String(form.get("mapping") ?? "{}");
+    const optionsRaw = String(form.get("options") ?? "{}");
+    if (!(file instanceof File)) throw new Error("missing_file");
+    return {
+      csvText: await file.text(),
+      fileName: file.name,
+      mapping: JSON.parse(mappingRaw) as Record<string, string>,
+      options: JSON.parse(optionsRaw) as Record<string, unknown>,
+    };
+  }
+
+  const parsed = importPreviewBodySchema.safeParse(await req.json());
+  if (!parsed.success || !parsed.data.csvText) throw new Error("invalid_body");
+  return {
+    csvText: parsed.data.csvText,
+    fileName: parsed.data.fileName ?? null,
+    mapping: parsed.data.mapping,
+    options: parsed.data.options ?? {},
+  };
+}
+
+function rowToMappedObject(headers: string[], row: string[], mapping: Record<string, string>) {
+  const out: Record<string, unknown> = {};
+  for (let i = 0; i < headers.length; i += 1) {
+    const column = headers[i];
+    const field = mapping[column];
+    if (!field || field === "__ignore") continue;
+    out[field] = normalizeMappedValue(field, row[i] ?? "");
+  }
+  return out;
+}
+
+async function findExisting(entity: EntityName, matchBy: "id" | "slug" | "name", mapped: Record<string, unknown>, appDb: typeof db) {
+  if (entity === "venues") {
+    if (matchBy === "id" && typeof mapped.id === "string") return appDb.venue.findUnique({ where: { id: mapped.id } });
+    if (matchBy === "slug" && typeof mapped.slug === "string") return appDb.venue.findUnique({ where: { slug: mapped.slug } });
+    return null;
+  }
+  if (entity === "events") {
+    if (matchBy === "id" && typeof mapped.id === "string") return appDb.event.findUnique({ where: { id: mapped.id } });
+    return null;
+  }
+  if (matchBy === "id" && typeof mapped.id === "string") return appDb.artist.findUnique({ where: { id: mapped.id } });
+  if (matchBy === "name" && typeof mapped.name === "string") {
+    const hits = await appDb.artist.findMany({ where: { name: { equals: mapped.name, mode: "insensitive" } }, take: 2 });
+    return hits.length === 1 ? hits[0] : null;
+  }
+  return null;
+}
+
+function getCreateData(entity: EntityName, mapped: Record<string, unknown>) {
+  if (entity === "venues") {
+    if (!mapped.name || !mapped.slug) return null;
+    return venuePatchSchema.extend({ name: z.string().min(1), slug: z.string().min(1) }).safeParse(mapped);
+  }
+  if (entity === "events") {
+    if (!mapped.title || !mapped.slug || !mapped.startAt) return null;
+    return z.object({
+      title: z.string().min(1),
+      slug: z.string().min(1),
+      startAt: z.string().datetime({ offset: true }),
+      timezone: z.string().default("UTC"),
+      endAt: z.string().datetime({ offset: true }).nullable().optional(),
+      venueId: z.string().uuid().nullable().optional(),
+      ticketUrl: z.string().url().nullable().optional(),
+      isPublished: z.boolean().optional(),
+    }).safeParse(mapped);
+  }
+  if (!mapped.name || !mapped.slug) return null;
+  return z.object({
+    name: z.string().min(1),
+    slug: z.string().min(1),
+    websiteUrl: z.string().url().nullable().optional(),
+    bio: z.string().nullable().optional(),
+    featuredAssetId: z.string().uuid().nullable().optional(),
+    isPublished: z.boolean().optional(),
+  }).safeParse(mapped);
+}
+
+export async function handleAdminEntityList(req: NextRequest, entity: EntityName, deps: AdminEntitiesDeps) {
+  try {
+    await deps.requireAdminUser();
+    const parsed = listQuerySchema.safeParse({
+      query: req.nextUrl.searchParams.get("query") ?? undefined,
+      page: req.nextUrl.searchParams.get("page") ?? "1",
+    });
+    if (!parsed.success) return apiError(400, "invalid_query", "Invalid query parameters");
+    const { page, query = "" } = parsed.data;
+    const skip = (page - 1) * PAGE_SIZE;
+
+    if (entity === "venues") {
+      const where = query ? { OR: [{ name: { contains: query, mode: "insensitive" as const } }, { city: { contains: query, mode: "insensitive" as const } }, { slug: { contains: query, mode: "insensitive" as const } }] } : undefined;
+      const [total, items] = await Promise.all([
+        deps.appDb.venue.count({ where }),
+        deps.appDb.venue.findMany({ where, orderBy: { updatedAt: "desc" }, skip, take: PAGE_SIZE, select: Object.fromEntries(defaultFields.venues.map((k) => [k, true])) as never }),
+      ]);
+      return NextResponse.json({ items, total, page, pageSize: PAGE_SIZE });
+    }
+
+    if (entity === "events") {
+      const where = query ? { OR: [{ title: { contains: query, mode: "insensitive" as const } }, { slug: { contains: query, mode: "insensitive" as const } }] } : undefined;
+      const [total, items] = await Promise.all([
+        deps.appDb.event.count({ where }),
+        deps.appDb.event.findMany({ where, orderBy: { updatedAt: "desc" }, skip, take: PAGE_SIZE, select: Object.fromEntries(defaultFields.events.map((k) => [k, true])) as never }),
+      ]);
+      return NextResponse.json({ items, total, page, pageSize: PAGE_SIZE });
+    }
+
+    const where = query ? { OR: [{ name: { contains: query, mode: "insensitive" as const } }, { slug: { contains: query, mode: "insensitive" as const } }] } : undefined;
+    const [total, items] = await Promise.all([
+      deps.appDb.artist.count({ where }),
+      deps.appDb.artist.findMany({ where, orderBy: { updatedAt: "desc" }, skip, take: PAGE_SIZE, select: Object.fromEntries(defaultFields.artists.map((k) => [k, true])) as never }),
+    ]);
+    return NextResponse.json({ items, total, page, pageSize: PAGE_SIZE });
+  } catch (error) {
+    if (error instanceof Error && error.message === "forbidden") return apiError(403, "forbidden", "Admin role required");
+    return apiError(401, "unauthorized", "Authentication required");
+  }
+}
+
+export async function handleAdminEntityPatch(req: NextRequest, entity: EntityName, params: { id: string }, deps: AdminEntitiesDeps) {
+  try {
+    const actor = await deps.requireAdminUser();
+    const parsedId = entityIdSchema.safeParse(params);
+    if (!parsedId.success) return apiError(400, "invalid_id", "Invalid entity id");
+
+    const schema = getEntitySchema(entity);
+    const parsedBody = schema.safeParse(await req.json());
+    if (!parsedBody.success) return apiError(400, "invalid_body", "Invalid payload", parsedBody.error.flatten());
+
+    const { ip, userAgent } = getRequestDetails(req);
+    const entityId = parsedId.data.id;
+
+    const updated = await deps.appDb.$transaction(async (tx) => {
+      if (entity === "venues") {
+        const before = await tx.venue.findUnique({ where: { id: entityId } });
+        if (!before) throw new Error("not_found");
+        const patch = parsedBody.data as z.infer<typeof venuePatchSchema>;
+        const row = await tx.venue.update({ where: { id: entityId }, data: patch });
+        await tx.adminAuditLog.create({ data: { actorEmail: actor.email, action: "ADMIN_ENTITY_UPDATED", targetType: "venue", targetId: entityId, metadata: { entityType: "venue", entityId, before, after: patch, actorId: actor.id, actorEmail: actor.email }, ip, userAgent } });
+        return row;
+      }
+      if (entity === "events") {
+        const before = await tx.event.findUnique({ where: { id: entityId } });
+        if (!before) throw new Error("not_found");
+        const payload = parsedBody.data as z.infer<typeof eventPatchSchema>;
+        const patch = { ...payload, ...(payload.startAt ? { startAt: new Date(payload.startAt) } : {}), ...(payload.endAt !== undefined ? { endAt: payload.endAt ? new Date(payload.endAt) : null } : {}) };
+        const row = await tx.event.update({ where: { id: entityId }, data: patch });
+        await tx.adminAuditLog.create({ data: { actorEmail: actor.email, action: "ADMIN_ENTITY_UPDATED", targetType: "event", targetId: entityId, metadata: { entityType: "event", entityId, before, after: payload, actorId: actor.id, actorEmail: actor.email }, ip, userAgent } });
+        return row;
+      }
+      const before = await tx.artist.findUnique({ where: { id: entityId } });
+      if (!before) throw new Error("not_found");
+      const patch = parsedBody.data as z.infer<typeof artistPatchSchema>;
+      const row = await tx.artist.update({ where: { id: entityId }, data: patch });
+      await tx.adminAuditLog.create({ data: { actorEmail: actor.email, action: "ADMIN_ENTITY_UPDATED", targetType: "artist", targetId: entityId, metadata: { entityType: "artist", entityId, before, after: patch, actorId: actor.id, actorEmail: actor.email }, ip, userAgent } });
+      return row;
+    });
+
+    return NextResponse.json({ item: updated });
+  } catch (error) {
+    if (error instanceof Error && error.message === "forbidden") return apiError(403, "forbidden", "Admin role required");
+    if (error instanceof Error && error.message === "not_found") return apiError(404, "not_found", "Entity not found");
+    return apiError(401, "unauthorized", "Authentication required");
+  }
+}
+
+export async function handleAdminEntityExport(req: NextRequest, entity: EntityName, deps: AdminEntitiesDeps) {
+  const listResponse = await handleAdminEntityList(req, entity, deps);
+  if (listResponse.status !== 200) return listResponse;
+  const body = await listResponse.json() as { items: Record<string, unknown>[] };
+  const fields = defaultFields[entity];
+  const lines = [fields.join(",")];
+  for (const row of body.items) {
+    lines.push(fields.map((field) => toCsvValue(row[field])).join(","));
+  }
+  return new NextResponse(lines.join("\n"), {
+    status: 200,
+    headers: {
+      "content-type": "text/csv; charset=utf-8",
+      "content-disposition": `attachment; filename="${entity}-export.csv"`,
+    },
+  });
+}
+
+export async function handleAdminEntityImportPreview(req: NextRequest, entity: EntityName, deps: AdminEntitiesDeps) {
+  try {
+    await deps.requireAdminUser();
+    const { csvText, fileName, mapping, options } = await getCsvTextFromRequest(req);
+    const parsedBody = importPreviewBodySchema.safeParse({ mapping, options, csvText, fileName });
+    if (!parsedBody.success) return apiError(400, "invalid_body", "Invalid import payload", parsedBody.error.flatten());
+
+    const { headers, rows } = parseCsv(parsedBody.data.csvText ?? "");
+    const schema = getEntitySchema(entity);
+    const matchBy = (parsedBody.data.options?.matchBy as "id" | "slug" | "name" | undefined)
+      ?? (entity === "venues" ? "slug" : "id");
+    const createMissing = Boolean(parsedBody.data.options?.createMissing);
+    const rowResults: Array<Record<string, unknown>> = [];
+    let valid = 0;
+    let invalid = 0;
+    let willUpdate = 0;
+    let willCreate = 0;
+    let skipped = 0;
+
+    for (let i = 0; i < rows.length; i += 1) {
+      const mapped = rowToMappedObject(headers, rows[i], parsedBody.data.mapping);
+      const parsed = schema.safeParse(mapped);
+      if (!parsed.success) {
+        invalid += 1;
+        rowResults.push({ rowIndex: i + 2, status: "invalid", errors: parsed.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`) });
+        continue;
+      }
+      const existing = await findExisting(entity, matchBy, mapped, deps.appDb);
+      if (existing) {
+        valid += 1;
+        willUpdate += 1;
+        rowResults.push({ rowIndex: i + 2, status: "update", errors: [], targetId: existing.id, patch: parsed.data });
+      } else if (createMissing) {
+        const createData = getCreateData(entity, mapped);
+        if (!createData || !createData.success) {
+          invalid += 1;
+          rowResults.push({ rowIndex: i + 2, status: "invalid", errors: ["Missing required fields for create"] });
+        } else {
+          valid += 1;
+          willCreate += 1;
+          rowResults.push({ rowIndex: i + 2, status: "create", errors: [], patch: createData.data });
+        }
+      } else {
+        skipped += 1;
+        rowResults.push({ rowIndex: i + 2, status: "skipped", errors: ["No match found"] });
+      }
+    }
+
+    return NextResponse.json({
+      headers,
+      mappingEcho: parsedBody.data.mapping,
+      summary: { total: rows.length, valid, invalid, willUpdate, willCreate, skipped },
+      rowResults,
+      sampleRows: rows.slice(0, 20),
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === "forbidden") return apiError(403, "forbidden", "Admin role required");
+    if (error instanceof Error && (error.message === "invalid_body" || error.message === "missing_file")) return apiError(400, "invalid_body", "Invalid import payload");
+    return apiError(401, "unauthorized", "Authentication required");
+  }
+}
+
+export async function handleAdminEntityImportApply(req: NextRequest, entity: EntityName, deps: AdminEntitiesDeps) {
+  try {
+    const actor = await deps.requireAdminUser();
+    const { csvText, fileName, mapping, options } = await getCsvTextFromRequest(req);
+    const parsedBody = importPreviewBodySchema.safeParse({ mapping, options, csvText, fileName });
+    if (!parsedBody.success) return apiError(400, "invalid_body", "Invalid import payload", parsedBody.error.flatten());
+
+    const { headers, rows } = parseCsv(parsedBody.data.csvText ?? "");
+    const schema = getEntitySchema(entity);
+    const matchBy = (parsedBody.data.options?.matchBy as "id" | "slug" | "name" | undefined)
+      ?? (entity === "venues" ? "slug" : "id");
+    const createMissing = Boolean(parsedBody.data.options?.createMissing);
+    const { ip, userAgent } = getRequestDetails(req);
+    const results: Array<Record<string, unknown>> = [];
+
+    for (let i = 0; i < rows.length; i += 1) {
+      const mapped = rowToMappedObject(headers, rows[i], parsedBody.data.mapping);
+      const parsed = schema.safeParse(mapped);
+      if (!parsed.success) {
+        results.push({ rowIndex: i + 2, status: "invalid", errors: parsed.error.issues.map((issue) => issue.message) });
+        continue;
+      }
+
+      const result = await deps.appDb.$transaction(async (tx) => {
+        const existing = await findExisting(entity, matchBy, mapped, tx as typeof db);
+        if (existing) {
+          const payload = parsed.data as Record<string, unknown>;
+          const updated = entity === "venues"
+            ? await tx.venue.update({ where: { id: existing.id }, data: payload as Prisma.VenueUpdateInput })
+            : entity === "events"
+              ? await tx.event.update({ where: { id: existing.id }, data: { ...payload, ...(payload.startAt ? { startAt: new Date(payload.startAt as string) } : {}), ...(payload.endAt !== undefined ? { endAt: payload.endAt ? new Date(payload.endAt as string) : null } : {}) } as Prisma.EventUpdateInput })
+              : await tx.artist.update({ where: { id: existing.id }, data: payload as Prisma.ArtistUpdateInput });
+
+          await tx.adminAuditLog.create({
+            data: {
+              actorEmail: actor.email,
+              action: "ADMIN_IMPORT_APPLIED",
+              targetType: entity.slice(0, -1),
+              targetId: existing.id,
+              metadata: { entityType: entity.slice(0, -1), entityId: existing.id, patch: parsed.data, actorId: actor.id, actorEmail: actor.email, importSource: parsedBody.data.fileName ?? null, rowIndex: i + 2 },
+              ip,
+              userAgent,
+            },
+          });
+          return { rowIndex: i + 2, status: "updated", id: updated.id };
+        }
+
+        if (!createMissing) return { rowIndex: i + 2, status: "skipped", errors: ["No match found"] };
+
+        const createData = getCreateData(entity, mapped);
+        if (!createData || !createData.success) return { rowIndex: i + 2, status: "invalid", errors: ["Missing required fields for create"] };
+
+        let created: Venue | Event | Artist;
+        if (entity === "venues") {
+          created = await tx.venue.create({ data: createData.data as Prisma.VenueCreateInput });
+        } else if (entity === "events") {
+          const eventCreateData = createData.data as { startAt: string; endAt?: string | null } & Record<string, unknown>;
+          created = await tx.event.create({
+            data: {
+              ...eventCreateData,
+              startAt: new Date(eventCreateData.startAt),
+              endAt: eventCreateData.endAt ? new Date(eventCreateData.endAt) : null,
+            } as Prisma.EventCreateInput,
+          });
+        } else {
+          created = await tx.artist.create({ data: createData.data as Prisma.ArtistCreateInput });
+        }
+
+        await tx.adminAuditLog.create({
+          data: {
+            actorEmail: actor.email,
+            action: "ADMIN_IMPORT_APPLIED",
+            targetType: entity.slice(0, -1),
+            targetId: created.id,
+            metadata: { entityType: entity.slice(0, -1), entityId: created.id, patch: createData.data, actorId: actor.id, actorEmail: actor.email, importSource: parsedBody.data.fileName ?? null, rowIndex: i + 2 },
+            ip,
+            userAgent,
+          },
+        });
+        return { rowIndex: i + 2, status: "created", id: created.id };
+      });
+
+      results.push(result);
+    }
+
+    return NextResponse.json({ results });
+  } catch (error) {
+    if (error instanceof Error && error.message === "forbidden") return apiError(403, "forbidden", "Admin role required");
+    if (error instanceof Error && (error.message === "invalid_body" || error.message === "missing_file")) return apiError(400, "invalid_body", "Invalid import payload");
+    return apiError(401, "unauthorized", "Authentication required");
+  }
+}
+
+export const ADMIN_ENTITY_FIELDS = defaultFields;

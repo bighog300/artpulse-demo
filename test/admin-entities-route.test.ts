@@ -1,0 +1,114 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { NextRequest } from "next/server";
+import {
+  handleAdminEntityExport,
+  handleAdminEntityImportApply,
+  handleAdminEntityImportPreview,
+  handleAdminEntityList,
+  handleAdminEntityPatch,
+} from "../lib/admin-entities-route.ts";
+
+function buildVenueDeps() {
+  const venues = [
+    { id: "11111111-1111-4111-8111-111111111111", name: "Venue A", slug: "venue-a", city: "NY", postcode: "10001", country: "US", isPublished: false, websiteUrl: null, addressLine1: null, addressLine2: null, description: null, featuredAssetId: null },
+  ];
+  const auditEntries: Array<Record<string, unknown>> = [];
+
+  const tx = {
+    venue: {
+      findUnique: async ({ where }: { where: { id?: string; slug?: string } }) => venues.find((v) => (where.id ? v.id === where.id : v.slug === where.slug)) ?? null,
+      update: async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
+        const idx = venues.findIndex((v) => v.id === where.id);
+        if (idx < 0) throw new Error("not_found");
+        venues[idx] = { ...venues[idx], ...data };
+        return venues[idx];
+      },
+      create: async ({ data }: { data: Record<string, unknown> }) => {
+        const created = { ...venues[0], ...data, id: "22222222-2222-4222-8222-222222222222" };
+        venues.push(created as never);
+        return created;
+      },
+      findMany: async () => venues,
+      count: async () => venues.length,
+    },
+    adminAuditLog: {
+      create: async ({ data }: { data: Record<string, unknown> }) => {
+        auditEntries.push(data);
+      },
+    },
+  };
+
+  const appDb = {
+    venue: tx.venue,
+    event: { count: async () => 0, findMany: async () => [], findUnique: async () => null, update: async () => null, create: async () => null },
+    artist: { count: async () => 0, findMany: async () => [], findUnique: async () => null, update: async () => null, create: async () => null },
+    adminAuditLog: tx.adminAuditLog,
+    $transaction: async <T>(fn: (inner: typeof tx) => Promise<T>) => fn(tx),
+  } as const;
+
+  return { appDb, auditEntries, venues };
+}
+
+const adminUser = async () => ({ id: "admin-id", email: "admin@example.com", role: "ADMIN" as const });
+
+test("admin entity list returns 403 for non-admin", async () => {
+  const { appDb } = buildVenueDeps();
+  const req = new NextRequest("http://localhost/api/admin/venues");
+  const res = await handleAdminEntityList(req, "venues", { requireAdminUser: async () => { throw new Error("forbidden"); }, appDb: appDb as never });
+  assert.equal(res.status, 403);
+});
+
+test("inline patch rejects unknown fields", async () => {
+  const { appDb } = buildVenueDeps();
+  const req = new NextRequest("http://localhost/api/admin/venues/11111111-1111-4111-8111-111111111111", {
+    method: "PATCH",
+    body: JSON.stringify({ unknown: "nope" }),
+    headers: { "content-type": "application/json" },
+  });
+
+  const res = await handleAdminEntityPatch(req, "venues", { id: "11111111-1111-4111-8111-111111111111" }, { requireAdminUser: adminUser, appDb: appDb as never });
+  assert.equal(res.status, 400);
+});
+
+test("import preview catches mapping/validation errors", async () => {
+  const { appDb } = buildVenueDeps();
+  const form = new FormData();
+  form.set("file", new File(["name,slug,isPublished\n,venue-b,not-bool"], "venues.csv", { type: "text/csv" }));
+  form.set("mapping", JSON.stringify({ name: "name", slug: "slug", isPublished: "isPublished" }));
+  form.set("options", JSON.stringify({ matchBy: "slug" }));
+  const req = new NextRequest("http://localhost/api/admin/venues/import/preview", { method: "POST", body: form });
+
+  const res = await handleAdminEntityImportPreview(req, "venues", { requireAdminUser: adminUser, appDb: appDb as never });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.summary.invalid, 1);
+});
+
+test("import apply updates record and creates audit log", async () => {
+  const { appDb, auditEntries, venues } = buildVenueDeps();
+  const form = new FormData();
+  form.set("file", new File(["slug,name\nvenue-a,Venue A Updated"], "venues.csv", { type: "text/csv" }));
+  form.set("mapping", JSON.stringify({ slug: "slug", name: "name" }));
+  form.set("options", JSON.stringify({ matchBy: "slug" }));
+  const req = new NextRequest("http://localhost/api/admin/venues/import/apply", {
+    method: "POST",
+    body: form,
+    headers: { "user-agent": "node-test" },
+  });
+
+  const res = await handleAdminEntityImportApply(req, "venues", { requireAdminUser: adminUser, appDb: appDb as never });
+  assert.equal(res.status, 200);
+  assert.equal(venues[0].name, "Venue A Updated");
+  assert.equal(auditEntries.length, 1);
+  assert.equal(auditEntries[0].action, "ADMIN_IMPORT_APPLIED");
+});
+
+test("export returns csv headers", async () => {
+  const { appDb } = buildVenueDeps();
+  const req = new NextRequest("http://localhost/api/admin/venues/export");
+  const res = await handleAdminEntityExport(req, "venues", { requireAdminUser: adminUser, appDb: appDb as never });
+  assert.equal(res.status, 200);
+  const text = await res.text();
+  assert.match(text.split("\n")[0], /^id,name,slug/);
+});
