@@ -14,8 +14,12 @@ type DashboardPayload = {
   stats: {
     artworks: { total: number; published: number; drafts: number; missingCover: number };
     events: { total: number; upcoming30: number; drafts: number; missingVenue: number; nextEvent?: { id: string; title: string; startAtISO: string; venueName?: string | null } };
+    venues: { totalManaged: number; published: number; drafts: number; submissionsPending: number };
     views: { last7: number; last30: number; last90: number };
     profile: { completenessPct: number; missing: string[] };
+  };
+  entities: {
+    venues: Array<{ id: string; slug?: string | null; name: string; city?: string | null; country?: string | null; isPublished: boolean; coverUrl?: string | null; submissionStatus?: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | null }>;
   };
   actionInbox: Array<{ id: string; label: string; count: number; href: string; severity: "info" | "warn" }>;
   topArtworks30: Array<{ id: string; slug?: string | null; title: string; coverUrl?: string | null; views30: number }>;
@@ -27,9 +31,17 @@ type DashboardPayload = {
     artworksHref: string;
     eventsHref: string;
     artistHref: string;
-    venuesHref?: string;
+    venuesHref: string;
+    venuesNewHref: string;
   };
 };
+
+function getVenueStatus(venue: DashboardPayload["entities"]["venues"][number]) {
+  if (venue.submissionStatus === "SUBMITTED") return "Submitted";
+  if (venue.submissionStatus === "REJECTED") return "Needs edits";
+  if (venue.isPublished) return "Published";
+  return "Draft";
+}
 
 export function MyDashboardClient() {
   const [data, setData] = useState<DashboardPayload | null>(null);
@@ -70,6 +82,39 @@ export function MyDashboardClient() {
         <Card><CardHeader><CardTitle className="text-base">Views (30d)</CardTitle></CardHeader><CardContent><p className="text-2xl font-semibold">{data.stats.views.last30}</p><p className="text-xs text-muted-foreground">7d: {data.stats.views.last7} · 90d: {data.stats.views.last90}</p><Link className="mt-2 block text-sm underline" href={data.links.analyticsHref}>View analytics</Link></CardContent></Card>
         <Card><CardHeader><CardTitle className="text-base">Profile</CardTitle></CardHeader><CardContent><p className="text-2xl font-semibold">{data.stats.profile.completenessPct}%</p><p className="text-xs text-muted-foreground">Missing: {data.stats.profile.missing.join(", ") || "None"}</p><Link className="mt-2 block text-sm underline" href={data.links.artistHref}>Update profile</Link></CardContent></Card>
       </section>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-3">
+          <CardTitle>My venues</CardTitle>
+          <Link className="text-sm underline" href={data.links.venuesHref}>View all venues</Link>
+        </CardHeader>
+        <CardContent>
+          {data.entities.venues.length === 0 ? (
+            <div className="rounded-lg border border-dashed p-4 sm:p-5">
+              <p className="font-medium">Create your first venue</p>
+              <p className="mt-1 text-sm text-muted-foreground">Add your venue so you can publish events and manage your profile.</p>
+              <Button asChild className="mt-4"><Link href={data.links.venuesNewHref}>+ Create venue</Link></Button>
+            </div>
+          ) : (
+            <ul className="space-y-2">
+              {data.entities.venues.map((venue) => (
+                <li key={venue.id}>
+                  <Link href={`/my/venues/${venue.slug || venue.id}`} className="flex items-center gap-3 rounded-md border p-2 transition-colors hover:bg-muted/50 sm:p-3">
+                    <div className="h-10 w-10 shrink-0 overflow-hidden rounded bg-muted sm:h-12 sm:w-12">
+                      {venue.coverUrl ? <img src={venue.coverUrl} alt="" className="h-full w-full object-cover" /> : null}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium">{venue.name}</p>
+                      <p className="truncate text-xs text-muted-foreground">{[venue.city, venue.country].filter(Boolean).join(", ") || "Location not set"}</p>
+                    </div>
+                    <Badge variant="secondary">{getVenueStatus(venue)}</Badge>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader><CardTitle>To do</CardTitle></CardHeader>

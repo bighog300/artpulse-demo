@@ -19,6 +19,7 @@ function baseDeps() {
       featuredAsset: { url: "https://img/avatar.jpg" },
     }),
     listManagedVenuesByUserId: async () => [{ id: "venue-1" }],
+    listManagedVenueDetailsByUserId: async () => [],
     listArtworksByArtistId: async () => [],
     listEventsByContext: async () => [],
     listArtworkViewDailyRows: async () => [],
@@ -86,6 +87,31 @@ test("/api/my/dashboard prefers allowed audit activity in recent list", async ()
   const body = await res.json();
   assert.equal(body.recent.length, 1);
   assert.match(body.recent[0].label, /Artwork Updated/i);
+});
+
+
+
+test("/api/my/dashboard includes scoped venue entities and venue stats", async () => {
+  const deps = baseDeps();
+  deps.listManagedVenuesByUserId = async () => [{ id: "venue-1" }, { id: "venue-2" }, { id: "venue-3" }];
+  deps.listManagedVenueDetailsByUserId = async () => [
+    { id: "venue-1", slug: "venue-one", name: "Venue One", city: "Paris", country: "FR", isPublished: true, featuredAssetId: "asset-1", featuredAsset: { url: "https://img/v1.jpg" }, submissions: [] },
+    { id: "venue-2", slug: null, name: "Venue Two", city: null, country: null, isPublished: false, featuredAssetId: null, featuredAsset: null, submissions: [{ status: "SUBMITTED" }] },
+    { id: "venue-3", slug: "venue-three", name: "Venue Three", city: "Berlin", country: "DE", isPublished: false, featuredAssetId: null, featuredAsset: null, submissions: [{ status: "REJECTED" }] },
+    { id: "venue-unmanaged", slug: "hidden", name: "Hidden Venue", city: null, country: null, isPublished: true, featuredAssetId: null, featuredAsset: null, submissions: [] },
+  ];
+
+  const res = await handleGetMyDashboard(deps);
+  const body = await res.json();
+
+  assert.equal(body.entities.venues.length, 3);
+  assert.deepEqual(body.entities.venues.map((venue: { id: string }) => venue.id), ["venue-1", "venue-2", "venue-3"]);
+  assert.equal(body.stats.venues.totalManaged, 3);
+  assert.equal(body.stats.venues.published, 1);
+  assert.equal(body.stats.venues.drafts, 2);
+  assert.equal(body.stats.venues.submissionsPending, 1);
+  assert.equal(body.links.venuesNewHref, "/my/venues/new");
+  assert.equal(body.links.venuesHref, "/my/venues");
 });
 
 test("/api/my/dashboard falls back to synthesized recent updates", async () => {

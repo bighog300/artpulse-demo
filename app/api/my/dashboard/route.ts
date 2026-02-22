@@ -30,6 +30,34 @@ export async function GET() {
       where: { userId, role: { in: ["OWNER", "EDITOR"] } },
       select: { venueId: true },
     }).then((rows) => rows.map((row) => ({ id: row.venueId }))),
+    listManagedVenueDetailsByUserId: async (userId) => db.venue.findMany({
+      where: {
+        memberships: {
+          some: {
+            userId,
+            role: { in: ["OWNER", "EDITOR"] },
+          },
+        },
+      },
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        city: true,
+        country: true,
+        isPublished: true,
+        featuredAssetId: true,
+        featuredAsset: { select: { url: true } },
+        submissions: {
+          where: { type: "VENUE" },
+          select: { status: true },
+          orderBy: { updatedAt: "desc" },
+          take: 1,
+        },
+      },
+      orderBy: [{ isPublished: "asc" }, { updatedAt: "desc" }],
+      take: 5,
+    }),
     listArtworksByArtistId: async (artistId) => db.artwork.findMany({
       where: { artistId },
       select: {

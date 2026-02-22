@@ -18,6 +18,7 @@ export default async function MyDashboardPage() {
         <div className="flex flex-wrap gap-2">
           <Button asChild><Link href="/my/artwork/new">+ Add artwork</Link></Button>
           <Button asChild><Link href="/my/events/new">+ Create event</Link></Button>
+          <Button asChild variant="secondary"><Link href="/my/venues/new">+ Create venue</Link></Button>
           <Button asChild variant="secondary"><Link href="/my/analytics">View analytics</Link></Button>
         </div>
       </div>
