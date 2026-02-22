@@ -14,7 +14,7 @@ const DIGEST_MAX_DURATION_MS = 20_000;
 
 export type DigestDb = {
   savedSearch: {
-    findMany: (args: Prisma.SavedSearchFindManyArgs) => Promise<Array<{ id: string; userId: string; name: string; type: "NEARBY" | "EVENTS_FILTER"; paramsJson: Prisma.JsonValue; lastSentAt: Date | null }>>;
+    findMany: (args: Prisma.SavedSearchFindManyArgs) => Promise<Array<{ id: string; userId: string; name: string; type: "NEARBY" | "EVENTS_FILTER" | "ARTWORK"; paramsJson: Prisma.JsonValue; lastSentAt: Date | null }>>;
     update: (args: Prisma.SavedSearchUpdateArgs) => Promise<unknown>;
   };
   digestRun: {

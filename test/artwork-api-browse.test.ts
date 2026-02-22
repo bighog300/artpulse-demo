@@ -1,0 +1,42 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { NextRequest } from "next/server";
+import { GET as getArtwork } from "../app/api/artwork/route.ts";
+import { db } from "../lib/db.ts";
+
+test("GET /api/artwork applies year range and medium multi filters", async () => {
+  const originalFindMany = db.artwork.findMany;
+  const originalCount = db.artwork.count;
+  let where: any;
+  db.artwork.findMany = (async (args: any) => { where = args.where; return []; }) as never;
+  db.artwork.count = (async () => 0) as never;
+  try {
+    const req = new NextRequest("http://localhost/api/artwork?yearFrom=1990&yearTo=2000&medium=Painting&medium=Sculpture");
+    const res = await getArtwork(req);
+    assert.equal(res.status, 200);
+    assert.equal(where.year.gte, 1990);
+    assert.equal(where.year.lte, 2000);
+    assert.deepEqual(where.medium.in, ["Painting", "Sculpture"]);
+    assert.equal(where.isPublished, true);
+  } finally {
+    db.artwork.findMany = originalFindMany;
+    db.artwork.count = originalCount;
+  }
+});
+
+test("GET /api/artwork uses views sorting query path", async () => {
+  const oq = db.$queryRaw;
+  const of = db.artwork.findMany;
+  db.$queryRaw = (async () => []) as never;
+  db.artwork.findMany = (async () => []) as never;
+  try {
+    const req = new NextRequest("http://localhost/api/artwork?sort=VIEWS_30D_DESC");
+    const res = await getArtwork(req);
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(Array.isArray(body.items), true);
+  } finally {
+    db.$queryRaw = oq;
+    db.artwork.findMany = of;
+  }
+});

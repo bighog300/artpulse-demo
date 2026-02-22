@@ -34,13 +34,32 @@ const eventsFilterParamsSchema = z.object({
   }
 });
 
+
+const artworkParamsSchema = z.object({
+  provider: z.literal("ARTWORKS").optional(),
+  query: z.string().trim().min(1).max(120).optional(),
+  artistId: z.string().uuid().optional().nullable(),
+  venueId: z.string().uuid().optional().nullable(),
+  eventId: z.string().uuid().optional().nullable(),
+  medium: z.array(z.string().trim().min(1).max(120)).optional().default([]),
+  mediumCsv: z.string().optional().nullable(),
+  yearFrom: z.coerce.number().int().min(1000).max(3000).optional().nullable(),
+  yearTo: z.coerce.number().int().min(1000).max(3000).optional().nullable(),
+  priceMin: z.coerce.number().int().min(0).optional().nullable(),
+  priceMax: z.coerce.number().int().min(0).optional().nullable(),
+  currency: z.string().trim().min(3).max(3).optional().nullable(),
+  hasPrice: z.coerce.boolean().optional().default(false),
+  hasImages: z.coerce.boolean().optional().default(false),
+  sort: z.enum(["RECENT", "OLDEST", "YEAR_DESC", "YEAR_ASC", "PRICE_ASC", "PRICE_DESC", "VIEWS_30D_DESC"]).optional().default("RECENT"),
+});
 export const savedSearchParamsSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("NEARBY"), params: nearbyParamsSchema }),
   z.object({ type: z.literal("EVENTS_FILTER"), params: eventsFilterParamsSchema }),
+  z.object({ type: z.literal("ARTWORK"), params: artworkParamsSchema }),
 ]);
 
 export const savedSearchCreateSchema = z.object({
-  type: z.enum(["NEARBY", "EVENTS_FILTER"]),
+  type: z.enum(["NEARBY", "EVENTS_FILTER", "ARTWORK"]),
   name: z.string().trim().min(1).max(80),
   params: z.unknown(),
   frequency: z.enum(["WEEKLY"]).optional(),
@@ -74,7 +93,10 @@ function normalizeEventsFilter(rawParams: unknown) {
 }
 
 export function normalizeSavedSearchParams(type: SavedSearchType, rawParams: unknown) {
-  return type === "NEARBY" ? normalizeNearby(rawParams) : normalizeEventsFilter(rawParams);
+  if (type === "NEARBY") return normalizeNearby(rawParams);
+  if (type === "EVENTS_FILTER") return normalizeEventsFilter(rawParams);
+  const parsed = artworkParamsSchema.parse(rawParams);
+  return { ...parsed, provider: "ARTWORKS", medium: parsed.medium ?? [] };
 }
 
 type EventSearchDb = { event: { findMany: (args: Prisma.EventFindManyArgs) => Promise<Array<{ id: string; title: string; slug: string; startAt: Date; lat: number | null; lng: number | null; venueId: string | null; venue: { name: string; slug: string; city: string | null; lat: number | null; lng: number | null } | null; eventTags: Array<{ tag: { name: string; slug: string } }>; eventArtists: Array<{ artistId: string }> }>> } };
@@ -87,6 +109,7 @@ export async function runSavedSearchEvents(args: {
   limit: number;
 }) {
   const { eventDb, type, paramsJson, cursor, limit } = args;
+  if (type === "ARTWORK") return [];
   if (type === "NEARBY") {
     const params = normalizeNearby(paramsJson);
     const now = new Date();

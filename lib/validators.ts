@@ -86,15 +86,41 @@ export const artistCoverPatchSchema = z.object({
   imageId: z.string().uuid().nullable(),
 });
 
+const artworkSortSchema = z.enum(["RECENT", "OLDEST", "YEAR_DESC", "YEAR_ASC", "PRICE_ASC", "PRICE_DESC", "VIEWS_30D_DESC"]);
+
 export const artworkListQuerySchema = z.object({
   query: z.string().trim().min(1).max(120).optional(),
   artistId: z.string().uuid().optional(),
   venueId: z.string().uuid().optional(),
   eventId: z.string().uuid().optional(),
-  medium: z.string().trim().min(1).max(120).optional(),
+  medium: z.union([z.string(), z.array(z.string())]).optional(),
+  mediumCsv: z.string().optional(),
   year: z.coerce.number().int().min(1000).max(3000).optional(),
+  yearFrom: z.coerce.number().int().min(1000).max(3000).optional(),
+  yearTo: z.coerce.number().int().min(1000).max(3000).optional(),
+  priceMin: z.coerce.number().int().min(0).optional(),
+  priceMax: z.coerce.number().int().min(0).optional(),
+  currency: z.string().trim().min(3).max(3).optional(),
+  hasPrice: z.coerce.boolean().optional().default(false),
+  hasImages: z.coerce.boolean().optional().default(false),
+  includeViews: z.union([z.literal("1"), z.literal("true"), z.literal(1), z.literal(true)]).optional().transform((value) => Boolean(value)),
+  sort: artworkSortSchema.default("RECENT"),
   page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(50).default(20),
+  pageSize: z.coerce.number().int().min(1).max(48).default(20),
+}).transform((data) => {
+  const mediumArray = Array.isArray(data.medium) ? data.medium : data.medium ? [data.medium] : [];
+  const csvValues = (data.mediumCsv ?? "").split(",").map((value) => value.trim()).filter(Boolean);
+  const mediums = Array.from(new Set([...mediumArray, ...csvValues].map((value) => value.trim()).filter(Boolean)));
+  const yearFrom = data.yearFrom ?? data.year;
+  const yearTo = data.yearTo ?? data.year;
+  return { ...data, mediums, yearFrom, yearTo, includeViews: data.includeViews ?? false };
+}).superRefine((data, ctx) => {
+  if (data.yearFrom != null && data.yearTo != null && data.yearFrom > data.yearTo) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["yearFrom"], message: "yearFrom must be <= yearTo" });
+  }
+  if (data.priceMin != null && data.priceMax != null && data.priceMin > data.priceMax) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["priceMin"], message: "priceMin must be <= priceMax" });
+  }
 });
 
 const optionalNullableString = z.string().trim().max(4000).optional().nullable();
@@ -592,5 +618,10 @@ export async function parseBody(req: Request) {
 }
 
 export function paramsToObject(searchParams: URLSearchParams) {
-  return Object.fromEntries(searchParams.entries());
+  const out: Record<string, string | string[]> = {};
+  for (const key of searchParams.keys()) {
+    const values = searchParams.getAll(key);
+    out[key] = values.length > 1 ? values : (values[0] ?? "");
+  }
+  return out;
 }
