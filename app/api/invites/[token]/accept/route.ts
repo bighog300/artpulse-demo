@@ -4,7 +4,7 @@ import { requireAuth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { tokenParamSchema, zodDetails } from "@/lib/validators";
 import { acceptInviteWithDeps } from "@/lib/invite-accept.service";
-import { setOnboardingFlag } from "@/lib/onboarding";
+import { setOnboardingFlagForSession } from "@/lib/onboarding";
 
 export const runtime = "nodejs";
 
@@ -55,7 +55,7 @@ export async function POST(_: NextRequest, { params }: { params: Promise<{ token
       return apiError(409, "invalid_state", result.message);
     }
 
-    await setOnboardingFlag(user.id, "hasAcceptedInvite");
+    await setOnboardingFlagForSession(user, "hasAcceptedInvite", true, { path: "/api/invites/[token]/accept" });
 
     return NextResponse.json({
       accepted: true,

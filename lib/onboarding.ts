@@ -1,4 +1,6 @@
 import { db } from "@/lib/db";
+import { ensureDbUserForSession, type SessionUserLike } from "@/lib/ensure-db-user-for-session";
+import { logWarn } from "@/lib/logging";
 
 export const onboardingFlags = [
   "hasFollowedSomething",
@@ -66,12 +68,80 @@ export async function setOnboardingFlag(userId: string, flagName: OnboardingFlag
   await maybeCompleteOnboarding(state);
 }
 
+function isForeignKeyViolation(error: unknown) {
+  return typeof error === "object"
+    && error !== null
+    && "code" in error
+    && (error as { code?: string }).code === "P2003";
+}
+
+export async function setOnboardingFlagForSession(
+  sessionUser: SessionUserLike | null | undefined,
+  flagName: OnboardingFlagName,
+  value = true,
+  context: { path?: string } = {},
+) {
+  const dbUser = await ensureDbUserForSession(sessionUser);
+  if (!dbUser) {
+    logWarn({
+      message: "onboarding_state_skipped_missing_db_user",
+      path: context.path,
+      sessionUserEmail: sessionUser?.email ?? null,
+      flagName,
+    });
+    return;
+  }
+
+  try {
+    await setOnboardingFlag(dbUser.id, flagName, value);
+  } catch (error) {
+    if (isForeignKeyViolation(error)) {
+      logWarn({
+        message: "onboarding_state_upsert_fk_violation",
+        path: context.path,
+        userId: dbUser.id,
+        sessionUserEmail: sessionUser?.email ?? null,
+        flagName,
+      });
+      return;
+    }
+    throw error;
+  }
+}
+
 export async function markOnboardingCompleted(userId: string) {
   await db.onboardingState.upsert({
     where: { userId },
     create: { userId, completedAt: new Date() },
     update: { completedAt: new Date() },
   });
+}
+
+export async function markOnboardingCompletedForSession(sessionUser: SessionUserLike | null | undefined, context: { path?: string } = {}) {
+  const dbUser = await ensureDbUserForSession(sessionUser);
+  if (!dbUser) {
+    logWarn({
+      message: "onboarding_complete_skipped_missing_db_user",
+      path: context.path,
+      sessionUserEmail: sessionUser?.email ?? null,
+    });
+    return;
+  }
+
+  try {
+    await markOnboardingCompleted(dbUser.id);
+  } catch (error) {
+    if (isForeignKeyViolation(error)) {
+      logWarn({
+        message: "onboarding_complete_fk_violation",
+        path: context.path,
+        userId: dbUser.id,
+        sessionUserEmail: sessionUser?.email ?? null,
+      });
+      return;
+    }
+    throw error;
+  }
 }
 
 export function computeChecklist(

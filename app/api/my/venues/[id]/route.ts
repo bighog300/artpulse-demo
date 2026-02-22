@@ -5,7 +5,7 @@ import { requireVenueRole } from "@/lib/auth";
 import { myVenuePatchSchema, parseBody, venueIdParamSchema, zodDetails } from "@/lib/validators";
 import { submissionSubmittedDedupeKey } from "@/lib/notification-keys";
 import { buildInAppFromTemplate, enqueueNotification } from "@/lib/notifications";
-import { setOnboardingFlag } from "@/lib/onboarding";
+import { setOnboardingFlagForSession } from "@/lib/onboarding";
 
 export const runtime = "nodejs";
 
@@ -72,7 +72,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       });
     }
 
-    await setOnboardingFlag(user.id, "hasCreatedVenue");
+      await setOnboardingFlagForSession(user, "hasCreatedVenue", true, { path: "/api/my/venues/[id]" });
 
     return NextResponse.json(venue);
   } catch (error) {

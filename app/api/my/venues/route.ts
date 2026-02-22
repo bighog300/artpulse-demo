@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { apiError } from "@/lib/api";
 import { requireAuth } from "@/lib/auth";
 import { myVenueCreateSchema, parseBody, zodDetails } from "@/lib/validators";
-import { setOnboardingFlag } from "@/lib/onboarding";
+import { setOnboardingFlagForSession } from "@/lib/onboarding";
 import { ensureUniqueVenueSlugWithDeps, slugifyVenueName } from "@/lib/venue-slug";
 
 export const runtime = "nodejs";
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    await setOnboardingFlag(user.id, "hasCreatedVenue");
+      await setOnboardingFlagForSession(user, "hasCreatedVenue", true, { path: "/api/my/venues" });
 
     return NextResponse.json({ ok: true, venueId: venue.id, slug: venue.slug });
   } catch {

@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
 import { requireAuth } from "@/lib/auth";
-import { markOnboardingCompleted } from "@/lib/onboarding";
+import { markOnboardingCompletedForSession } from "@/lib/onboarding";
 
 export const runtime = "nodejs";
 
 export async function POST() {
   try {
     const user = await requireAuth();
-    await markOnboardingCompleted(user.id);
+    await markOnboardingCompletedForSession(user, { path: "/api/onboarding/complete" });
     return NextResponse.json({ ok: true });
   } catch (error) {
     if (error instanceof Error && error.message === "unauthorized") {

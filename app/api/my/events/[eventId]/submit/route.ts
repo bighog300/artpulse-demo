@@ -7,7 +7,7 @@ import { nextSubmissionStatusForSubmit } from "@/lib/ownership";
 import { submissionSubmittedDedupeKey } from "@/lib/notification-keys";
 import { buildInAppFromTemplate, enqueueNotification } from "@/lib/notifications";
 import { RATE_LIMITS, enforceRateLimit, isRateLimitError, rateLimitErrorResponse } from "@/lib/rate-limit";
-import { setOnboardingFlag } from "@/lib/onboarding";
+import { setOnboardingFlagForSession } from "@/lib/onboarding";
 
 export const runtime = "nodejs";
 
@@ -61,7 +61,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ eventId: 
       }),
     });
 
-    await setOnboardingFlag(user.id, "hasSubmittedEvent");
+    await setOnboardingFlagForSession(user, "hasSubmittedEvent", true, { path: "/api/my/events/[eventId]/submit" });
 
     return NextResponse.json(updated);
   } catch (error) {
