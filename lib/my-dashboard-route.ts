@@ -41,6 +41,18 @@ type EventRecord = {
 
 type VenueRecord = { id: string };
 
+type ManagedVenueRecord = {
+  id: string;
+  slug: string | null;
+  name: string;
+  city: string | null;
+  country: string | null;
+  isPublished: boolean;
+  featuredAssetId: string | null;
+  featuredAsset: { url: string } | null;
+  submissions: Array<{ status: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" }>;
+};
+
 type AuditRecord = {
   action: string;
   targetId: string | null;
@@ -51,6 +63,7 @@ type Deps = {
   requireAuth: () => Promise<SessionUser>;
   findOwnedArtistByUserId: (userId: string) => Promise<ArtistRecord | null>;
   listManagedVenuesByUserId: (userId: string) => Promise<VenueRecord[]>;
+  listManagedVenueDetailsByUserId: (userId: string) => Promise<ManagedVenueRecord[]>;
   listArtworksByArtistId: (artistId: string) => Promise<ArtworkRecord[]>;
   listEventsByContext: (input: { artistId: string; managedVenueIds: string[] }) => Promise<EventRecord[]>;
   listArtworkViewDailyRows: (artworkIds: string[], start: Date) => Promise<ArtworkAnalyticsInputDailyRow[]>;
@@ -127,8 +140,9 @@ export async function handleGetMyDashboard(deps: Deps) {
       }, { headers: NO_STORE_HEADERS });
     }
 
-    const [managedVenues, artworks] = await Promise.all([
+    const [managedVenues, managedVenueDetails, artworks] = await Promise.all([
       deps.listManagedVenuesByUserId(user.id),
+      deps.listManagedVenueDetailsByUserId(user.id),
       deps.listArtworksByArtistId(artist.id),
     ]);
 
@@ -158,6 +172,26 @@ export async function handleGetMyDashboard(deps: Deps) {
       .sort((a, b) => a.startAt.getTime() - b.startAt.getTime());
     const draftEventCount = events.filter((item) => !item.isPublished).length;
     const missingVenueCount = events.filter((item) => !item.venueId).length;
+
+    const managedVenueIds = new Set(managedVenues.map((venue) => venue.id));
+    const venueList = managedVenueDetails
+      .filter((venue) => managedVenueIds.has(venue.id))
+      .map((venue) => {
+      const submissionStatus = venue.submissions[0]?.status ?? null;
+      return {
+        id: venue.id,
+        slug: venue.slug,
+        name: venue.name,
+        city: venue.city,
+        country: venue.country,
+        isPublished: venue.isPublished,
+        coverUrl: resolveImageUrl(venue.featuredAsset?.url, null),
+        submissionStatus,
+      };
+      });
+    const venuePublishedCount = venueList.filter((venue) => venue.isPublished).length;
+    const venueDraftCount = venueList.filter((venue) => !venue.isPublished).length;
+    const venueSubmissionsPending = venueList.filter((venue) => venue.submissionStatus === "SUBMITTED").length;
 
     const actionInbox = [
       { id: "missing-cover", label: "Artworks missing cover", count: missingCoverCount, href: "/my/artwork?filter=missingCover", severity: "warn" as const },
@@ -206,6 +240,12 @@ export async function handleGetMyDashboard(deps: Deps) {
             }
             : undefined,
         },
+        venues: {
+          totalManaged: venueList.length,
+          published: venuePublishedCount,
+          drafts: venueDraftCount,
+          submissionsPending: venueSubmissionsPending,
+        },
         views: {
           last7: analytics.views.last7,
           last30: analytics.views.last30,
@@ -215,6 +255,9 @@ export async function handleGetMyDashboard(deps: Deps) {
       },
       actionInbox,
       topArtworks30,
+      entities: {
+        venues: venueList,
+      },
       recent: recent.length > 0 ? recent : synthesizeRecent(artworks, events),
       links: {
         addArtworkHref: "/my/artwork/new",
@@ -223,7 +266,8 @@ export async function handleGetMyDashboard(deps: Deps) {
         artworksHref: "/my/artwork",
         eventsHref: "/my/events",
         artistHref: "/my/artist",
-        venuesHref: managedVenues.length > 0 ? "/my/venues" : undefined,
+        venuesNewHref: "/my/venues/new",
+        venuesHref: "/my/venues",
       },
     }, { headers: NO_STORE_HEADERS });
   } catch (error) {
