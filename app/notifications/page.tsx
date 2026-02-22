@@ -1,7 +1,7 @@
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { NotificationsClient } from "@/app/notifications/notifications-client";
-import { setOnboardingFlag } from "@/lib/onboarding";
+import { setOnboardingFlagForSession } from "@/lib/onboarding";
 import { redirectToLogin } from "@/lib/auth-redirect";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { NotificationsEmptyState } from "@/components/notifications/notifications-empty-state";
@@ -28,7 +28,7 @@ export default async function NotificationsPage() {
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: limit + 1,
   });
-  await setOnboardingFlag(user.id, "hasViewedNotifications");
+  await setOnboardingFlagForSession(user, "hasViewedNotifications", true, { path: "/notifications" });
 
   const hasMore = page.length > limit;
   const items = hasMore ? page.slice(0, limit) : page;

@@ -5,7 +5,7 @@ import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { getFollowingFeedWithDeps, type FollowingFeedTypeFilter } from "@/lib/following-feed";
 import { RecommendedFollows } from "@/components/onboarding/recommended-follows";
 import { redirectToLogin } from "@/lib/auth-redirect";
-import { setOnboardingFlag } from "@/lib/onboarding";
+import { setOnboardingFlagForSession } from "@/lib/onboarding";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
 import { PersonalSection } from "@/components/personal/personal-section";
@@ -71,7 +71,7 @@ export default async function FollowingPage({ searchParams }: { searchParams: Se
       { userId: user.id, days, type, limit: 50 },
     ),
     db.follow.count({ where: { userId: user.id } }),
-    setOnboardingFlag(user.id, "hasVisitedFollowing"),
+    setOnboardingFlagForSession(user, "hasVisitedFollowing", true, { path: "/following" }),
   ]);
 
   const hasNoFollows = followCount === 0;
