@@ -8,8 +8,17 @@ const nearbyParamsSchema = z.object({
   lat: z.coerce.number().min(-90).max(90),
   lng: z.coerce.number().min(-180).max(180),
   radiusKm: z.coerce.number().int().default(25).transform((value) => Math.max(1, Math.min(200, value))),
-  days: z.union([z.literal(7), z.literal(30)]).default(30),
+  q: z.string().trim().min(1).max(100).optional(),
+  days: z.union([z.literal(7), z.literal(30), z.literal(90)]).optional(),
+  from: z.iso.datetime({ offset: true }).or(z.iso.datetime({ local: true })).optional(),
+  to: z.iso.datetime({ offset: true }).or(z.iso.datetime({ local: true })).optional(),
   tags: z.array(z.string().trim().min(1).max(40)).max(20).optional().default([]),
+  sort: z.enum(["soonest", "distance"]).optional().default("soonest"),
+  view: z.enum(["list", "map"]).optional(),
+}).superRefine((data, ctx) => {
+  if (data.days != null && (data.from != null || data.to != null)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["days"], message: "Provide either days or from/to, not both" });
+  }
 });
 
 const eventsFilterParamsSchema = z.object({
@@ -74,7 +83,7 @@ export const savedSearchPatchSchema = z.object({
 
 function normalizeNearby(rawParams: unknown) {
   const parsed = nearbyParamsSchema.parse(rawParams);
-  return { lat: parsed.lat, lng: parsed.lng, radiusKm: parsed.radiusKm, days: parsed.days, tags: parsed.tags };
+  return { lat: parsed.lat, lng: parsed.lng, radiusKm: parsed.radiusKm, q: parsed.q ?? null, days: parsed.days ?? 30, from: parsed.from ?? null, to: parsed.to ?? null, tags: parsed.tags, sort: parsed.sort, view: parsed.view ?? null };
 }
 
 function normalizeEventsFilter(rawParams: unknown) {
@@ -113,10 +122,14 @@ export async function runSavedSearchEvents(args: {
   if (type === "NEARBY") {
     const params = normalizeNearby(paramsJson);
     const now = new Date();
-    const to = new Date(now);
-    to.setDate(to.getDate() + params.days);
+    const fromDate = params.from ? new Date(params.from) : now;
+    const toDate = params.to ? new Date(params.to) : (() => {
+      const next = new Date(fromDate);
+      next.setDate(next.getDate() + params.days);
+      return next;
+    })();
     const box = getBoundingBox(params.lat, params.lng, params.radiusKm);
-    const nearbyFilters = buildNearbyEventsFilters({ cursor, from: now, to });
+    const nearbyFilters = buildNearbyEventsFilters({ cursor, from: fromDate, to: toDate });
     const items = await eventDb.event.findMany({
       where: {
         isPublished: true,
@@ -124,7 +137,7 @@ export async function runSavedSearchEvents(args: {
         AND: [{ OR: [
           { lat: { gte: box.minLat, lte: box.maxLat }, lng: { gte: box.minLng, lte: box.maxLng } },
           { venue: { lat: { gte: box.minLat, lte: box.maxLat }, lng: { gte: box.minLng, lte: box.maxLng } } },
-        ] }, ...nearbyFilters.cursorFilters],
+        ] }, ...(params.q ? [{ OR: [{ title: { contains: params.q, mode: "insensitive" as const } }, { venue: { name: { contains: params.q, mode: "insensitive" as const } } }] }] : []), ...nearbyFilters.cursorFilters],
       },
       take: limit + 1,
       orderBy: START_AT_ID_ORDER_BY,
@@ -143,7 +156,7 @@ export async function runSavedSearchEvents(args: {
 
   const params = normalizeEventsFilter(paramsJson);
   const filters: Prisma.EventWhereInput[] = [];
-  if (params.q) filters.push({ OR: [{ title: { contains: params.q, mode: "insensitive" } }, { description: { contains: params.q, mode: "insensitive" } }] });
+  if (params.q) filters.push({ OR: [{ title: { contains: params.q, mode: "insensitive" as const } }, { description: { contains: params.q, mode: "insensitive" as const } }] });
   if (params.from || params.to) filters.push({ startAt: { gte: params.from ? new Date(params.from) : undefined, lte: params.to ? new Date(params.to) : undefined } });
   if (params.venue) filters.push({ venue: { slug: params.venue } });
   if (params.artist) filters.push({ eventArtists: { some: { artist: { slug: params.artist, isPublished: true } } } });

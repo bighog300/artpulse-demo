@@ -18,7 +18,7 @@ export function canSaveFromPreview(name: string, previewCount: number) {
   return name.trim().length > 0;
 }
 
-export function SaveSearchButton({ type, params }: { type: "NEARBY" | "EVENTS_FILTER"; params: Record<string, unknown> }) {
+export function SaveSearchButton({ type, params, defaultName }: { type: "NEARBY" | "EVENTS_FILTER"; params: Record<string, unknown>; defaultName?: string }) {
   const [message, setMessage] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -27,7 +27,7 @@ export function SaveSearchButton({ type, params }: { type: "NEARBY" | "EVENTS_FI
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const canSave = useMemo(() => canSaveFromPreview(name, preview?.length ?? 0), [name, preview]);
+  const canSave = useMemo(() => canSaveFromPreview(name || defaultName || "", preview?.length ?? 0), [defaultName, name, preview]);
 
   const loadPreview = async () => {
     setLoadingPreview(true);
@@ -64,7 +64,7 @@ export function SaveSearchButton({ type, params }: { type: "NEARBY" | "EVENTS_FI
       const response = await fetch("/api/saved-searches", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ type, name: name.trim(), params }),
+        body: JSON.stringify({ type, name: (name.trim() || defaultName || "Saved search").trim(), params }),
       });
       if (!response.ok) {
         setMessage("Could not save search.");
@@ -97,7 +97,7 @@ export function SaveSearchButton({ type, params }: { type: "NEARBY" | "EVENTS_FI
       {open ? (
         <div className="max-w-lg rounded border p-3">
           <label className="block text-sm font-medium" htmlFor="saved-search-name">Name</label>
-          <input id="saved-search-name" value={name} onChange={(e) => setName(e.target.value)} className="mt-1 w-full rounded border p-2 text-sm" placeholder="Weekly openings nearby" />
+          <input id="saved-search-name" value={name} onChange={(e) => setName(e.target.value)} className="mt-1 w-full rounded border p-2 text-sm" placeholder={defaultName ?? "Weekly openings nearby"} />
           <div className="mt-3 space-y-1">
             <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Preview</p>
             {loadingPreview ? <p className="text-sm text-gray-600">Loading preview…</p> : null}
