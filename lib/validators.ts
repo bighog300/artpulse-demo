@@ -175,6 +175,11 @@ export const myArtistPatchSchema = z.object({
   featuredAssetId: z.string().uuid().optional().nullable(),
 });
 
+export const myArtistCreateSchema = z.object({
+  name: z.string().trim().min(2).max(80).regex(/^[\p{L}\p{N}\s'.,&()\-/]+$/u, "Name contains unsupported characters"),
+  websiteUrl: httpUrlSchema.optional().nullable(),
+});
+
 export const artistFeaturedArtworksReplaceSchema = z.object({
   artworkIds: z.array(z.string().uuid()).max(6),
 });
