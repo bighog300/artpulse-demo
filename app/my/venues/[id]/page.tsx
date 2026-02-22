@@ -108,6 +108,7 @@ export default async function MyVenueEditPage({ params }: { params: Promise<{ id
         isPublished={venue.isPublished}
         submissionStatus={submission?.status ?? null}
         submittedAt={submission?.submittedAt?.toISOString() ?? null}
+        reviewedAt={submission?.decidedAt?.toISOString() ?? null}
         decisionReason={submission?.decisionReason ?? null}
         initialIssues={readiness.blocking.map((item) => ({ field: item.id, message: item.label }))}
       />

@@ -23,26 +23,26 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         city: true,
         country: true,
         websiteUrl: true,
+        isPublished: true,
         images: { select: { id: true }, take: 1 },
       },
     }),
     setVenuePublishedDraft: async (venueId) => {
       await db.venue.update({ where: { id: venueId }, data: { isPublished: false } });
     },
-    upsertSubmission: async ({ venueId, userId, message }) => db.submission.upsert({
-      where: { targetVenueId: venueId },
-      create: {
+    getLatestSubmissionStatus: async (venueId) => db.submission.findFirst({
+      where: { targetVenueId: venueId, type: "VENUE", kind: "PUBLISH" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      select: { status: true },
+    }).then((row) => row?.status ?? null),
+    createSubmission: async ({ venueId, userId, message }) => db.submission.create({
+      data: {
         type: "VENUE",
+        kind: "PUBLISH",
         status: "SUBMITTED",
         submitterUserId: userId,
         venueId,
         targetVenueId: venueId,
-        note: message ?? null,
-        submittedAt: new Date(),
-      },
-      update: {
-        status: "SUBMITTED",
-        submitterUserId: userId,
         note: message ?? null,
         decisionReason: null,
         submittedAt: new Date(),

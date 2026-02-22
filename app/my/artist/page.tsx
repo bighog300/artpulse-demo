@@ -51,7 +51,7 @@ export default async function MyArtistPage() {
         where: { type: "ARTIST", kind: "PUBLISH" },
         orderBy: { createdAt: "desc" },
         take: 1,
-        select: { status: true, submittedAt: true, decisionReason: true },
+        select: { status: true, submittedAt: true, decidedAt: true, decisionReason: true },
       },
     },
   });
@@ -105,6 +105,7 @@ export default async function MyArtistPage() {
         isPublished={artist.isPublished}
         submissionStatus={latestSubmission?.status ?? null}
         submittedAt={latestSubmission?.submittedAt?.toISOString() ?? null}
+        reviewedAt={latestSubmission?.decidedAt?.toISOString() ?? null}
         decisionReason={latestSubmission?.decisionReason ?? null}
         initialIssues={readiness.blocking.map((item) => ({ field: item.id, message: item.label }))}
       />

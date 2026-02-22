@@ -23,10 +23,11 @@ type EventRecord = {
 type SubmissionRecord = { id: string; status: string; createdAt: Date; submittedAt: Date | null };
 
 type SubmitEventDeps = {
+  getLatestSubmissionStatus: (eventId: string) => Promise<"DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | null>;
   requireAuth: () => Promise<SessionUser>;
   requireVenueMembership: (userId: string, venueId: string) => Promise<void>;
   findEventForSubmit: (eventId: string, venueId: string) => Promise<EventRecord | null>;
-  upsertSubmission: (input: { venueId: string; eventId: string; userId: string; message?: string }) => Promise<SubmissionRecord>;
+  createSubmission: (input: { venueId: string; eventId: string; userId: string; message?: string }) => Promise<SubmissionRecord>;
   enqueueSubmissionNotification?: (input: { userId: string; email: string; submissionId: string; status: string; submittedAt: Date | null; venueId: string }) => Promise<void>;
 };
 
@@ -62,7 +63,11 @@ export async function handleVenueEventSubmit(req: NextRequest, params: Promise<{
       }, { status: 400 });
     }
 
-    const submission = await deps.upsertSubmission({
+    const latestStatus = await deps.getLatestSubmissionStatus(event.id);
+    if (latestStatus === "SUBMITTED") return NextResponse.json({ error: "ALREADY_SUBMITTED", message: "Submission is already pending review." }, { status: 409 });
+    if (latestStatus === "APPROVED" && event.isPublished) return NextResponse.json({ error: "ALREADY_APPROVED", message: "Event is already approved and published." }, { status: 409 });
+
+    const submission = await deps.createSubmission({
       venueId: parsedParams.data.venueId,
       eventId: event.id,
       userId: user.id,

@@ -19,6 +19,7 @@ test("handleMyArtistSubmit returns unauthorized when user is anonymous", async (
   const res = await handleMyArtistSubmit(req, {
     requireAuth: async () => { throw new Error("unauthorized"); },
     findOwnedArtistByUserId: async () => completeArtist,
+    getLatestSubmissionStatus: async () => null,
     createSubmission: async () => ({ id: "sub-1", status: "SUBMITTED", createdAt: new Date(), submittedAt: new Date() }),
     enqueueSubmissionNotification: async () => undefined,
   });
@@ -30,6 +31,7 @@ test("handleMyArtistSubmit returns forbidden when user has no owned artist", asy
   const res = await handleMyArtistSubmit(req, {
     requireAuth: async () => ({ id: "user-1", email: "user@example.com" }),
     findOwnedArtistByUserId: async () => null,
+    getLatestSubmissionStatus: async () => null,
     createSubmission: async () => ({ id: "sub-1", status: "SUBMITTED", createdAt: new Date(), submittedAt: new Date() }),
     enqueueSubmissionNotification: async () => undefined,
   });
@@ -43,6 +45,7 @@ test("handleMyArtistSubmit returns NOT_READY with blocking checks", async () => 
   const res = await handleMyArtistSubmit(req, {
     requireAuth: async () => ({ id: "user-1", email: "user@example.com" }),
     findOwnedArtistByUserId: async () => ({ ...completeArtist, bio: "too short", featuredAssetId: null, images: [] }),
+    getLatestSubmissionStatus: async () => null,
     createSubmission: async () => ({ id: "sub-1", status: "SUBMITTED", createdAt: new Date(), submittedAt: new Date() }),
     enqueueSubmissionNotification: async () => undefined,
   });
@@ -65,6 +68,7 @@ test("handleMyArtistSubmit creates submission when artist is complete", async ()
   const res = await handleMyArtistSubmit(req, {
     requireAuth: async () => ({ id: "user-1", email: "user@example.com" }),
     findOwnedArtistByUserId: async () => completeArtist,
+    getLatestSubmissionStatus: async () => null,
     createSubmission: async (input) => {
       created = true;
       assert.equal(input.message, "Ready for review");
@@ -78,4 +82,16 @@ test("handleMyArtistSubmit creates submission when artist is complete", async ()
   assert.equal(res.headers.get("Cache-Control"), "no-store");
   const body = await res.json();
   assert.equal(body.submission.id, "sub-1");
+});
+
+test("handleMyArtistSubmit returns 409 when already submitted", async () => {
+  const req = new NextRequest("http://localhost/api/my/artist/submit", { method: "POST" });
+  const res = await handleMyArtistSubmit(req, {
+    requireAuth: async () => ({ id: "user-1", email: "user@example.com" }),
+    findOwnedArtistByUserId: async () => completeArtist,
+    getLatestSubmissionStatus: async () => "SUBMITTED",
+    createSubmission: async () => ({ id: "sub-1", status: "SUBMITTED", createdAt: new Date(), submittedAt: new Date() }),
+    enqueueSubmissionNotification: async () => undefined,
+  });
+  assert.equal(res.status, 409);
 });

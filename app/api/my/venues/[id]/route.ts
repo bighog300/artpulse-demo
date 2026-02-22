@@ -32,20 +32,24 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const venue = await db.venue.update({ where: { id: existing.id }, data: { ...safeFields, featuredAssetId: featuredAssetId ?? null } });
 
     if (submitForApproval && !existing.isPublished && user.role === "USER") {
-      const submission = await db.submission.upsert({
-        where: { targetVenueId: existing.id },
-        create: {
+      const latest = await db.submission.findFirst({
+        where: { targetVenueId: existing.id, type: "VENUE", kind: "PUBLISH" },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        select: { status: true },
+      });
+
+      if (latest?.status === "SUBMITTED") {
+        return NextResponse.json({ error: "ALREADY_SUBMITTED", message: "Submission is already pending review." }, { status: 409 });
+      }
+
+      const submission = await db.submission.create({
+        data: {
           type: "VENUE",
+          kind: "PUBLISH",
           status: "SUBMITTED",
           submitterUserId: user.id,
           venueId: existing.id,
           targetVenueId: existing.id,
-          note: note ?? null,
-          submittedAt: new Date(),
-        },
-        update: {
-          status: "SUBMITTED",
-          submitterUserId: user.id,
           note: note ?? null,
           decisionReason: null,
           submittedAt: new Date(),

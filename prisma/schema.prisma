@@ -418,7 +418,9 @@ model Submission {
   targetArtist    Artist?          @relation("SubmissionTargetArtist", fields: [targetArtistId], references: [id], onDelete: Cascade)
   decidedBy       User?            @relation("SubmissionDecider", fields: [decidedByUserId], references: [id], onDelete: SetNull)
 
-  @@unique([targetVenueId])
+  @@index([targetVenueId, createdAt(sort: Desc)])
+  @@index([targetEventId, createdAt(sort: Desc)])
+  @@index([targetArtistId, createdAt(sort: Desc)])
   @@index([targetEventId])
   @@index([targetArtistId])
   @@index([status, submittedAt])

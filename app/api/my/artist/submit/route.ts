@@ -34,6 +34,11 @@ export async function POST(req: NextRequest) {
         images: artist.images,
       };
     }),
+    getLatestSubmissionStatus: async (artistId) => db.submission.findFirst({
+      where: { targetArtistId: artistId, type: "ARTIST", kind: "PUBLISH" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      select: { status: true },
+    }).then((row) => row?.status ?? null),
     createSubmission: async ({ artistId, userId, message, snapshot }) => db.submission.create({
       data: {
         type: "ARTIST",
@@ -44,6 +49,9 @@ export async function POST(req: NextRequest) {
         note: message ?? null,
         details: { snapshot, message: message ?? null },
         submittedAt: new Date(),
+        decisionReason: null,
+        decidedAt: null,
+        decidedByUserId: null,
       },
       select: { id: true, status: true, createdAt: true, submittedAt: true },
     }),

@@ -3,7 +3,6 @@ import { apiError } from "@/lib/api";
 import { db } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { eventIdParamSchema, zodDetails } from "@/lib/validators";
-import { nextSubmissionStatusForSubmit } from "@/lib/ownership";
 import { submissionSubmittedDedupeKey } from "@/lib/notification-keys";
 import { buildInAppFromTemplate, enqueueNotification } from "@/lib/notifications";
 import { RATE_LIMITS, enforceRateLimit, isRateLimitError, rateLimitErrorResponse } from "@/lib/rate-limit";
@@ -15,69 +14,38 @@ export const runtime = "nodejs";
 export async function POST(_: Request, { params }: { params: Promise<{ eventId: string }> }) {
   try {
     const user = await requireAuth();
-
-    await enforceRateLimit({
-      key: `submissions:submit:user:${user.id}`,
-      limit: RATE_LIMITS.submissions.limit,
-      windowMs: RATE_LIMITS.submissions.windowMs,
-    });
+    await enforceRateLimit({ key: `submissions:submit:user:${user.id}`, limit: RATE_LIMITS.submissions.limit, windowMs: RATE_LIMITS.submissions.windowMs });
 
     const parsedId = eventIdParamSchema.safeParse(await params);
     if (!parsedId.success) return apiError(400, "invalid_request", "Invalid route parameter", zodDetails(parsedId.error));
 
-    const submission = await db.submission.findFirst({
-      where: { targetEventId: parsedId.data.eventId, OR: [{ kind: "PUBLISH" }, { kind: null }] },
-      include: { venue: { select: { memberships: { where: { userId: user.id }, select: { id: true } } } } },
-    });
-
-    if (!submission || submission.submitterUserId !== user.id) return apiError(403, "forbidden", "Submission owner required");
-    if (!submission.venue?.memberships.length) return apiError(403, "forbidden", "Venue membership required");
-    const event = await db.event.findUnique({ where: { id: parsedId.data.eventId }, select: { title: true, startAt: true, endAt: true, venueId: true, ticketUrl: true } });
-    if (!event) return apiError(404, "not_found", "Event not found");
-    const readiness = evaluateEventReadiness(event, submission.venue?.memberships.length ? { id: submission.venueId ?? "" } : null);
-    if (!readiness.ready) {
-      console.warn("FAIL_REASON=NOT_READY entity=event");
-      return NextResponse.json({ error: "NOT_READY", message: "Complete required fields before submitting.", blocking: readiness.blocking, warnings: readiness.warnings }, { status: 400 });
-    }
-
-    const nextStatus = nextSubmissionStatusForSubmit(submission.status);
-    if (!nextStatus) return apiError(409, "invalid_state", "Only draft or rejected submissions can be submitted");
-
-    const updated = await db.submission.update({
-      where: { id: submission.id },
-      data: {
-        status: nextStatus,
-        submittedAt: new Date(),
-        decisionReason: null,
-        decidedAt: null,
-        decidedByUserId: null,
+    const event = await db.event.findFirst({
+      where: {
+        id: parsedId.data.eventId,
+        OR: [
+          { submissions: { some: { submitterUserId: user.id, type: "EVENT", OR: [{ kind: "PUBLISH" }, { kind: null }] } } },
+          { venue: { memberships: { some: { userId: user.id, role: { in: ["OWNER", "EDITOR"] } } } } },
+        ],
       },
+      select: { id: true, title: true, startAt: true, endAt: true, venueId: true, ticketUrl: true, isPublished: true },
     });
+    if (!event) return apiError(403, "forbidden", "Submission owner required");
 
-    await enqueueNotification({
-      type: "SUBMISSION_SUBMITTED",
-      toEmail: user.email,
-      dedupeKey: submissionSubmittedDedupeKey(updated.id),
-      payload: {
-        submissionId: updated.id,
-        status: updated.status,
-        submittedAt: updated.submittedAt?.toISOString() ?? null,
-      },
-      inApp: buildInAppFromTemplate(user.id, "SUBMISSION_SUBMITTED", {
-        type: "SUBMISSION_SUBMITTED",
-        submissionId: updated.id,
-        submissionType: "EVENT",
-      }),
-    });
+    const readiness = evaluateEventReadiness(event, event.venueId ? { id: event.venueId } : null);
+    if (!readiness.ready) return NextResponse.json({ error: "NOT_READY", message: "Complete required fields before submitting.", blocking: readiness.blocking, warnings: readiness.warnings }, { status: 400 });
 
+    const latest = await db.submission.findFirst({ where: { targetEventId: event.id, type: "EVENT", OR: [{ kind: "PUBLISH" }, { kind: null }] }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], select: { status: true } });
+    if (latest?.status === "SUBMITTED") return NextResponse.json({ error: "ALREADY_SUBMITTED", message: "Submission is already pending review." }, { status: 409 });
+    if (latest?.status === "APPROVED" && event.isPublished) return NextResponse.json({ error: "ALREADY_APPROVED", message: "Event is already approved and published." }, { status: 409 });
+
+    const created = await db.submission.create({ data: { type: "EVENT", kind: "PUBLISH", status: "SUBMITTED", submitterUserId: user.id, venueId: event.venueId, targetEventId: event.id, submittedAt: new Date(), decisionReason: null, decidedAt: null, decidedByUserId: null } });
+
+    await enqueueNotification({ type: "SUBMISSION_SUBMITTED", toEmail: user.email, dedupeKey: submissionSubmittedDedupeKey(created.id), payload: { submissionId: created.id, status: created.status, submittedAt: created.submittedAt?.toISOString() ?? null }, inApp: buildInAppFromTemplate(user.id, "SUBMISSION_SUBMITTED", { type: "SUBMISSION_SUBMITTED", submissionId: created.id, submissionType: "EVENT" }) });
     await setOnboardingFlagForSession(user, "hasSubmittedEvent", true, { path: "/api/my/events/[eventId]/submit" });
-
-    return NextResponse.json(updated);
+    return NextResponse.json(created);
   } catch (error) {
     if (isRateLimitError(error)) return rateLimitErrorResponse(error);
-    if (error instanceof Error && error.message === "unauthorized") {
-      return apiError(401, "unauthorized", "Authentication required");
-    }
+    if (error instanceof Error && error.message === "unauthorized") return apiError(401, "unauthorized", "Authentication required");
     return apiError(500, "internal_error", "Unexpected server error");
   }
 }
