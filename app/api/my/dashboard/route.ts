@@ -1,12 +1,18 @@
-import { requireAuth } from "@/lib/auth";
+import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { ensureDbUserForSession } from "@/lib/ensure-db-user-for-session";
 import { handleGetMyDashboard } from "@/lib/my-dashboard-route";
 
 export const runtime = "nodejs";
 
 export async function GET() {
   return handleGetMyDashboard({
-    requireAuth,
+    requireAuth: async () => {
+      const session = await getSessionUser();
+      if (!session) throw new Error("unauthorized");
+      const dbUser = await ensureDbUserForSession(session);
+      return { id: dbUser?.id ?? session.id };
+    },
     findOwnedArtistByUserId: async (userId) => db.artist.findUnique({
       where: { userId },
       select: {
@@ -15,16 +21,14 @@ export async function GET() {
         slug: true,
         bio: true,
         websiteUrl: true,
-        instagramUrl: true,
         featuredAssetId: true,
         avatarImageUrl: true,
         featuredAsset: { select: { url: true } },
       },
     }),
     listManagedVenuesByUserId: async (userId) => db.venueMembership.findMany({
-      where: { userId },
+      where: { userId, role: { in: ["OWNER", "EDITOR"] } },
       select: { venueId: true },
-      orderBy: { createdAt: "asc" },
     }).then((rows) => rows.map((row) => ({ id: row.venueId }))),
     listArtworksByArtistId: async (artistId) => db.artwork.findMany({
       where: { artistId },
@@ -37,27 +41,40 @@ export async function GET() {
         updatedAt: true,
         featuredAsset: { select: { url: true } },
         images: {
-          select: { id: true, asset: { select: { url: true } } },
+          select: { asset: { select: { url: true } } },
           orderBy: { sortOrder: "asc" },
           take: 1,
         },
+        _count: { select: { images: true } },
       },
       orderBy: { updatedAt: "desc" },
     }),
-    listEventsForDashboard: async ({ artistId, managedVenueIds, start, end }) => db.event.findMany({
+    listEventsByContext: async ({ artistId, managedVenueIds }) => db.event.findMany({
       where: {
-        startAt: { gte: start, lte: end },
         OR: [
-          managedVenueIds.length ? { venueId: { in: managedVenueIds } } : undefined,
+          managedVenueIds.length > 0 ? { venueId: { in: managedVenueIds } } : undefined,
           { eventArtists: { some: { artistId } } },
         ].filter(Boolean) as never,
       },
-      select: { id: true, slug: true, title: true, startAt: true, updatedAt: true, venueId: true },
-      orderBy: { startAt: "asc" },
-      take: 20,
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        startAt: true,
+        updatedAt: true,
+        isPublished: true,
+        venueId: true,
+        venue: { select: { name: true } },
+      },
+      orderBy: [{ startAt: "asc" }, { updatedAt: "desc" }],
+      take: 200,
     }),
     listArtworkViewDailyRows: async (artworkIds, start) => db.pageViewDaily.findMany({
-      where: { entityType: "ARTWORK", entityId: { in: artworkIds }, day: { gte: start } },
+      where: {
+        entityType: "ARTWORK",
+        entityId: { in: artworkIds },
+        day: { gte: start },
+      },
       select: { entityId: true, day: true, views: true },
     }),
   });

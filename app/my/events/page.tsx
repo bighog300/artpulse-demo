@@ -9,9 +9,11 @@ import { CreateEventForm } from "@/app/my/events/_components/CreateEventForm";
 
 export const dynamic = "force-dynamic";
 
-export default async function MyEventsPage() {
+export default async function MyEventsPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
   const user = await getSessionUser();
   if (!user) redirectToLogin("/my/events");
+
+  const { filter } = await searchParams;
 
   const memberships = await db.venueMembership.findMany({
     where: { userId: user.id, role: { in: ["OWNER", "EDITOR"] } },
@@ -26,6 +28,8 @@ export default async function MyEventsPage() {
         { submissions: { some: { submitterUserId: user.id, type: "EVENT", OR: [{ kind: "PUBLISH" }, { kind: null }] } } },
         venueIds.length ? { venueId: { in: venueIds } } : {},
       ],
+      ...(filter === "missingVenue" ? { venueId: null } : {}),
+      ...(filter === "draft" ? { isPublished: false } : {}),
     },
     select: {
       id: true,
