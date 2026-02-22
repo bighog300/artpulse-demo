@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     const collections = await db.curatedCollection.findMany({
       where: query ? { OR: [{ title: { contains: query, mode: "insensitive" } }, { slug: { contains: query, mode: "insensitive" } }] } : undefined,
       orderBy: { updatedAt: "desc" },
-      select: { id: true, slug: true, title: true, description: true, isPublished: true, updatedAt: true, _count: { select: { items: true } } },
+      select: { id: true, slug: true, title: true, description: true, isPublished: true, publishStartsAt: true, publishEndsAt: true, homeRank: true, showOnHome: true, showOnArtwork: true, updatedAt: true, _count: { select: { items: true } } },
       take: 100,
     });
     return NextResponse.json({ collections: collections.map((row) => ({ ...row, itemCount: row._count.items })) });
@@ -32,8 +32,8 @@ export async function POST(req: NextRequest) {
     if (!parsed.success) return apiError(400, "invalid_request", "Invalid payload", zodDetails(parsed.error));
 
     const created = await db.curatedCollection.create({
-      data: { slug: parsed.data.slug, title: parsed.data.title, description: parsed.data.description ?? null, isPublished: parsed.data.isPublished ?? false },
-      select: { id: true, slug: true, title: true, description: true, isPublished: true, createdAt: true, updatedAt: true },
+      data: { slug: parsed.data.slug, title: parsed.data.title, description: parsed.data.description ?? null, isPublished: parsed.data.isPublished ?? false, showOnHome: true, showOnArtwork: true },
+      select: { id: true, slug: true, title: true, description: true, isPublished: true, publishStartsAt: true, publishEndsAt: true, homeRank: true, showOnHome: true, showOnArtwork: true, createdAt: true, updatedAt: true },
     });
 
     await logAdminAction({ actorEmail: admin.email, action: "ADMIN_COLLECTION_CREATED", targetType: "curated_collection", targetId: created.id, metadata: { slug: created.slug, title: created.title }, req });

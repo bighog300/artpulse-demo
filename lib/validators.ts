@@ -186,12 +186,29 @@ export const curatedCollectionCreateSchema = z.object({
   isPublished: z.boolean().optional(),
 });
 
+
+const optionalIsoDateSchema = z.union([z.string().datetime({ offset: true }), z.string().datetime(), z.null()]).optional();
+
 export const curatedCollectionPatchSchema = z.object({
   slug: slugSchema.optional(),
   title: z.string().trim().min(1).max(160).optional(),
   description: z.string().trim().max(4000).optional().nullable(),
   isPublished: z.boolean().optional(),
-}).refine((value) => Object.keys(value).length > 0, "At least one field must be provided");
+  publishStartsAt: optionalIsoDateSchema,
+  publishEndsAt: optionalIsoDateSchema,
+  homeRank: z.number().int().min(1).max(999).nullable().optional(),
+  showOnHome: z.boolean().optional(),
+  showOnArtwork: z.boolean().optional(),
+}).superRefine((value, ctx) => {
+  if (Object.keys(value).length === 0) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "At least one field must be provided" });
+  }
+  if (value.publishStartsAt && value.publishEndsAt) {
+    if (new Date(value.publishStartsAt).getTime() >= new Date(value.publishEndsAt).getTime()) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["publishStartsAt"], message: "publishStartsAt must be before publishEndsAt" });
+    }
+  }
+});
 
 export const curatedCollectionItemsReplaceSchema = z.object({
   artworkIds: z.array(z.string().uuid()).max(50),
@@ -653,3 +670,9 @@ export function paramsToObject(searchParams: URLSearchParams) {
   }
   return out;
 }
+
+
+export const curatedCollectionHomeOrderSchema = z.object({
+  orderedIds: z.array(z.string().uuid()).max(100).refine((value) => new Set(value).size === value.length, "orderedIds must be unique"),
+  resetOthers: z.boolean().optional(),
+});

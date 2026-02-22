@@ -1,10 +1,20 @@
 import { db } from "@/lib/db";
 import { computeArtworkCompleteness } from "@/lib/artwork-completeness";
 
+type CollectionState = "FUTURE" | "EXPIRED" | "ACTIVE" | "ALWAYS" | "DRAFT";
+
+export function getCollectionState(collection: { isPublished: boolean; publishStartsAt: Date | null; publishEndsAt: Date | null }, now: Date): CollectionState {
+  if (!collection.isPublished) return "DRAFT";
+  if (collection.publishStartsAt && collection.publishStartsAt > now) return "FUTURE";
+  if (collection.publishEndsAt && collection.publishEndsAt <= now) return "EXPIRED";
+  if (!collection.publishStartsAt && !collection.publishEndsAt) return "ALWAYS";
+  return "ACTIVE";
+}
+
 export async function getCollectionPreview(collectionId: string) {
   const collection = await db.curatedCollection.findUnique({
     where: { id: collectionId },
-    select: { id: true, slug: true, title: true, description: true, isPublished: true },
+    select: { id: true, slug: true, title: true, description: true, isPublished: true, publishStartsAt: true, publishEndsAt: true, homeRank: true, showOnHome: true, showOnArtwork: true },
   });
   if (!collection) return null;
 
@@ -61,7 +71,7 @@ export async function getCollectionPreview(collectionId: string) {
 
 export async function getCurationQaSummary() {
   const [collections, items] = await Promise.all([
-    db.curatedCollection.findMany({ select: { id: true, title: true, slug: true, isPublished: true } }),
+    db.curatedCollection.findMany({ select: { id: true, title: true, slug: true, isPublished: true, publishStartsAt: true, publishEndsAt: true, homeRank: true } }),
     db.curatedCollectionItem.findMany({
       select: {
         collectionId: true,
@@ -82,6 +92,13 @@ export async function getCurationQaSummary() {
       },
     }),
   ]);
+
+  const now = new Date();
+  const rankCounts = new Map<number, number>();
+  for (const c of collections) {
+    if (c.homeRank == null) continue;
+    rankCounts.set(c.homeRank, (rankCounts.get(c.homeRank) ?? 0) + 1);
+  }
 
   const collectionMap = new Map(collections.map((c) => [c.id, c]));
   const itemsByCollection = new Map<string, typeof items>();
@@ -131,11 +148,17 @@ export async function getCurationQaSummary() {
       if (duplicateSet.has(row.artworkId)) duplicatesInOtherCollections += 1;
     }
 
+    const state = getCollectionState(collection, now);
+    const rankCollision = collection.homeRank != null && (rankCounts.get(collection.homeRank) ?? 0) > 1;
+
     const flags = [
       unpublishedArtworks > 0 ? "HAS_UNPUBLISHED" : null,
       missingCover > 0 ? "HAS_MISSING_COVER" : null,
       publishBlocked > 0 ? "HAS_PUBLISH_BLOCKED" : null,
       duplicatesInOtherCollections > 0 ? "HAS_DUPES" : null,
+      state === "FUTURE" ? "SCHEDULED_FUTURE" : null,
+      state === "EXPIRED" ? "EXPIRED" : null,
+      rankCollision ? "RANK_COLLISION" : null,
     ].filter((value): value is string => Boolean(value));
 
     const suggestedActions = [
@@ -143,6 +166,9 @@ export async function getCurationQaSummary() {
       missingCover > 0 ? "Add featured image or gallery image to affected artworks." : null,
       publishBlocked > 0 ? "Fix required publish fields (title + image)." : null,
       duplicatesInOtherCollections > 0 ? "Consider replacing duplicate artworks across collections." : null,
+      state === "FUTURE" ? "Collection is scheduled for the future; adjust start date to publish now." : null,
+      state === "EXPIRED" ? "Collection has expired; clear or extend end date to republish." : null,
+      rankCollision ? "Resolve homepage rank collision by saving homepage order." : null,
     ].filter((value): value is string => Boolean(value));
 
     return {
@@ -150,6 +176,9 @@ export async function getCurationQaSummary() {
       title: collection.title,
       slug: collection.slug,
       isPublished: collection.isPublished,
+      state,
+      pinned: collection.homeRank != null,
+      homeRank: collection.homeRank,
       counts: { totalItems: rows.length, unpublishedArtworks, missingCover, publishBlocked, duplicatesInOtherCollections },
       flags,
       adminEditHref: `/admin/curation?collectionId=${collection.id}`,

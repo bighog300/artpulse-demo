@@ -689,16 +689,23 @@ model ArtistFeaturedArtwork {
 }
 
 model CuratedCollection {
-  id          String                  @id @default(uuid()) @db.Uuid
-  slug        String                  @unique
-  title       String
-  description String?
-  isPublished Boolean                 @default(false)
-  createdAt   DateTime                @default(now())
-  updatedAt   DateTime                @updatedAt
-  items       CuratedCollectionItem[]
+  id              String                  @id @default(uuid()) @db.Uuid
+  slug            String                  @unique
+  title           String
+  description     String?
+  isPublished     Boolean                 @default(false)
+  publishStartsAt DateTime?
+  publishEndsAt   DateTime?
+  homeRank        Int?
+  showOnHome      Boolean                 @default(true)
+  showOnArtwork   Boolean                 @default(true)
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  items           CuratedCollectionItem[]
 
-  @@index([isPublished])
+  @@index([isPublished, publishStartsAt, publishEndsAt])
+  @@index([homeRank])
+  @@index([updatedAt])
 }
 
 model CuratedCollectionItem {
