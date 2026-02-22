@@ -65,7 +65,7 @@ export function computeArtworkAnalytics(
   let last90 = 0;
 
   const daily30ByDay = new Map(buildZeroFilledDailySeries(30, now).map((row) => [row.day, row.views]));
-  const top30ByArtwork = new Map<string, number>();
+  const top30ByArtwork = new Map(artworks.map((item) => [item.id, 0]));
 
   for (const row of dailyRows) {
     const key = dayKey(row.day);
@@ -82,7 +82,13 @@ export function computeArtworkAnalytics(
   const top30 = Array.from(top30ByArtwork.entries())
     .map(([artworkId, views]) => ({ artworkId, views, artwork: artworkById.get(artworkId) }))
     .filter((item) => item.artwork)
-    .sort((a, b) => b.views - a.views)
+    .sort((a, b) => {
+      const viewDiff = b.views - a.views;
+      if (viewDiff !== 0) return viewDiff;
+      const titleDiff = a.artwork!.title.localeCompare(b.artwork!.title);
+      if (titleDiff !== 0) return titleDiff;
+      return a.artworkId.localeCompare(b.artworkId);
+    })
     .slice(0, 10)
     .map((item) => ({ artworkId: item.artworkId, views: item.views, title: item.artwork!.title, slug: item.artwork!.slug }));
 
