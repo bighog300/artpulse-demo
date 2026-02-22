@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 type EntityName = "venues" | "events" | "artists";
 
@@ -31,7 +31,7 @@ export function AdminEntityManagerClient({ entity, fields, title, defaultMatchBy
 
   const maxPage = useMemo(() => Math.max(1, Math.ceil(total / 20)), [total]);
 
-  async function loadData(nextQuery = query, nextPage = page) {
+  const loadData = useCallback(async (nextQuery = query, nextPage = page) => {
     setBusy(true);
     setError(null);
     try {
@@ -47,9 +47,9 @@ export function AdminEntityManagerClient({ entity, fields, title, defaultMatchBy
     } finally {
       setBusy(false);
     }
-  }
+  }, [entity, page, query]);
 
-  async function loadPresets() {
+  const loadPresets = useCallback(async () => {
     try {
       const params = new URLSearchParams({ entityType: entity });
       const res = await fetch(`/api/admin/import-mapping-presets?${params.toString()}`);
@@ -59,18 +59,18 @@ export function AdminEntityManagerClient({ entity, fields, title, defaultMatchBy
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load presets");
     }
-  }
+  }, [entity]);
 
   useEffect(() => {
     const timer = setTimeout(() => void loadData(query, page), 250);
     return () => clearTimeout(timer);
-  }, [query, page]);
+  }, [loadData, page, query]);
 
   useEffect(() => {
     if (!importOpen) return;
     setPresetNotice(null);
     void loadPresets();
-  }, [importOpen, entity]);
+  }, [importOpen, loadPresets]);
 
   function startEdit(item: Record<string, unknown>) {
     const id = String(item.id ?? "");

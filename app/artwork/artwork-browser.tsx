@@ -54,7 +54,7 @@ export function ArtworkBrowser({ signedIn }: { signedIn: boolean }) {
   }, [queryDraft]);
 
   useEffect(() => {
-    let active = true;
+    const active = true;
     setLoading(true);
     fetch(`/api/artwork?${queryString}`)
       .then((res) => res.json())
