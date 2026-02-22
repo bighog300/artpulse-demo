@@ -12,6 +12,7 @@ import { ArtistVenuesPanel } from "@/components/artists/artist-venues-panel";
 import { Button } from "@/components/ui/button";
 import { countAllArtworksByArtist } from "@/lib/artworks";
 import { ArtistFeaturedArtworksPanel } from "@/components/artists/artist-featured-artworks-panel";
+import { CreateArtistProfileForm } from "@/app/my/artist/_components/CreateArtistProfileForm";
 
 export default async function MyArtistPage() {
   const user = await getSessionUser();
@@ -58,7 +59,8 @@ export default async function MyArtistPage() {
     return (
       <main className="space-y-4 p-6">
         <h1 className="text-2xl font-semibold">My Artist Profile</h1>
-        <p className="rounded border border-dashed p-4 text-sm text-muted-foreground">No artist profile is linked to your account yet. Ask an editor to connect your Artist record to your user account.</p>
+        <p className="text-sm text-muted-foreground">Create your draft artist profile to unlock your creator hub. Editorial review is still required before publishing.</p>
+        <CreateArtistProfileForm />
       </main>
     );
   }
