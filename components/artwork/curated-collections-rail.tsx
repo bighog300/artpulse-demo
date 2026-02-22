@@ -1,10 +1,14 @@
 import Link from "next/link";
 import Image from "next/image";
-import { listPublishedCuratedCollections } from "@/lib/curated-collections";
+import { CollectionSurface, listPublishedCuratedCollections } from "@/lib/curated-collections";
 import { getArtworkPublicHref } from "@/lib/artworks";
 
-export async function CuratedCollectionsRail() {
-  const collections = await listPublishedCuratedCollections(8);
+type Props = {
+  surface?: CollectionSurface;
+};
+
+export async function CuratedCollectionsRail({ surface = "home" }: Props) {
+  const collections = await listPublishedCuratedCollections(8, surface);
   if (!collections.length) return null;
 
   const recentCutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
@@ -15,6 +19,8 @@ export async function CuratedCollectionsRail() {
       <div className="space-y-4">
         {collections.map((collection) => {
           const isRecent = collection.updatedAt && new Date(collection.updatedAt).getTime() >= recentCutoff;
+          const endsInDays = collection.publishEndsAt ? Math.ceil((new Date(collection.publishEndsAt).getTime() - Date.now()) / (24 * 60 * 60 * 1000)) : null;
+          const showEndingSoon = typeof endsInDays === "number" && endsInDays >= 0 && endsInDays <= 7;
           return (
             <div key={collection.id} className="rounded border p-3">
               <div className="mb-2 flex items-center justify-between gap-2">
@@ -22,6 +28,7 @@ export async function CuratedCollectionsRail() {
                   <div className="flex items-center gap-2">
                     <h3 className="font-medium">{collection.title}</h3>
                     {isRecent ? <span className="rounded bg-muted px-2 py-0.5 text-xs">Updated recently</span> : null}
+                    {showEndingSoon ? <span className="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-900">Ends in {endsInDays} day{endsInDays === 1 ? "" : "s"}</span> : null}
                   </div>
                   {collection.description ? <p className="text-sm text-muted-foreground">{collection.description}</p> : null}
                 </div>

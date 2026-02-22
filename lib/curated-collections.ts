@@ -14,12 +14,16 @@ export type CuratedCollectionPublic = {
   slug: string;
   title: string;
   description: string | null;
+  publishStartsAt: Date | null;
+  publishEndsAt: Date | null;
+  homeRank: number | null;
   artworks: CuratedCollectionArtwork[];
   updatedAt?: Date;
   itemCount?: number;
 };
 
 export type CollectionSortMode = "CURATED" | "VIEWS_30D_DESC" | "NEWEST";
+export type CollectionSurface = "home" | "artwork";
 
 export type CollectionQueryInput = {
   sort?: CollectionSortMode;
@@ -37,8 +41,30 @@ const artworkSelect = {
   images: { orderBy: [{ sortOrder: "asc" as const }, { createdAt: "asc" as const }], take: 1, select: { asset: { select: { url: true } } } },
 };
 
-export async function listPublishedCuratedCollections(limitItems = 8): Promise<CuratedCollectionPublic[]> {
-  const collections = await db.curatedCollection.findMany({ where: { isPublished: true }, orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }], select: { id: true, slug: true, title: true, description: true, updatedAt: true } });
+export function getCollectionVisibilityWhere(now = new Date()) {
+  return {
+    isPublished: true,
+    AND: [
+      { OR: [{ publishStartsAt: null }, { publishStartsAt: { lte: now } }] },
+      { OR: [{ publishEndsAt: null }, { publishEndsAt: { gt: now } }] },
+    ],
+  };
+}
+
+function getSurfaceWhere(surface: CollectionSurface) {
+  return surface === "home" ? { showOnHome: true } : { showOnArtwork: true };
+}
+
+export function getCollectionOrderBy() {
+  return [{ homeRank: "asc" as const }, { updatedAt: "desc" as const }, { id: "asc" as const }];
+}
+
+export async function listPublishedCuratedCollections(limitItems = 8, surface: CollectionSurface = "home"): Promise<CuratedCollectionPublic[]> {
+  const collections = await db.curatedCollection.findMany({
+    where: { ...getCollectionVisibilityWhere(), ...getSurfaceWhere(surface) },
+    orderBy: getCollectionOrderBy(),
+    select: { id: true, slug: true, title: true, description: true, publishStartsAt: true, publishEndsAt: true, homeRank: true, updatedAt: true },
+  });
   if (!collections.length) return [];
 
   const items = await db.curatedCollectionItem.findMany({
@@ -78,7 +104,10 @@ export async function getPublishedCuratedCollectionBySlug(slug: string, input: C
   const page = Math.max(1, input.page ?? 1);
   const pageSize = Math.min(48, Math.max(1, input.pageSize ?? 48));
 
-  const collection = await db.curatedCollection.findFirst({ where: { slug, isPublished: true }, select: { id: true, slug: true, title: true, description: true, updatedAt: true } });
+  const collection = await db.curatedCollection.findFirst({
+    where: { slug, ...getCollectionVisibilityWhere() },
+    select: { id: true, slug: true, title: true, description: true, publishStartsAt: true, publishEndsAt: true, homeRank: true, updatedAt: true },
+  });
   if (!collection) return null;
   const items = await db.curatedCollectionItem.findMany({
     where: { collectionId: collection.id, artwork: { isPublished: true } },

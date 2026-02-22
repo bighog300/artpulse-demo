@@ -7,6 +7,13 @@ import { curatedCollectionPatchSchema, idParamSchema, parseBody, zodDetails } fr
 
 export const runtime = "nodejs";
 
+function toPatchData(data: Record<string, unknown>) {
+  const next = { ...data } as Record<string, unknown>;
+  if ("publishStartsAt" in next) next.publishStartsAt = next.publishStartsAt ? new Date(String(next.publishStartsAt)) : null;
+  if ("publishEndsAt" in next) next.publishEndsAt = next.publishEndsAt ? new Date(String(next.publishEndsAt)) : null;
+  return next;
+}
+
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const admin = await requireAdmin();
@@ -15,10 +22,23 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const parsed = curatedCollectionPatchSchema.safeParse(await parseBody(req));
     if (!parsed.success) return apiError(400, "invalid_request", "Invalid payload", zodDetails(parsed.error));
 
+    const patchData = toPatchData(parsed.data);
     const updated = await db.curatedCollection.update({
       where: { id: parsedParams.data.id },
-      data: parsed.data,
-      select: { id: true, slug: true, title: true, description: true, isPublished: true, updatedAt: true },
+      data: patchData,
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        description: true,
+        isPublished: true,
+        publishStartsAt: true,
+        publishEndsAt: true,
+        homeRank: true,
+        showOnHome: true,
+        showOnArtwork: true,
+        updatedAt: true,
+      },
     });
     await logAdminAction({ actorEmail: admin.email, action: "ADMIN_COLLECTION_UPDATED", targetType: "curated_collection", targetId: updated.id, metadata: parsed.data, req });
     return NextResponse.json({ collection: updated });
