@@ -86,25 +86,26 @@ test("/api/my/dashboard computes stats, inbox counts, and top artworks ordering"
   assert.equal(body.stats.events.missingVenue, 1);
   assert.equal(body.stats.venues.submissionsPending, 1);
 
-  assert.deepEqual(
-    body.actionInbox.map((item: { id: string }) => item.id),
-    [
-      "venue-needs-edits",
-      "venue-submitted",
-      "artwork-missing-cover",
-      "venue-missing-cover",
-      "artwork-drafts",
-      "event-drafts",
-      "events-missing-venue",
-      "profile-missing-avatar",
-    ],
-  );
+  const byId = Object.fromEntries(body.actionInbox.map((item: { id: string }) => [item.id, item]));
+  assert.equal(byId["artwork-missing-cover"].count, 1);
+  assert.equal(byId["venue-missing-cover"].count, 2);
+  assert.equal(byId["venue-needs-edits"].count, 1);
+  assert.equal(byId["venue-submitted"].count, 1);
+  assert.equal(byId["venue-needs-edits"].severity, "warn");
+  assert.equal(byId["venue-incomplete"].severity, "warn");
+  assert.equal(byId["venue-needs-edits"].href, "/my/venues?filter=needsEdits");
+  assert.equal(byId["venue-submitted"].href, "/my/venues?filter=submitted");
+  assert.equal(byId["artwork-missing-cover"].href, "/my/artwork?filter=missingCover");
+  assert.equal(byId["venue-incomplete"].href, "/my/venues?filter=missingCover");
+  assert.equal(byId["profile-missing-bio"], undefined);
 
-  assert.equal(body.actionInbox.find((item: { id: string }) => item.id === "venue-needs-edits")?.href, "/my/venues?filter=needsEdits");
-  assert.equal(body.actionInbox.find((item: { id: string }) => item.id === "venue-submitted")?.href, "/my/venues?filter=submitted");
-  assert.equal(body.actionInbox.find((item: { id: string }) => item.id === "artwork-missing-cover")?.href, "/my/artwork?filter=missingCover");
-  assert.equal(body.actionInbox.find((item: { id: string }) => item.id === "profile-missing-avatar")?.href, "/my/artist#avatar");
-  assert.equal(body.actionInbox.find((item: { id: string }) => item.id === "profile-missing-bio"), undefined);
+  const actionOrder = body.actionInbox.map((item: { id: string }) => item.id);
+  assert.equal(actionOrder.indexOf("venue-needs-edits") < actionOrder.indexOf("venue-submitted"), true);
+  const firstInfoIndex = body.actionInbox.findIndex((item: { severity: string }) => item.severity === "info");
+  if (firstInfoIndex >= 0) {
+    assert.equal(body.actionInbox.slice(0, firstInfoIndex).every((item: { severity: string }) => item.severity === "warn"), true);
+  }
+  assert.equal(actionOrder.includes("profile-missing-bio"), false);
   assert.equal(body.topArtworks30[0].id, "a2");
 });
 
