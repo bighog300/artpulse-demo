@@ -17,6 +17,7 @@
 ### Local
 - Minimal local build: `AUTH_SECRET=dev-secret pnpm build`
 - Local checks can run without full production env.
+- Build does not require external font downloads; system fonts are used by default.
 
 ## Vercel plan limits
 - On Vercel Hobby, cron must be daily. This repo uses daily schedules in `vercel.json`.
