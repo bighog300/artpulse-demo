@@ -20,7 +20,7 @@ export default async function MyEventEditPage({ params }: { params: Promise<{ ev
         { venue: { memberships: { some: { userId: user.id, role: { in: ["OWNER", "EDITOR"] } } } } },
       ],
     },
-    select: { id: true, title: true, startAt: true, endAt: true, venueId: true, ticketUrl: true, isPublished: true },
+    select: { id: true, title: true, slug: true, startAt: true, endAt: true, venueId: true, ticketUrl: true, isPublished: true, submissions: { where: { type: "EVENT", OR: [{ kind: "PUBLISH" }, { kind: null }] }, orderBy: { createdAt: "desc" }, take: 1, select: { status: true, submittedAt: true, decidedAt: true, decisionReason: true } } },
   });
 
   if (!event) notFound();
@@ -30,7 +30,7 @@ export default async function MyEventEditPage({ params }: { params: Promise<{ ev
     <main className="p-6 space-y-4">
       <h1 className="text-2xl font-semibold">Edit event</h1>
       <PublishReadinessChecklist title="Event submit readiness" ready={readiness.ready} blocking={readiness.blocking} warnings={readiness.warnings} />
-      <EditEventForm event={event} readyToSubmit={readiness.ready} />
+      <EditEventForm event={event} readyToSubmit={readiness.ready} submission={{ status: event.submissions[0]?.status ?? null, submittedAt: event.submissions[0]?.submittedAt?.toISOString() ?? null, reviewedAt: event.submissions[0]?.decidedAt?.toISOString() ?? null, rejectionReason: event.submissions[0]?.decisionReason ?? null }} />
     </main>
   );
 }

@@ -24,23 +24,17 @@ export async function POST(req: NextRequest) {
       select: { id: true, slug: true },
     }),
     upsertArtistSubmission: async (artistId, userId) => {
-      const existing = await db.submission.findFirst({
+      const latest = await db.submission.findFirst({
         where: { targetArtistId: artistId, type: "ARTIST", kind: "PUBLISH" },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-        select: { id: true },
+        select: { id: true, status: true },
       });
 
-      if (existing) {
-        await db.submission.update({
-          where: { id: existing.id },
-          data: {
-            status: "DRAFT",
-            submitterUserId: userId,
-            kind: "PUBLISH",
-          },
-        });
+      if (latest?.status === "DRAFT") {
+        await db.submission.update({ where: { id: latest.id }, data: { submitterUserId: userId } });
         return;
       }
+      if (latest?.status === "SUBMITTED") return;
 
       await db.submission.create({
         data: {

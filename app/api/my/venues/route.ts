@@ -94,24 +94,12 @@ export async function POST(req: NextRequest) {
       });
     },
     upsertVenueDraftSubmission: async (venueId, userId) => {
-      const current = await db.submission.findUnique({ where: { targetVenueId: venueId }, select: { id: true, status: true } });
-
-      if (current) {
-        await db.submission.update({
-          where: { id: current.id },
-          data: {
-            status: current.status === "APPROVED" ? current.status : "DRAFT",
-            submitterUserId: userId,
-            type: "VENUE",
-            kind: "PUBLISH",
-            decidedAt: current.status === "APPROVED" ? undefined : null,
-            decidedByUserId: current.status === "APPROVED" ? undefined : null,
-            decisionReason: current.status === "APPROVED" ? undefined : null,
-            submittedAt: null,
-          },
-        });
+      const latest = await db.submission.findFirst({ where: { targetVenueId: venueId, type: "VENUE", kind: "PUBLISH" }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], select: { id: true, status: true } });
+      if (latest?.status === "DRAFT") {
+        await db.submission.update({ where: { id: latest.id }, data: { submitterUserId: userId } });
         return;
       }
+      if (latest?.status === "SUBMITTED") return;
 
       await db.submission.create({
         data: {
