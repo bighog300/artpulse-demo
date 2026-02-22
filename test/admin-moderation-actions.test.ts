@@ -1,0 +1,72 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { NextRequest } from "next/server";
+import { handleAdminModerationApprove, handleAdminModerationReject } from "../lib/admin-moderation-route";
+
+const params = { submissionId: "11111111-1111-4111-8111-111111111111" };
+
+test("approve transitions submitted and publishes entity", async () => {
+  let approved = false;
+  const res = await handleAdminModerationApprove("VENUE", params, {
+    requireAdminUser: async () => ({ id: "admin-1", email: "admin@example.com" }),
+    findSubmission: async () => ({ id: params.submissionId, status: "SUBMITTED", targetArtistId: null, targetVenueId: "venue-1", targetEventId: null }),
+    approveSubmission: async (_type, _submissionId, admin) => {
+      approved = admin.id === "admin-1";
+    },
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(approved, true);
+});
+
+test("reject transitions submitted and does not publish", async () => {
+  let rejectionReason = "";
+  const req = new NextRequest("http://localhost/api/admin/moderation/venue/11111111-1111-4111-8111-111111111111/reject", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ rejectionReason: "Please add better photography and details." }),
+  });
+
+  const res = await handleAdminModerationReject(req, "VENUE", params, {
+    requireAdminUser: async () => ({ id: "admin-1", email: "admin@example.com" }),
+    findSubmission: async () => ({ id: params.submissionId, status: "SUBMITTED", targetArtistId: null, targetVenueId: "venue-1", targetEventId: null }),
+    rejectSubmission: async (_type, _submissionId, _admin, reason) => {
+      rejectionReason = reason;
+    },
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(rejectionReason.length >= 5, true);
+});
+
+test("already decided returns 409", async () => {
+  const res = await handleAdminModerationApprove("ARTIST", params, {
+    requireAdminUser: async () => ({ id: "admin-1", email: "admin@example.com" }),
+    findSubmission: async () => ({ id: params.submissionId, status: "APPROVED", targetArtistId: "artist-1", targetVenueId: null, targetEventId: null }),
+    approveSubmission: async () => undefined,
+  });
+
+  assert.equal(res.status, 409);
+});
+
+test("approve/reject invoke audit-capable deps", async () => {
+  const actions: string[] = [];
+  await handleAdminModerationApprove("EVENT", params, {
+    requireAdminUser: async () => ({ id: "admin-1", email: "admin@example.com" }),
+    findSubmission: async () => ({ id: params.submissionId, status: "SUBMITTED", targetArtistId: null, targetVenueId: null, targetEventId: "event-1" }),
+    approveSubmission: async () => { actions.push("ADMIN_SUBMISSION_APPROVED"); },
+  });
+
+  const rejectReq = new NextRequest("http://localhost", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ rejectionReason: "Need updates before publishing." }),
+  });
+  await handleAdminModerationReject(rejectReq, "EVENT", params, {
+    requireAdminUser: async () => ({ id: "admin-1", email: "admin@example.com" }),
+    findSubmission: async () => ({ id: params.submissionId, status: "SUBMITTED", targetArtistId: null, targetVenueId: null, targetEventId: "event-1" }),
+    rejectSubmission: async () => { actions.push("ADMIN_SUBMISSION_REJECTED"); },
+  });
+
+  assert.deepEqual(actions, ["ADMIN_SUBMISSION_APPROVED", "ADMIN_SUBMISSION_REJECTED"]);
+});
