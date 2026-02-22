@@ -48,20 +48,21 @@ test("handleVenueEventSubmit returns forbidden when user is not a venue member",
   assert.equal(body.error.code, "forbidden");
 });
 
-test("handleVenueEventSubmit returns invalid_request with issues when event is incomplete", async () => {
+test("handleVenueEventSubmit returns NOT_READY when event is incomplete", async () => {
   const req = new NextRequest(`http://localhost/api/my/venues/${venueId}/events/${eventId}/submit`, { method: "POST" });
   const res = await handleVenueEventSubmit(req, Promise.resolve({ venueId, eventId }), {
     requireAuth: async () => ({ id: "user-1", email: "user@example.com" }),
     requireVenueMembership: async () => undefined,
-    findEventForSubmit: async () => ({ ...completeEvent, description: "short", images: [] }),
+    findEventForSubmit: async () => ({ ...completeEvent, venueId: null }),
     upsertSubmission: async () => ({ id: "sub-1", status: "SUBMITTED", createdAt: new Date(), submittedAt: new Date() }),
     enqueueSubmissionNotification: async () => undefined,
   });
 
   assert.equal(res.status, 400);
   const body = await res.json();
-  assert.equal(body.error.code, "invalid_request");
-  assert.equal(Array.isArray(body.error.details.issues), true);
+  assert.equal(body.error, "NOT_READY");
+  assert.equal(Array.isArray(body.blocking), true);
+  assert.equal(body.blocking.some((item: { id: string }) => item.id === "event-venue"), true);
 });
 
 test("handleVenueEventSubmit creates submission when event is complete", async () => {

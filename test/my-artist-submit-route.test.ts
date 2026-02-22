@@ -38,7 +38,7 @@ test("handleMyArtistSubmit returns forbidden when user has no owned artist", asy
   assert.equal(body.error.code, "forbidden");
 });
 
-test("handleMyArtistSubmit returns invalid_request with issues", async () => {
+test("handleMyArtistSubmit returns NOT_READY with blocking checks", async () => {
   const req = new NextRequest("http://localhost/api/my/artist/submit", { method: "POST" });
   const res = await handleMyArtistSubmit(req, {
     requireAuth: async () => ({ id: "user-1", email: "user@example.com" }),
@@ -49,8 +49,9 @@ test("handleMyArtistSubmit returns invalid_request with issues", async () => {
 
   assert.equal(res.status, 400);
   const body = await res.json();
-  assert.equal(body.error.code, "invalid_request");
-  assert.equal(Array.isArray(body.error.details.issues), true);
+  assert.equal(body.error, "NOT_READY");
+  assert.equal(Array.isArray(body.blocking), true);
+  assert.equal(body.blocking.some((item: { id: string }) => item.id === "artist-avatar"), true);
 });
 
 test("handleMyArtistSubmit creates submission when artist is complete", async () => {

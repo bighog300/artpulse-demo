@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
 import type { AdminAuditInput } from "@/lib/admin-audit";
-import { computeArtworkCompleteness } from "@/lib/artwork-completeness";
+import { evaluateArtworkReadiness } from "@/lib/publish-readiness";
 
 type SessionUser = { email: string };
 
@@ -18,8 +18,7 @@ type ArtworkPublishRecord = {
 type Deps = {
   requireMyArtworkAccess: (artworkId: string) => Promise<{ user: SessionUser }>;
   findArtworkById: (artworkId: string) => Promise<ArtworkPublishRecord | null>;
-  countArtworkImages: (artworkId: string) => Promise<number>;
-  findFirstArtworkImageAssetId: (artworkId: string) => Promise<string | null>;
+  listArtworkImages: (artworkId: string) => Promise<Array<{ id: string; assetId: string }>>;
   updateArtworkPublishState: (artworkId: string, input: { isPublished: boolean; featuredAssetId?: string }) => Promise<ArtworkPublishRecord>;
   logAdminAction: (input: AdminAuditInput) => Promise<void>;
 };
@@ -36,22 +35,21 @@ export async function handlePatchArtworkPublish(req: NextRequest, input: { artwo
 
     const artwork = await deps.findArtworkById(input.artworkId);
     if (!artwork) return apiError(404, "not_found", "Artwork not found");
+    const images = await deps.listArtworkImages(input.artworkId);
 
-    const imageCount = await deps.countArtworkImages(input.artworkId);
-    const completeness = computeArtworkCompleteness(artwork, imageCount);
-
-    if (!completeness.required.ok) {
+    const readiness = evaluateArtworkReadiness(artwork, images);
+    if (!readiness.ready) {
+      console.warn("FAIL_REASON=NOT_READY entity=artwork");
       return NextResponse.json({
-        error: "ARTWORK_NOT_PUBLISHABLE",
-        message: "Artwork is missing required fields to publish.",
-        requiredIssues: completeness.required.issues,
-      }, { status: 409 });
+        error: "NOT_READY",
+        message: "Complete required fields before submitting.",
+        blocking: readiness.blocking,
+        warnings: readiness.warnings,
+      }, { status: 400 });
     }
 
     let featuredAssetId = artwork.featuredAssetId;
-    if (!featuredAssetId && imageCount > 0) {
-      featuredAssetId = await deps.findFirstArtworkImageAssetId(input.artworkId);
-    }
+    if (!featuredAssetId && images.length > 0) featuredAssetId = images[0]?.assetId ?? undefined;
 
     const updated = await deps.updateArtworkPublishState(input.artworkId, {
       isPublished: true,

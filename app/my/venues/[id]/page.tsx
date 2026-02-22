@@ -9,9 +9,10 @@ import { PageHeader } from "@/components/ui/page-header";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { VenueGalleryManager } from "@/components/venues/venue-gallery-manager";
 import { resolveImageUrl } from "@/lib/assets";
-import { getVenuePublishIssues } from "@/lib/venue-publish";
 import VenuePublishPanel from "@/app/my/_components/VenuePublishPanel";
 import VenueArtistRequestsPanel from "@/app/my/_components/VenueArtistRequestsPanel";
+import { evaluateVenueReadiness } from "@/lib/publish-readiness";
+import { PublishReadinessChecklist } from "@/components/publishing/publish-readiness-checklist";
 
 export default async function MyVenueEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -92,10 +93,13 @@ export default async function MyVenueEditPage({ params }: { params: Promise<{ id
   if (!venue) notFound();
 
   const submission = venue.targetSubmissions[0] ?? null;
+  const readiness = evaluateVenueReadiness({ name: venue.name, city: venue.city, country: venue.country, featuredAssetId: venue.featuredAssetId, websiteUrl: venue.websiteUrl });
 
   return (
     <main className="space-y-6 p-6">
       <PageHeader title="Edit Venue" subtitle="Update venue details and team access settings." />
+
+      <PublishReadinessChecklist title="Venue publish readiness" ready={readiness.ready} blocking={readiness.blocking} warnings={readiness.warnings} />
 
       <VenuePublishPanel
         venueId={venue.id}
@@ -105,17 +109,7 @@ export default async function MyVenueEditPage({ params }: { params: Promise<{ id
         submissionStatus={submission?.status ?? null}
         submittedAt={submission?.submittedAt?.toISOString() ?? null}
         decisionReason={submission?.decisionReason ?? null}
-        initialIssues={getVenuePublishIssues({
-          name: venue.name,
-          description: venue.description,
-          featuredAssetId: venue.featuredAssetId,
-          featuredImageUrl: venue.featuredImageUrl,
-          addressLine1: venue.addressLine1,
-          city: venue.city,
-          country: venue.country,
-          websiteUrl: venue.websiteUrl,
-          images: venue.images.map((image) => ({ id: image.id })),
-        })}
+        initialIssues={readiness.blocking.map((item) => ({ field: item.id, message: item.label }))}
       />
 
       <VenueSelfServeForm venue={venue} submissionStatus={submission?.status ?? null} />

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
-import { getArtistPublishIssues } from "@/lib/artist-publish";
+import { evaluateArtistReadiness } from "@/lib/publish-readiness";
 import { artistSubmitBodySchema, parseBody, zodDetails } from "@/lib/validators";
 import { RATE_LIMITS, enforceRateLimit, isRateLimitError, principalRateLimitKey, rateLimitErrorResponse } from "@/lib/rate-limit";
 import { buildInAppFromTemplate, enqueueNotification } from "@/lib/notifications";
@@ -48,8 +48,16 @@ export async function handleMyArtistSubmit(req: NextRequest, deps: SubmitArtistD
     const artist = await deps.findOwnedArtistByUserId(user.id);
     if (!artist) return apiError(403, "forbidden", "Artist ownership required");
 
-    const issues = getArtistPublishIssues(artist);
-    if (issues.length > 0) return apiError(400, "invalid_request", "Artist profile is not ready for review", { issues });
+    const readiness = evaluateArtistReadiness(artist);
+    if (!readiness.ready) {
+      console.warn("FAIL_REASON=NOT_READY entity=artist");
+      return NextResponse.json({
+        error: "NOT_READY",
+        message: "Complete required fields before submitting.",
+        blocking: readiness.blocking,
+        warnings: readiness.warnings,
+      }, { status: 400 });
+    }
 
     const submission = await deps.createSubmission({
       artistId: artist.id,

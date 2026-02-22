@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
 import { resolveImageUrl } from "@/lib/assets";
 import { computeArtworkAnalytics, type ArtworkAnalyticsInputDailyRow } from "@/lib/artwork-analytics";
+import { evaluateArtistReadiness, evaluateVenueReadiness, evaluateArtworkReadiness } from "@/lib/publish-readiness";
 
 type SessionUser = { id: string };
 
@@ -197,7 +198,7 @@ export async function handleGetMyDashboard(deps: Deps) {
 
     const publishedArtworkCount = artworks.filter((item) => item.isPublished).length;
     const artworkDraftCount = artworks.length - publishedArtworkCount;
-    const missingCoverCount = artworks.filter((item) => !item.featuredAssetId && item._count.images === 0).length;
+    const missingCoverCount = artworks.filter((item) => evaluateArtworkReadiness({ title: item.title, featuredAssetId: item.featuredAssetId, medium: null, year: null }, item._count.images > 0 ? [{ id: "img" }] : []).blocking.some((check) => check.id === "artwork-images" || check.id === "artwork-cover")).length;
 
     const upcomingEvents = events
       .filter((item) => item.startAt >= today && item.startAt <= next30)
@@ -223,18 +224,20 @@ export async function handleGetMyDashboard(deps: Deps) {
       });
     const venuePublishedCount = venueList.filter((venue) => venue.isPublished).length;
     const venueDraftCount = venueList.filter((venue) => !venue.isPublished).length;
+    const venueIncompleteCount = venueList.filter((venue) => !evaluateVenueReadiness({ name: venue.name, city: venue.city, country: venue.country, featuredAssetId: venue.coverUrl ? "cover" : null }).ready).length;
     const venueMissingCoverCount = venueList.filter((venue) => !venue.coverUrl).length;
     const venueSubmissionsPending = venueList.filter((venue) => venue.submissionStatus === "SUBMITTED").length;
     const venueSubmissionsNeedsEdits = venueList.filter((venue) => venue.submissionStatus === "REJECTED").length;
-    const hasAvatar = Boolean(artist.featuredAssetId || artist.avatarImageUrl || artist.featuredAsset?.url);
-    const profileMissingAvatarCount = hasAvatar ? 0 : 1;
-    const profileMissingBioCount = artist.bio?.trim() ? 0 : 1;
+    const artistReadiness = evaluateArtistReadiness({ name: artist.name, bio: artist.bio, featuredAssetId: artist.featuredAssetId, websiteUrl: artist.websiteUrl });
+    const profileMissingAvatarCount = artistReadiness.blocking.some((item) => item.id === "artist-avatar") ? 1 : 0;
+    const profileMissingBioCount = artistReadiness.blocking.some((item) => item.id === "artist-bio") ? 1 : 0;
 
     const actionInbox = buildActionInbox([
       { id: "artwork-missing-cover", label: "Artworks missing cover", count: missingCoverCount, href: "/my/artwork?filter=missingCover", severity: "warn" },
       { id: "artwork-drafts", label: "Draft artworks", count: artworkDraftCount, href: "/my/artwork?filter=draft", severity: "warn" },
       { id: "events-missing-venue", label: "Events missing venue", count: missingVenueCount, href: "/my/events?filter=missingVenue", severity: "warn" },
       { id: "event-drafts", label: "Draft events", count: draftEventCount, href: "/my/events?filter=draft", severity: "warn" },
+      { id: "venue-incomplete", label: "Venue incomplete", count: venueIncompleteCount, href: "/my/venues?filter=missingCover", severity: "warn" },
       { id: "venue-missing-cover", label: "Venues missing cover", count: venueMissingCoverCount, href: "/my/venues?filter=missingCover", severity: "warn" },
       { id: "venue-needs-edits", label: "Venue submissions needing edits", count: venueSubmissionsNeedsEdits, href: "/my/venues?filter=needsEdits", severity: "warn" },
       { id: "venue-submitted", label: "Venue submissions pending moderation", count: venueSubmissionsPending, href: "/my/venues?filter=submitted", severity: "warn" },

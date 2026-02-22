@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { redirectToLogin } from "@/lib/auth-redirect";
 import { EditEventForm } from "@/app/my/events/[eventId]/page-client";
+import { evaluateEventReadiness } from "@/lib/publish-readiness";
+import { PublishReadinessChecklist } from "@/components/publishing/publish-readiness-checklist";
 
 export default async function MyEventEditPage({ params }: { params: Promise<{ eventId: string }> }) {
   const user = await getSessionUser();
@@ -18,15 +20,17 @@ export default async function MyEventEditPage({ params }: { params: Promise<{ ev
         { venue: { memberships: { some: { userId: user.id, role: { in: ["OWNER", "EDITOR"] } } } } },
       ],
     },
-    select: { id: true, title: true, startAt: true, endAt: true, venueId: true, isPublished: true },
+    select: { id: true, title: true, startAt: true, endAt: true, venueId: true, ticketUrl: true, isPublished: true },
   });
 
   if (!event) notFound();
+  const readiness = evaluateEventReadiness(event, event.venueId ? { id: event.venueId } : null);
 
   return (
     <main className="p-6 space-y-4">
       <h1 className="text-2xl font-semibold">Edit event</h1>
-      <EditEventForm event={event} />
+      <PublishReadinessChecklist title="Event submit readiness" ready={readiness.ready} blocking={readiness.blocking} warnings={readiness.warnings} />
+      <EditEventForm event={event} readyToSubmit={readiness.ready} />
     </main>
   );
 }

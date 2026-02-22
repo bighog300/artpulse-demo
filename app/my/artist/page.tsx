@@ -6,13 +6,14 @@ import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { resolveArtistCoverUrl } from "@/lib/artists";
 import { ArtistProfileForm } from "@/components/artists/artist-profile-form";
 import { ArtistGalleryManager } from "@/components/artists/artist-gallery-manager";
-import { getArtistPublishIssues } from "@/lib/artist-publish";
 import { ArtistPublishPanel } from "@/app/my/_components/ArtistPublishPanel";
 import { ArtistVenuesPanel } from "@/components/artists/artist-venues-panel";
 import { Button } from "@/components/ui/button";
 import { countAllArtworksByArtist } from "@/lib/artworks";
 import { ArtistFeaturedArtworksPanel } from "@/components/artists/artist-featured-artworks-panel";
 import { CreateArtistProfileForm } from "@/app/my/artist/_components/CreateArtistProfileForm";
+import { evaluateArtistReadiness } from "@/lib/publish-readiness";
+import { PublishReadinessChecklist } from "@/components/publishing/publish-readiness-checklist";
 
 export default async function MyArtistPage() {
   const user = await getSessionUser();
@@ -87,6 +88,8 @@ export default async function MyArtistPage() {
     }),
   ]);
 
+  const readiness = evaluateArtistReadiness({ name: artist.name, bio: artist.bio, featuredAssetId: artist.featuredAssetId, websiteUrl: artist.websiteUrl });
+
   return (
     <main className="space-y-6 p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -96,20 +99,14 @@ export default async function MyArtistPage() {
         </div>
         <Button asChild><Link href="/my/artwork/new">Add artwork</Link></Button>
       </div>
+      <PublishReadinessChecklist title="Artist publish readiness" ready={readiness.ready} blocking={readiness.blocking} warnings={readiness.warnings} />
       <ArtistPublishPanel
         artistSlug={artist.slug}
         isPublished={artist.isPublished}
         submissionStatus={latestSubmission?.status ?? null}
         submittedAt={latestSubmission?.submittedAt?.toISOString() ?? null}
         decisionReason={latestSubmission?.decisionReason ?? null}
-        initialIssues={getArtistPublishIssues({
-          name: artist.name,
-          bio: artist.bio,
-          websiteUrl: artist.websiteUrl,
-          featuredAssetId: artist.featuredAssetId,
-          featuredImageUrl: artist.featuredImageUrl,
-          images: artist.images.map((image) => ({ id: image.id })),
-        })}
+        initialIssues={readiness.blocking.map((item) => ({ field: item.id, message: item.label }))}
       />
       <ArtistProfileForm
         initialProfile={{

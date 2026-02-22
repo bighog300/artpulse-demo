@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
-import { getVenuePublishIssues } from "@/lib/venue-publish";
+import { evaluateVenueReadiness } from "@/lib/publish-readiness";
 import { parseBody, venueIdParamSchema, venueSubmitBodySchema, zodDetails } from "@/lib/validators";
 import { RATE_LIMITS, enforceRateLimit, isRateLimitError, principalRateLimitKey, rateLimitErrorResponse } from "@/lib/rate-limit";
 import { buildInAppFromTemplate, enqueueNotification } from "@/lib/notifications";
@@ -59,8 +59,16 @@ export async function handleVenueSubmit(req: NextRequest, params: Promise<{ id: 
     const venue = await deps.findVenueForSubmit(parsedId.data.id);
     if (!venue) return apiError(400, "invalid_request", "Venue not found");
 
-    const issues = getVenuePublishIssues(venue);
-    if (issues.length > 0) return apiError(400, "invalid_request", "Venue is not ready for review", { issues });
+    const readiness = evaluateVenueReadiness(venue);
+    if (!readiness.ready) {
+      console.warn("FAIL_REASON=NOT_READY entity=venue");
+      return NextResponse.json({
+        error: "NOT_READY",
+        message: "Complete required fields before submitting.",
+        blocking: readiness.blocking,
+        warnings: readiness.warnings,
+      }, { status: 400 });
+    }
 
     await deps.setVenuePublishedDraft(venue.id);
 

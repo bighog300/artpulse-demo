@@ -1,0 +1,64 @@
+export type CheckItem = {
+  id: string;
+  label: string;
+  severity: "block" | "warn" | "info";
+  href?: string;
+};
+
+export type ReadinessResult = {
+  ready: boolean;
+  blocking: CheckItem[];
+  warnings: CheckItem[];
+};
+
+const hasText = (value: string | null | undefined, min = 1) => (value ?? "").trim().length >= min;
+
+export function evaluateArtistReadiness(artist: { name: string | null; bio: string | null; featuredAssetId: string | null; websiteUrl?: string | null }): ReadinessResult {
+  const blocking: CheckItem[] = [];
+  const warnings: CheckItem[] = [];
+
+  if (!hasText(artist.name)) blocking.push({ id: "artist-name", label: "Add artist name.", severity: "block", href: "#name" });
+  if (!hasText(artist.bio, 20)) blocking.push({ id: "artist-bio", label: "Add bio (20+ characters).", severity: "block", href: "#bio" });
+  if (!artist.featuredAssetId) blocking.push({ id: "artist-avatar", label: "Add profile avatar.", severity: "block", href: "#avatar" });
+  if (!hasText(artist.websiteUrl)) warnings.push({ id: "artist-website", label: "Add website URL (recommended).", severity: "info", href: "#websiteUrl" });
+
+  return { ready: blocking.length === 0, blocking, warnings };
+}
+
+export function evaluateVenueReadiness(venue: { name: string | null; city: string | null; country: string | null; featuredAssetId: string | null; websiteUrl?: string | null }): ReadinessResult {
+  const blocking: CheckItem[] = [];
+  const warnings: CheckItem[] = [];
+
+  if (!hasText(venue.name)) blocking.push({ id: "venue-name", label: "Add venue name.", severity: "block", href: "#name" });
+  if (!hasText(venue.city)) blocking.push({ id: "venue-city", label: "Add city.", severity: "block", href: "#city" });
+  if (!hasText(venue.country)) blocking.push({ id: "venue-country", label: "Add country.", severity: "block", href: "#country" });
+  if (!venue.featuredAssetId) blocking.push({ id: "venue-cover", label: "Add venue cover image.", severity: "block", href: "#images" });
+  if (!hasText(venue.websiteUrl)) warnings.push({ id: "venue-website", label: "Add venue website URL (recommended).", severity: "warn", href: "#websiteUrl" });
+
+  return { ready: blocking.length === 0, blocking, warnings };
+}
+
+export function evaluateEventReadiness(event: { title: string | null; startAt: Date | null; endAt: Date | null; venueId: string | null; ticketUrl?: string | null }, venue?: { id: string } | null): ReadinessResult {
+  const blocking: CheckItem[] = [];
+  const warnings: CheckItem[] = [];
+
+  if (!hasText(event.title)) blocking.push({ id: "event-title", label: "Add event title.", severity: "block", href: "#title" });
+  if (!event.startAt) blocking.push({ id: "event-start", label: "Add event start date/time.", severity: "block", href: "#startAt" });
+  if (event.startAt && event.endAt && event.endAt < event.startAt) blocking.push({ id: "event-end", label: "End date/time must be on or after start date/time.", severity: "block", href: "#endAt" });
+  if (!event.venueId || !venue) blocking.push({ id: "event-venue", label: "Link this event to a managed venue.", severity: "block", href: "#venueId" });
+  if (!hasText(event.ticketUrl)) warnings.push({ id: "event-ticket", label: "Add ticket URL (recommended).", severity: "warn", href: "#ticketUrl" });
+
+  return { ready: blocking.length === 0, blocking, warnings };
+}
+
+export function evaluateArtworkReadiness(artwork: { title: string | null; featuredAssetId: string | null; medium?: string | null; year?: number | null }, images: Array<{ id: string; assetId?: string | null }>): ReadinessResult {
+  const blocking: CheckItem[] = [];
+  const warnings: CheckItem[] = [];
+
+  if (!hasText(artwork.title)) blocking.push({ id: "artwork-title", label: "Add artwork title.", severity: "block", href: "#title" });
+  if (images.length === 0) blocking.push({ id: "artwork-images", label: "Add at least one artwork image.", severity: "block", href: "#images" });
+  if (!artwork.featuredAssetId && images.length === 0) blocking.push({ id: "artwork-cover", label: "Add a cover image.", severity: "block", href: "#images" });
+  if (!hasText(artwork.medium) || !artwork.year) warnings.push({ id: "artwork-medium-year", label: "Add medium and year (recommended).", severity: "info" });
+
+  return { ready: blocking.length === 0, blocking, warnings };
+}

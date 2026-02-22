@@ -10,13 +10,14 @@ function toLocalDatetime(date: string) {
   return new Date(parsed.getTime() - offset).toISOString().slice(0, 16);
 }
 
-export function EditEventForm({ event }: { event: { id: string; title: string; startAt: Date; endAt: Date | null } }) {
+export function EditEventForm({ event, readyToSubmit }: { event: { id: string; title: string; startAt: Date; endAt: Date | null }; readyToSubmit: boolean }) {
   const router = useRouter();
   const [title, setTitle] = useState(event.title);
   const [startAt, setStartAt] = useState(toLocalDatetime(event.startAt.toISOString()));
   const [endAt, setEndAt] = useState(event.endAt ? toLocalDatetime(event.endAt.toISOString()) : "");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -50,7 +51,25 @@ export function EditEventForm({ event }: { event: { id: string; title: string; s
       <label className="block"><span className="text-sm">Start at</span><input className="w-full rounded border p-2" type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} /></label>
       <label className="block"><span className="text-sm">End at</span><input className="w-full rounded border p-2" type="datetime-local" value={endAt} onChange={(e) => setEndAt(e.target.value)} /></label>
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
-      <Button type="submit" disabled={saving}>{saving ? "Saving..." : "Save changes"}</Button>
+      <div className="flex gap-2">
+        <Button type="submit" disabled={saving}>{saving ? "Saving..." : "Save changes"}</Button>
+        <Button type="button" disabled={!readyToSubmit || submitting} onClick={async () => {
+          setSubmitting(true);
+          setError(null);
+          const res = await fetch(`/api/my/events/${event.id}/submit`, { method: "POST" });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            setError(body?.message ?? body?.error?.message ?? "Failed to submit event");
+            if (body?.error === "NOT_READY") {
+              document.getElementById("publish-readiness")?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }
+            setSubmitting(false);
+            return;
+          }
+          router.refresh();
+          setSubmitting(false);
+        }}>{submitting ? "Submitting..." : "Submit for review"}</Button>
+      </div>
     </form>
   );
 }
