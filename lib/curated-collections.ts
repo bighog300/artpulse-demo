@@ -15,19 +15,30 @@ export type CuratedCollectionPublic = {
   title: string;
   description: string | null;
   artworks: CuratedCollectionArtwork[];
+  updatedAt?: Date;
+  itemCount?: number;
+};
+
+export type CollectionSortMode = "CURATED" | "VIEWS_30D_DESC" | "NEWEST";
+
+export type CollectionQueryInput = {
+  sort?: CollectionSortMode;
+  page?: number;
+  pageSize?: number;
 };
 
 const artworkSelect = {
   id: true,
   slug: true,
   title: true,
+  updatedAt: true,
   artist: { select: { id: true, name: true, slug: true } },
   featuredAsset: { select: { url: true } },
   images: { orderBy: [{ sortOrder: "asc" as const }, { createdAt: "asc" as const }], take: 1, select: { asset: { select: { url: true } } } },
 };
 
 export async function listPublishedCuratedCollections(limitItems = 8): Promise<CuratedCollectionPublic[]> {
-  const collections = await db.curatedCollection.findMany({ where: { isPublished: true }, orderBy: { updatedAt: "desc" }, select: { id: true, slug: true, title: true, description: true } });
+  const collections = await db.curatedCollection.findMany({ where: { isPublished: true }, orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }], select: { id: true, slug: true, title: true, description: true, updatedAt: true } });
   if (!collections.length) return [];
 
   const items = await db.curatedCollectionItem.findMany({
@@ -48,17 +59,61 @@ export async function listPublishedCuratedCollections(limitItems = 8): Promise<C
   return collections.map((collection) => ({ ...collection, artworks: grouped.get(collection.id) ?? [] }));
 }
 
-export async function getPublishedCuratedCollectionBySlug(slug: string): Promise<CuratedCollectionPublic | null> {
-  const collection = await db.curatedCollection.findFirst({ where: { slug, isPublished: true }, select: { id: true, slug: true, title: true, description: true } });
+async function getViews30ByArtworkIds(artworkIds: string[]) {
+  if (!artworkIds.length) return new Map<string, number>();
+  const start = new Date();
+  start.setUTCDate(start.getUTCDate() - 30);
+  start.setUTCHours(0, 0, 0, 0);
+
+  const rows = await db.pageViewDaily.groupBy({
+    by: ["entityId"],
+    where: { entityType: "ARTWORK", entityId: { in: artworkIds }, day: { gte: start } },
+    _sum: { views: true },
+  });
+  return new Map(rows.map((row) => [row.entityId, Number(row._sum.views ?? 0)]));
+}
+
+export async function getPublishedCuratedCollectionBySlug(slug: string, input: CollectionQueryInput = {}): Promise<CuratedCollectionPublic | null> {
+  const sort = input.sort ?? "CURATED";
+  const page = Math.max(1, input.page ?? 1);
+  const pageSize = Math.min(48, Math.max(1, input.pageSize ?? 48));
+
+  const collection = await db.curatedCollection.findFirst({ where: { slug, isPublished: true }, select: { id: true, slug: true, title: true, description: true, updatedAt: true } });
   if (!collection) return null;
   const items = await db.curatedCollectionItem.findMany({
     where: { collectionId: collection.id, artwork: { isPublished: true } },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-    select: { artwork: { select: artworkSelect } },
+    select: { artwork: { select: artworkSelect }, sortOrder: true },
   });
+
+  const mapped = items.map((item) => ({
+    id: item.artwork.id,
+    slug: item.artwork.slug,
+    title: item.artwork.title,
+    artist: item.artwork.artist,
+    coverUrl: resolveArtworkCoverUrl(item.artwork),
+    updatedAt: item.artwork.updatedAt,
+    sortOrder: item.sortOrder,
+  }));
+
+  let ordered = mapped;
+  if (sort === "NEWEST") {
+    ordered = [...mapped].sort((a, b) => Number(new Date(b.updatedAt ?? 0)) - Number(new Date(a.updatedAt ?? 0)));
+  } else if (sort === "VIEWS_30D_DESC") {
+    const viewsById = await getViews30ByArtworkIds(mapped.map((item) => item.id));
+    ordered = [...mapped].sort((a, b) => {
+      const diff = (viewsById.get(b.id) ?? 0) - (viewsById.get(a.id) ?? 0);
+      if (diff !== 0) return diff;
+      return Number(new Date(b.updatedAt ?? 0)) - Number(new Date(a.updatedAt ?? 0));
+    });
+  }
+
+  const startIndex = (page - 1) * pageSize;
+  const paged = ordered.slice(startIndex, startIndex + pageSize);
 
   return {
     ...collection,
-    artworks: items.map((item) => ({ id: item.artwork.id, slug: item.artwork.slug, title: item.artwork.title, artist: item.artwork.artist, coverUrl: resolveArtworkCoverUrl(item.artwork) })),
+    itemCount: mapped.length,
+    artworks: paged.map((item) => ({ id: item.id, slug: item.slug, title: item.title, artist: item.artist, coverUrl: item.coverUrl })),
   };
 }
