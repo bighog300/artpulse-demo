@@ -1,8 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseArtworkFilter } from "@/app/my/artwork/page";
-import { parseVenueFilter } from "@/app/my/venues/page";
-import { parseEventFilter } from "@/app/my/events/page";
+import { parseArtworkFilter, parseEventFilter, parseVenueFilter } from "@/lib/my-filters";
 
 test("parseArtworkFilter supports missingCover and draft", () => {
   assert.equal(parseArtworkFilter("missingCover"), "missingCover");

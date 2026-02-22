@@ -8,15 +8,9 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { CreateVenueForm } from "@/app/my/venues/_components/CreateVenueForm";
+import { parseVenueFilter } from "@/lib/my-filters";
 
 export const dynamic = "force-dynamic";
-
-type VenueFilter = "missingCover" | "needsEdits" | "submitted" | undefined;
-
-export function parseVenueFilter(filter?: string): VenueFilter {
-  if (filter === "missingCover" || filter === "needsEdits" || filter === "submitted") return filter;
-  return undefined;
-}
 
 export default async function MyVenuesPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
   const user = await getSessionUser();

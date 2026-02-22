@@ -6,13 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MyArtworkEmptyState } from "@/components/artwork/my-artwork-empty-state";
 import { computeArtworkCompleteness } from "@/lib/artwork-completeness";
-
-type ArtworkFilter = "missingCover" | "draft" | undefined;
-
-export function parseArtworkFilter(filter?: string): ArtworkFilter {
-  if (filter === "missingCover" || filter === "draft") return filter;
-  return undefined;
-}
+import { parseArtworkFilter } from "@/lib/my-filters";
 
 export default async function MyArtworkPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
   const user = await getSessionUser();
