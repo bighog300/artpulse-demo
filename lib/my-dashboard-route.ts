@@ -106,7 +106,7 @@ export async function handleGetMyDashboard(deps: Deps) {
 
     const publishedCount = artworks.filter((item) => item.isPublished).length;
     const drafts = artworks.filter((item) => !item.isPublished);
-    const missingCover = artworks.filter((item) => !item.featuredAssetId && item.images.length === 0);
+    const missingImage = artworks.filter((item) => !item.featuredAssetId && item.images.length === 0);
 
     const upcomingEvents = events
       .filter((item) => item.startAt >= today && item.startAt <= in30)
@@ -115,7 +115,7 @@ export async function handleGetMyDashboard(deps: Deps) {
     const profile = profileCompleteness(artist);
     const todo = [
       { id: "draft-artwork", label: "Draft artworks to publish", count: drafts.length, href: "/my/artwork?filter=draft" },
-      { id: "missing-cover", label: "Artworks missing cover image", count: missingCover.length, href: "/my/artwork?filter=missingCover" },
+      { id: "missing-image", label: "Artworks missing images", count: missingImage.length, href: "/my/artwork?filter=missingCover" },
       { id: "missing-bio", label: "Artist profile missing bio", count: artist.bio?.trim() ? 0 : 1, href: "/my/artist#bio" },
       {
         id: "missing-avatar",
@@ -153,7 +153,7 @@ export async function handleGetMyDashboard(deps: Deps) {
         avatarUrl: resolveImageUrl(artist.featuredAsset?.url, artist.avatarImageUrl),
       },
       stats: {
-        artworks: { total: artworks.length, published: publishedCount, drafts: drafts.length, missingCover: missingCover.length },
+        artworks: { total: artworks.length, published: publishedCount, drafts: drafts.length, missingCover: missingImage.length },
         views: { last7: analytics.views.last7, last30: analytics.views.last30, last90: analytics.views.last90 },
         upcomingEvents: {
           next30Count: upcomingEvents.length,

@@ -6,6 +6,7 @@ import { logAdminAction } from "@/lib/admin-audit";
 import { ensureUniqueArtworkSlugWithDeps, slugifyArtworkTitle } from "@/lib/artwork-slug";
 import { requireMyArtworkAccess } from "@/lib/my-artwork-access";
 import { idParamSchema, myArtworkPatchSchema, parseBody, zodDetails } from "@/lib/validators";
+import { computeArtworkCompleteness } from "@/lib/artwork-completeness";
 
 export const runtime = "nodejs";
 
@@ -17,7 +18,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     await requireMyArtworkAccess(parsedId.data.id);
     const artwork = await db.artwork.findUnique({ where: { id: parsedId.data.id }, include: { images: { include: { asset: true }, orderBy: { sortOrder: "asc" } }, venues: true, events: true } });
     if (!artwork) return apiError(404, "not_found", "Artwork not found");
-    return NextResponse.json({ artwork });
+    const completeness = computeArtworkCompleteness(artwork, artwork.images.length);
+    return NextResponse.json({ artwork, completeness });
   } catch (error) {
     if (error instanceof Error && error.message === "unauthorized") return apiError(401, "unauthorized", "Authentication required");
     if (error instanceof Error && (error.message === "forbidden" || error.message === "not_found")) return apiError(403, "forbidden", "Forbidden");
