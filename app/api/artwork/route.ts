@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { resolveImageUrl } from "@/lib/assets";
 import { apiError } from "@/lib/api";
+import { listPublishedArtworkIdsByViews30 } from "@/lib/artworks";
 import { artworkListQuerySchema, paramsToObject, zodDetails } from "@/lib/validators";
 
 export const runtime = "nodejs";
@@ -72,61 +73,7 @@ export async function GET(req: NextRequest) {
   } satisfies Prisma.ArtworkSelect;
 
   if (input.sort === "VIEWS_30D_DESC") {
-    const start = new Date();
-    start.setUTCDate(start.getUTCDate() - 30);
-    start.setUTCHours(0, 0, 0, 0);
-
-    const [rows, totalRows] = await Promise.all([
-      db.$queryRaw<Array<{ id: string; views30: bigint | number | null }>>`
-        WITH filtered AS (
-          SELECT a."id", a."updatedAt"
-          FROM "Artwork" a
-          WHERE a."isPublished" = true
-            ${input.artistId ? Prisma.sql`AND a."artistId" = ${input.artistId}::uuid` : Prisma.empty}
-            ${input.yearFrom != null ? Prisma.sql`AND a."year" >= ${input.yearFrom}` : Prisma.empty}
-            ${input.yearTo != null ? Prisma.sql`AND a."year" <= ${input.yearTo}` : Prisma.empty}
-            ${input.priceMin != null ? Prisma.sql`AND a."priceAmount" >= ${input.priceMin}` : Prisma.empty}
-            ${input.priceMax != null ? Prisma.sql`AND a."priceAmount" <= ${input.priceMax}` : Prisma.empty}
-            ${input.currency ? Prisma.sql`AND a."currency" = ${input.currency.toUpperCase()}` : Prisma.empty}
-            ${input.hasPrice ? Prisma.sql`AND a."priceAmount" IS NOT NULL` : Prisma.empty}
-            ${input.hasImages ? Prisma.sql`AND (a."featuredAssetId" IS NOT NULL OR EXISTS (SELECT 1 FROM "ArtworkImage" ai WHERE ai."artworkId" = a."id"))` : Prisma.empty}
-            ${input.query ? Prisma.sql`AND (a."title" ILIKE ${`%${input.query}%`} OR a."description" ILIKE ${`%${input.query}%`})` : Prisma.empty}
-            ${input.venueId ? Prisma.sql`AND EXISTS (SELECT 1 FROM "ArtworkVenue" av WHERE av."artworkId" = a."id" AND av."venueId" = ${input.venueId}::uuid)` : Prisma.empty}
-            ${input.eventId ? Prisma.sql`AND EXISTS (SELECT 1 FROM "ArtworkEvent" ae WHERE ae."artworkId" = a."id" AND ae."eventId" = ${input.eventId}::uuid)` : Prisma.empty}
-            ${input.mediums.length ? Prisma.sql`AND LOWER(COALESCE(a."medium", '')) IN (${Prisma.join(input.mediums.map((value) => value.toLowerCase()))})` : Prisma.empty}
-        )
-        SELECT f."id", COALESCE(SUM(pvd."views"), 0) as "views30"
-        FROM filtered f
-        LEFT JOIN "PageViewDaily" pvd
-          ON pvd."entityId" = f."id"
-         AND pvd."entityType" = 'ARTWORK'::"AnalyticsEntityType"
-         AND pvd."day" >= ${start}
-        GROUP BY f."id", f."updatedAt"
-        ORDER BY "views30" DESC, f."updatedAt" DESC
-        OFFSET ${(input.page - 1) * input.pageSize}
-        LIMIT ${input.pageSize}
-      `,
-      db.$queryRaw<Array<{ total: bigint | number }>>`
-        SELECT COUNT(*) as total
-        FROM "Artwork" a
-        WHERE a."isPublished" = true
-          ${input.artistId ? Prisma.sql`AND a."artistId" = ${input.artistId}::uuid` : Prisma.empty}
-          ${input.yearFrom != null ? Prisma.sql`AND a."year" >= ${input.yearFrom}` : Prisma.empty}
-          ${input.yearTo != null ? Prisma.sql`AND a."year" <= ${input.yearTo}` : Prisma.empty}
-          ${input.priceMin != null ? Prisma.sql`AND a."priceAmount" >= ${input.priceMin}` : Prisma.empty}
-          ${input.priceMax != null ? Prisma.sql`AND a."priceAmount" <= ${input.priceMax}` : Prisma.empty}
-          ${input.currency ? Prisma.sql`AND a."currency" = ${input.currency.toUpperCase()}` : Prisma.empty}
-          ${input.hasPrice ? Prisma.sql`AND a."priceAmount" IS NOT NULL` : Prisma.empty}
-          ${input.hasImages ? Prisma.sql`AND (a."featuredAssetId" IS NOT NULL OR EXISTS (SELECT 1 FROM "ArtworkImage" ai WHERE ai."artworkId" = a."id"))` : Prisma.empty}
-          ${input.query ? Prisma.sql`AND (a."title" ILIKE ${`%${input.query}%`} OR a."description" ILIKE ${`%${input.query}%`})` : Prisma.empty}
-          ${input.venueId ? Prisma.sql`AND EXISTS (SELECT 1 FROM "ArtworkVenue" av WHERE av."artworkId" = a."id" AND av."venueId" = ${input.venueId}::uuid)` : Prisma.empty}
-          ${input.eventId ? Prisma.sql`AND EXISTS (SELECT 1 FROM "ArtworkEvent" ae WHERE ae."artworkId" = a."id" AND ae."eventId" = ${input.eventId}::uuid)` : Prisma.empty}
-          ${input.mediums.length ? Prisma.sql`AND LOWER(COALESCE(a."medium", '')) IN (${Prisma.join(input.mediums.map((value) => value.toLowerCase()))})` : Prisma.empty}
-      `,
-    ]);
-
-    const ids = rows.map((row) => row.id);
-    const viewsById = new Map(rows.map((row) => [row.id, Number(row.views30 ?? 0)]));
+    const { ids, viewsById, total } = await listPublishedArtworkIdsByViews30(input);
     const itemsById = new Map<string, ArtworkListItem>();
     if (ids.length) {
       const found = await db.artwork.findMany({ where: { id: { in: ids } }, select });
@@ -149,7 +96,7 @@ export async function GET(req: NextRequest) {
       })),
       page: input.page,
       pageSize: input.pageSize,
-      total: Number(totalRows[0]?.total ?? 0),
+      total,
     });
   }
 

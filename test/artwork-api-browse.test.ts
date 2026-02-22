@@ -24,17 +24,37 @@ test("GET /api/artwork applies year range and medium multi filters", async () =>
   }
 });
 
-test("GET /api/artwork uses views sorting query path", async () => {
+test("GET /api/artwork uses views sorting query path and returns views30", async () => {
   const oq = db.$queryRaw;
   const of = db.artwork.findMany;
-  db.$queryRaw = (async () => []) as never;
-  db.artwork.findMany = (async () => []) as never;
+  let queryCount = 0;
+  db.$queryRaw = (async () => {
+    queryCount += 1;
+    if (queryCount === 1) return [{ id: "art-1", views30: 42 }];
+    return [{ total: 1 }];
+  }) as never;
+  db.artwork.findMany = (async () => [
+    {
+      id: "art-1",
+      slug: "art-1",
+      title: "Artwork 1",
+      year: null,
+      medium: null,
+      priceAmount: null,
+      currency: null,
+      updatedAt: new Date(),
+      artist: { id: "artist-1", name: "Artist", slug: "artist" },
+      featuredAsset: { url: null },
+      images: [],
+    },
+  ]) as never;
   try {
     const req = new NextRequest("http://localhost/api/artwork?sort=VIEWS_30D_DESC");
     const res = await getArtwork(req);
     assert.equal(res.status, 200);
     const body = await res.json();
     assert.equal(Array.isArray(body.items), true);
+    assert.equal(body.items[0]?.views30, 42);
   } finally {
     db.$queryRaw = oq;
     db.artwork.findMany = of;

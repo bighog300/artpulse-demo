@@ -1,5 +1,6 @@
 import { resolveImageUrl } from "@/lib/assets";
 import { db } from "@/lib/db";
+import { Prisma } from "@prisma/client";
 
 export type ArtworkCoverSource = {
   featuredAsset?: { url: string | null } | null;
@@ -12,6 +13,32 @@ export type PublishedArtworkListItem = {
   title: string;
   coverUrl: string | null;
   artist: { id: string; name: string };
+};
+
+export type ArtworkViews30QueryInput = {
+  page: number;
+  pageSize: number;
+  query?: string;
+  artistId?: string;
+  venueId?: string;
+  eventId?: string;
+  mediums: string[];
+  yearFrom?: number | null;
+  yearTo?: number | null;
+  priceMin?: number | null;
+  priceMax?: number | null;
+  currency?: string;
+  hasPrice?: boolean;
+  hasImages?: boolean;
+};
+
+export type TrendingArtworkListItem = {
+  id: string;
+  slug: string | null;
+  title: string;
+  coverUrl: string | null;
+  artist: { name: string; slug: string };
+  views30: number;
 };
 
 export function resolveArtworkCoverUrl(artwork: ArtworkCoverSource): string | null {
@@ -125,4 +152,100 @@ export async function listFeaturedArtworksByArtist(artistId: string, limit = 6, 
     select: { artwork: { select: selectRelatedArtwork } },
   });
   return items.map((item) => mapPublishedArtworkRow(item.artwork));
+}
+
+export async function listPublishedArtworkIdsByViews30(input: ArtworkViews30QueryInput) {
+  const start = new Date();
+  start.setUTCDate(start.getUTCDate() - 30);
+  start.setUTCHours(0, 0, 0, 0);
+
+  const [rows, totalRows] = await Promise.all([
+    db.$queryRaw<Array<{ id: string; views30: bigint | number | null }>>`
+      WITH filtered AS (
+        SELECT a."id", a."updatedAt"
+        FROM "Artwork" a
+        WHERE a."isPublished" = true
+          ${input.artistId ? Prisma.sql`AND a."artistId" = ${input.artistId}::uuid` : Prisma.empty}
+          ${input.yearFrom != null ? Prisma.sql`AND a."year" >= ${input.yearFrom}` : Prisma.empty}
+          ${input.yearTo != null ? Prisma.sql`AND a."year" <= ${input.yearTo}` : Prisma.empty}
+          ${input.priceMin != null ? Prisma.sql`AND a."priceAmount" >= ${input.priceMin}` : Prisma.empty}
+          ${input.priceMax != null ? Prisma.sql`AND a."priceAmount" <= ${input.priceMax}` : Prisma.empty}
+          ${input.currency ? Prisma.sql`AND a."currency" = ${input.currency.toUpperCase()}` : Prisma.empty}
+          ${input.hasPrice ? Prisma.sql`AND a."priceAmount" IS NOT NULL` : Prisma.empty}
+          ${input.hasImages ? Prisma.sql`AND (a."featuredAssetId" IS NOT NULL OR EXISTS (SELECT 1 FROM "ArtworkImage" ai WHERE ai."artworkId" = a."id"))` : Prisma.empty}
+          ${input.query ? Prisma.sql`AND (a."title" ILIKE ${`%${input.query}%`} OR a."description" ILIKE ${`%${input.query}%`})` : Prisma.empty}
+          ${input.venueId ? Prisma.sql`AND EXISTS (SELECT 1 FROM "ArtworkVenue" av WHERE av."artworkId" = a."id" AND av."venueId" = ${input.venueId}::uuid)` : Prisma.empty}
+          ${input.eventId ? Prisma.sql`AND EXISTS (SELECT 1 FROM "ArtworkEvent" ae WHERE ae."artworkId" = a."id" AND ae."eventId" = ${input.eventId}::uuid)` : Prisma.empty}
+          ${input.mediums.length ? Prisma.sql`AND LOWER(COALESCE(a."medium", '')) IN (${Prisma.join(input.mediums.map((value) => value.toLowerCase()))})` : Prisma.empty}
+      )
+      SELECT f."id", COALESCE(SUM(pvd."views"), 0) as "views30"
+      FROM filtered f
+      LEFT JOIN "PageViewDaily" pvd
+        ON pvd."entityId" = f."id"
+       AND pvd."entityType" = 'ARTWORK'::"AnalyticsEntityType"
+       AND pvd."day" >= ${start}
+      GROUP BY f."id", f."updatedAt"
+      ORDER BY "views30" DESC, f."updatedAt" DESC
+      OFFSET ${(input.page - 1) * input.pageSize}
+      LIMIT ${input.pageSize}
+    `,
+    db.$queryRaw<Array<{ total: bigint | number }>>`
+      SELECT COUNT(*) as total
+      FROM "Artwork" a
+      WHERE a."isPublished" = true
+        ${input.artistId ? Prisma.sql`AND a."artistId" = ${input.artistId}::uuid` : Prisma.empty}
+        ${input.yearFrom != null ? Prisma.sql`AND a."year" >= ${input.yearFrom}` : Prisma.empty}
+        ${input.yearTo != null ? Prisma.sql`AND a."year" <= ${input.yearTo}` : Prisma.empty}
+        ${input.priceMin != null ? Prisma.sql`AND a."priceAmount" >= ${input.priceMin}` : Prisma.empty}
+        ${input.priceMax != null ? Prisma.sql`AND a."priceAmount" <= ${input.priceMax}` : Prisma.empty}
+        ${input.currency ? Prisma.sql`AND a."currency" = ${input.currency.toUpperCase()}` : Prisma.empty}
+        ${input.hasPrice ? Prisma.sql`AND a."priceAmount" IS NOT NULL` : Prisma.empty}
+        ${input.hasImages ? Prisma.sql`AND (a."featuredAssetId" IS NOT NULL OR EXISTS (SELECT 1 FROM "ArtworkImage" ai WHERE ai."artworkId" = a."id"))` : Prisma.empty}
+        ${input.query ? Prisma.sql`AND (a."title" ILIKE ${`%${input.query}%`} OR a."description" ILIKE ${`%${input.query}%`})` : Prisma.empty}
+        ${input.venueId ? Prisma.sql`AND EXISTS (SELECT 1 FROM "ArtworkVenue" av WHERE av."artworkId" = a."id" AND av."venueId" = ${input.venueId}::uuid)` : Prisma.empty}
+        ${input.eventId ? Prisma.sql`AND EXISTS (SELECT 1 FROM "ArtworkEvent" ae WHERE ae."artworkId" = a."id" AND ae."eventId" = ${input.eventId}::uuid)` : Prisma.empty}
+        ${input.mediums.length ? Prisma.sql`AND LOWER(COALESCE(a."medium", '')) IN (${Prisma.join(input.mediums.map((value) => value.toLowerCase()))})` : Prisma.empty}
+    `,
+  ]);
+
+  return {
+    ids: rows.map((row) => row.id),
+    viewsById: new Map(rows.map((row) => [row.id, Number(row.views30 ?? 0)])),
+    total: Number(totalRows[0]?.total ?? 0),
+  };
+}
+
+export async function getTrendingArtworks30({ limit = 10 }: { limit?: number } = {}): Promise<TrendingArtworkListItem[]> {
+  const { ids, viewsById } = await listPublishedArtworkIdsByViews30({
+    page: 1,
+    pageSize: limit,
+    mediums: [],
+    hasImages: false,
+    hasPrice: false,
+  });
+  if (!ids.length) return [];
+
+  const found = await db.artwork.findMany({
+    where: { id: { in: ids }, isPublished: true },
+    select: {
+      id: true,
+      slug: true,
+      title: true,
+      artist: { select: { name: true, slug: true } },
+      featuredAsset: { select: { url: true } },
+      images: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], take: 1, select: { asset: { select: { url: true } } } },
+    },
+  });
+  const itemsById = new Map(found.map((item) => [item.id, item]));
+  return ids
+    .map((id) => itemsById.get(id))
+    .filter((item): item is NonNullable<typeof item> => Boolean(item))
+    .map((item) => ({
+      id: item.id,
+      slug: item.slug,
+      title: item.title,
+      coverUrl: resolveImageUrl(item.featuredAsset?.url, item.images[0]?.asset?.url),
+      artist: item.artist,
+      views30: viewsById.get(item.id) ?? 0,
+    }));
 }

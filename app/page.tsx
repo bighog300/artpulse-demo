@@ -4,6 +4,8 @@ import { GetStartedEntryPoint } from "@/components/onboarding/get-started-entry-
 import { PageShell } from "@/components/ui/page-shell";
 import { Card } from "@/components/ui/card";
 import { CuratedCollectionsRail } from "@/components/artwork/curated-collections-rail";
+import { TrendingRail } from "@/components/artwork/trending-rail";
+import { getTrendingArtworks30 } from "@/lib/artworks";
 
 const publicTiles = [
   { title: "Browse events", description: "See what's coming up across exhibitions, openings, and talks.", href: "/events" },
@@ -22,6 +24,7 @@ const authedTiles = [
 export default async function Home() {
   const user = await getSessionUser();
   const tiles = user ? authedTiles : publicTiles;
+  const trending = await getTrendingArtworks30({ limit: 8 });
 
   return (
     <PageShell className="page-stack">
@@ -50,6 +53,7 @@ export default async function Home() {
       )}
 
       <CuratedCollectionsRail />
+      <TrendingRail items={trending} />
     </PageShell>
   );
 }
