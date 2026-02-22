@@ -1,36 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth";
 import { apiError } from "@/lib/api";
+import { ensureDbUserForSession } from "@/lib/ensure-db-user-for-session";
+import { getSessionUser } from "@/lib/auth";
+import { countUnreadNotifications, listNotifications } from "@/lib/notifications";
 import { db } from "@/lib/db";
+import { notificationsListQuerySchema, zodDetails } from "@/lib/validators";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
-    const user = await requireAuth();
-    const cursor = req.nextUrl.searchParams.get("cursor") || undefined;
-    const rawLimit = Number(req.nextUrl.searchParams.get("limit") || "20");
-    const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 50) : 20;
+    const sessionUser = await getSessionUser();
+    const user = await ensureDbUserForSession(sessionUser);
+    if (!user) return apiError(401, "unauthorized", "Authentication required");
 
-    const page = await db.notification.findMany({
-      where: { userId: user.id },
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      take: limit + 1,
-      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-    });
+    const parsed = notificationsListQuerySchema.safeParse(Object.fromEntries(req.nextUrl.searchParams.entries()));
+    if (!parsed.success) return apiError(400, "invalid_request", "Invalid query", zodDetails(parsed.error));
 
-    const hasMore = page.length > limit;
-    const items = hasMore ? page.slice(0, limit) : page;
+    const page = await listNotifications(db, user.id, parsed.data);
+    const unreadCount = await countUnreadNotifications(db, user.id);
 
-    return NextResponse.json({
-      items,
-      nextCursor: hasMore ? items[items.length - 1]?.id ?? null : null,
-    });
-  } catch (error) {
-    if (error instanceof Error && error.message === "unauthorized") {
-      return apiError(401, "unauthorized", "Authentication required");
-    }
+    return NextResponse.json({ ...page, unreadCount }, { headers: { "Cache-Control": "no-store" } });
+  } catch {
     return apiError(500, "internal_error", "Unexpected server error");
   }
 }

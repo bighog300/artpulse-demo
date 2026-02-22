@@ -50,6 +50,7 @@ enum NotificationType {
   SUBMISSION_REJECTED
   INVITE_CREATED
   DIGEST_READY
+  ARTWORK_VIEW_MILESTONE
 }
 
 enum ArtistVenueAssociationStatus {
@@ -484,15 +485,21 @@ model Notification {
   userId    String                  @db.Uuid
   type      NotificationType
   title     String
-  body      String
+  body      String?
   href      String?
   dedupeKey String                  @unique
   status    NotificationInboxStatus @default(UNREAD)
   createdAt DateTime                @default(now())
+  readAt    DateTime?
+  archivedAt DateTime?
+  entityType String?
+  entityId   String?                @db.Uuid
   user      User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId, createdAt])
+  @@index([userId, createdAt(sort: Desc)])
   @@index([userId, status])
+  @@index([userId, readAt])
+  @@index([entityType, entityId])
 }
 
 model SavedSearch {

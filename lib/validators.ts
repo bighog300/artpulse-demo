@@ -312,6 +312,19 @@ export const notificationsReadBatchSchema = z.object({
   ids: z.array(z.string().uuid()).min(1).max(100),
 });
 
+export const notificationsListQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  cursor: z.string().trim().min(1).max(512).optional(),
+  unreadOnly: z.coerce.boolean().optional().default(false),
+});
+
+export const notificationsReadSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1).max(100).optional(),
+  all: z.boolean().optional(),
+}).refine((data) => Boolean(data.all) || Boolean(data.ids?.length), {
+  message: "Provide ids or all=true",
+});
+
 export const followingFeedQuerySchema = z.object({
   days: z.enum(["7", "30"]).default("7").transform((value) => Number(value) as 7 | 30),
   cursor: z.string().max(512).optional(),

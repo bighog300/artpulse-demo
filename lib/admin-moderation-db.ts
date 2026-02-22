@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import type { EntityType, ModerationDeps, QueueItem } from "@/lib/admin-moderation-route";
+import { randomUUID } from "node:crypto";
 
 const publishKinds = [{ kind: "PUBLISH" as const }, { kind: null }];
 
@@ -70,7 +71,16 @@ export function createAdminModerationDeps(): ModerationDeps {
         const submission = await tx.submission.update({
           where: { id: submissionId },
           data: { status: "APPROVED", decidedAt: new Date(), decidedByUserId: admin.id, rejectionReason: null, decisionReason: null },
-          select: { id: true, targetArtistId: true, targetVenueId: true, targetEventId: true },
+          select: {
+            id: true,
+            type: true,
+            submitterUserId: true,
+            targetArtistId: true,
+            targetVenueId: true,
+            targetEventId: true,
+            targetVenue: { select: { slug: true } },
+            targetEvent: { select: { id: true } },
+          },
         });
 
         if (entityType === "ARTIST" && submission.targetArtistId) await tx.artist.update({ where: { id: submission.targetArtistId }, data: { isPublished: true } });
@@ -91,6 +101,25 @@ export function createAdminModerationDeps(): ModerationDeps {
             },
           },
         });
+
+        const href = entityType === "ARTIST"
+          ? "/my/artist"
+          : entityType === "VENUE"
+            ? `/my/venues/${submission.targetVenue?.slug ?? submission.targetVenueId ?? ""}`
+            : `/my/events/${submission.targetEvent?.id ?? submission.targetEventId ?? ""}`;
+
+        await tx.notification.create({
+          data: {
+            userId: submission.submitterUserId,
+            type: "SUBMISSION_APPROVED",
+            title: `${entityType} approved`,
+            body: "Your submission was approved and is now published.",
+            href,
+            dedupeKey: `moderation:${submission.id}:approved:${randomUUID()}`,
+            entityType,
+            entityId: submission.targetArtistId ?? submission.targetVenueId ?? submission.targetEventId,
+          },
+        });
       });
     },
     rejectSubmission: async (entityType: EntityType, submissionId: string, admin, rejectionReason: string) => {
@@ -98,7 +127,15 @@ export function createAdminModerationDeps(): ModerationDeps {
         const submission = await tx.submission.update({
           where: { id: submissionId },
           data: { status: "REJECTED", decidedAt: new Date(), decidedByUserId: admin.id, rejectionReason, decisionReason: rejectionReason },
-          select: { id: true, targetArtistId: true, targetVenueId: true, targetEventId: true },
+          select: {
+            id: true,
+            submitterUserId: true,
+            targetArtistId: true,
+            targetVenueId: true,
+            targetEventId: true,
+            targetVenue: { select: { slug: true } },
+            targetEvent: { select: { id: true } },
+          },
         });
 
         await tx.adminAuditLog.create({
@@ -113,6 +150,25 @@ export function createAdminModerationDeps(): ModerationDeps {
               entityId: submission.targetArtistId ?? submission.targetVenueId ?? submission.targetEventId,
               submissionId: submission.id,
             },
+          },
+        });
+
+        const href = entityType === "ARTIST"
+          ? "/my/artist"
+          : entityType === "VENUE"
+            ? `/my/venues/${submission.targetVenue?.slug ?? submission.targetVenueId ?? ""}`
+            : `/my/events/${submission.targetEvent?.id ?? submission.targetEventId ?? ""}`;
+
+        await tx.notification.create({
+          data: {
+            userId: submission.submitterUserId,
+            type: "SUBMISSION_REJECTED",
+            title: `${entityType} needs edits`,
+            body: rejectionReason.trim(),
+            href,
+            dedupeKey: `moderation:${submission.id}:rejected:${randomUUID()}`,
+            entityType,
+            entityId: submission.targetArtistId ?? submission.targetVenueId ?? submission.targetEventId,
           },
         });
       });

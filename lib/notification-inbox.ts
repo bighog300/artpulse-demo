@@ -11,7 +11,7 @@ export function buildInboxNotification(type: NotificationType, payload: Notifica
 export async function markNotificationReadWithDb(inboxDb: InboxDb, userId: string, notificationId: string) {
   const result = await inboxDb.notification.updateMany({
     where: { id: notificationId, userId },
-    data: { status: "READ" },
+    data: { status: "READ", readAt: new Date() },
   });
   return result.count > 0;
 }
@@ -19,7 +19,7 @@ export async function markNotificationReadWithDb(inboxDb: InboxDb, userId: strin
 export async function markAllNotificationsReadWithDb(inboxDb: InboxDb, userId: string) {
   const result = await inboxDb.notification.updateMany({
     where: { userId, status: "UNREAD" },
-    data: { status: "READ" },
+    data: { status: "READ", readAt: new Date() },
   });
   return result.count;
 }

@@ -7,7 +7,7 @@ import { LoadingCard } from "@/components/ui/loading-card";
 import { enqueueToast } from "@/lib/toast";
 import { track } from "@/lib/analytics/client";
 import { groupNotificationsByDay } from "@/lib/notifications-grouping";
-import type { Notification, NotificationInboxStatus } from "@prisma/client";
+import type { Notification } from "@prisma/client";
 
 type NotificationPageProps = {
   initialItems: Notification[];
@@ -45,15 +45,20 @@ export function NotificationsClient({ initialItems, initialNextCursor }: Notific
     track("notifications_viewed");
   }, []);
 
-  const unreadCount = useMemo(() => items.filter((item) => item.status === "UNREAD").length, [items]);
-  const visibleItems = useMemo(() => items.filter((item) => (activeTab === "UNREAD" ? item.status === "UNREAD" : true)), [activeTab, items]);
+  const unreadCount = useMemo(() => items.filter((item) => item.readAt == null).length, [items]);
+  const visibleItems = useMemo(() => items.filter((item) => (activeTab === "UNREAD" ? item.readAt == null : true)), [activeTab, items]);
   const groups = useMemo(() => groupNotificationsByDay(visibleItems), [visibleItems]);
 
   async function markRead(id: string) {
-    setItems((current) => current.map((item) => item.id === id ? { ...item, status: "READ" as NotificationInboxStatus } : item));
-    const response = await fetch(`/api/notifications/${id}/read`, { method: "POST" });
+    const readAt = new Date();
+    setItems((current) => current.map((item) => item.id === id ? { ...item, status: "READ", readAt } : item));
+    const response = await fetch("/api/notifications/read", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: [id] }),
+    });
     if (!response.ok) {
-      setItems((current) => current.map((item) => item.id === id ? { ...item, status: "UNREAD" as NotificationInboxStatus } : item));
+      setItems((current) => current.map((item) => item.id === id ? { ...item, status: "UNREAD", readAt: null } : item));
       enqueueToast({ title: "Unable to mark as read", variant: "error" });
       return false;
     }
@@ -66,9 +71,10 @@ export function NotificationsClient({ initialItems, initialNextCursor }: Notific
   async function markAllRead() {
     if (markingAllRead) return;
     setMarkingAllRead(true);
-    setItems((current) => current.map((item) => ({ ...item, status: "READ" as NotificationInboxStatus })));
+    const readAt = new Date();
+    setItems((current) => current.map((item) => ({ ...item, status: "READ", readAt })));
     try {
-      const response = await fetch("/api/notifications/read-all", { method: "POST" });
+      const response = await fetch("/api/notifications/read", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ all: true }) });
       if (!response.ok) throw new Error("request_failed");
       track("notifications_mark_all_read");
       enqueueToast({ title: "All notifications marked read" });
@@ -131,7 +137,7 @@ export function NotificationsClient({ initialItems, initialNextCursor }: Notific
             <h2 className="text-sm font-semibold text-muted-foreground">{group.label}</h2>
             <ul className="space-y-2">
               {group.items.map((item) => (
-                <li key={item.id} className={`rounded-lg border p-3 ${item.status === "UNREAD" ? "border-foreground bg-muted/40" : "border-border"}`}>
+                <li key={item.id} className={`rounded-lg border p-3 ${item.readAt == null ? "border-foreground bg-muted/40" : "border-border"}`}>
                   <div className="flex items-start justify-between gap-2">
                     <button
                       type="button"
@@ -143,10 +149,10 @@ export function NotificationsClient({ initialItems, initialNextCursor }: Notific
                       }}
                     >
                       <div className="flex items-center gap-2">
-                        {item.status === "UNREAD" ? <span className="mt-1 h-2 w-2 rounded-full bg-foreground" aria-hidden="true" /> : null}
-                        <p className={item.status === "UNREAD" ? "font-semibold" : "font-medium"}>{item.title}</p>
+                        {item.readAt == null ? <span className="mt-1 h-2 w-2 rounded-full bg-foreground" aria-hidden="true" /> : null}
+                        <p className={item.readAt == null ? "font-semibold" : "font-medium"}>{item.title}</p>
                       </div>
-                      <p className="text-sm text-gray-700">{item.body}</p>
+                      {item.body ? <p className="text-sm text-gray-700">{item.body}</p> : null}
                       <p className="text-xs text-gray-500" title={new Date(item.createdAt).toLocaleString()}>{relativeTimeLabel(new Date(item.createdAt))}</p>
                     </button>
                     <button className="rounded border px-2 py-1 text-xs" type="button" onClick={() => void markRead(item.id)} aria-label={`Mark ${item.title} as read`}>Read</button>
