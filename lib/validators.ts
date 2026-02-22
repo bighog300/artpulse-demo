@@ -197,6 +197,12 @@ export const curatedCollectionItemsReplaceSchema = z.object({
   artworkIds: z.array(z.string().uuid()).max(50),
 });
 
+export const collectionPageQuerySchema = z.object({
+  sort: z.enum(["CURATED", "VIEWS_30D_DESC", "NEWEST"]).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(48).default(48),
+});
+
 export const venueImageCreateSchema = z.object({
   url: httpUrlSchema,
   key: z.string().trim().min(1).max(400).optional(),
