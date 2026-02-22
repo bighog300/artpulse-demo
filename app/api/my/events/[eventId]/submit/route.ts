@@ -8,6 +8,7 @@ import { submissionSubmittedDedupeKey } from "@/lib/notification-keys";
 import { buildInAppFromTemplate, enqueueNotification } from "@/lib/notifications";
 import { RATE_LIMITS, enforceRateLimit, isRateLimitError, rateLimitErrorResponse } from "@/lib/rate-limit";
 import { setOnboardingFlagForSession } from "@/lib/onboarding";
+import { evaluateEventReadiness } from "@/lib/publish-readiness";
 
 export const runtime = "nodejs";
 
@@ -31,6 +32,14 @@ export async function POST(_: Request, { params }: { params: Promise<{ eventId: 
 
     if (!submission || submission.submitterUserId !== user.id) return apiError(403, "forbidden", "Submission owner required");
     if (!submission.venue?.memberships.length) return apiError(403, "forbidden", "Venue membership required");
+    const event = await db.event.findUnique({ where: { id: parsedId.data.eventId }, select: { title: true, startAt: true, endAt: true, venueId: true, ticketUrl: true } });
+    if (!event) return apiError(404, "not_found", "Event not found");
+    const readiness = evaluateEventReadiness(event, submission.venue?.memberships.length ? { id: submission.venueId ?? "" } : null);
+    if (!readiness.ready) {
+      console.warn("FAIL_REASON=NOT_READY entity=event");
+      return NextResponse.json({ error: "NOT_READY", message: "Complete required fields before submitting.", blocking: readiness.blocking, warnings: readiness.warnings }, { status: 400 });
+    }
+
     const nextStatus = nextSubmissionStatusForSubmit(submission.status);
     if (!nextStatus) return apiError(409, "invalid_state", "Only draft or rejected submissions can be submitted");
 

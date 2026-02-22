@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
-import { getEventPublishIssues } from "@/lib/event-publish";
+import { evaluateEventReadiness } from "@/lib/publish-readiness";
 import { eventSubmitBodySchema, parseBody, venueEventSubmitParamSchema, zodDetails } from "@/lib/validators";
 import { RATE_LIMITS, enforceRateLimit, isRateLimitError, principalRateLimitKey, rateLimitErrorResponse } from "@/lib/rate-limit";
 import { buildInAppFromTemplate, enqueueNotification } from "@/lib/notifications";
@@ -51,8 +51,16 @@ export async function handleVenueEventSubmit(req: NextRequest, params: Promise<{
     if (!event) return apiError(400, "invalid_request", "Event not found");
     if (event.isPublished) return apiError(400, "invalid_request", "Published events cannot be submitted for review");
 
-    const issues = getEventPublishIssues(event);
-    if (issues.length > 0) return apiError(400, "invalid_request", "Event is not ready for review", { issues });
+    const readiness = evaluateEventReadiness(event, event.venueId ? { id: event.venueId } : null);
+    if (!readiness.ready) {
+      console.warn("FAIL_REASON=NOT_READY entity=event");
+      return NextResponse.json({
+        error: "NOT_READY",
+        message: "Complete required fields before submitting.",
+        blocking: readiness.blocking,
+        warnings: readiness.warnings,
+      }, { status: 400 });
+    }
 
     const submission = await deps.upsertSubmission({
       venueId: parsedParams.data.venueId,

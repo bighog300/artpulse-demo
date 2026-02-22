@@ -49,9 +49,9 @@ export default function VenuePublishPanel(props: Props) {
       }
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const returned = body?.error?.details?.issues;
-        if (Array.isArray(returned)) setIssues(returned);
-        enqueueToast({ title: body?.error?.message || "Unable to submit for review", variant: "error" });
+        const returned = body?.blocking;
+        if (Array.isArray(returned)) setIssues(returned.map((item: { id: string; label: string }) => ({ field: item.id, message: item.label })));
+        enqueueToast({ title: body?.message || body?.error?.message || "Unable to submit for review", variant: "error" });
         return;
       }
       enqueueToast({ title: "Venue submitted for review", variant: "success" });

@@ -106,12 +106,12 @@ test("handleVenueSubmit blocks users who are not OWNER/EDITOR/ADMIN", async () =
   assert.equal(body.error.code, "forbidden");
 });
 
-test("handleVenueSubmit returns invalid_request with issues when venue is incomplete", async () => {
+test("handleVenueSubmit returns NOT_READY when venue is incomplete", async () => {
   const req = new NextRequest(`http://localhost/api/my/venues/${venueId}/submit`, { method: "POST" });
   const res = await handleVenueSubmit(req, Promise.resolve({ id: venueId }), {
     requireAuth: async () => ({ id: "user-1", email: "user@example.com" }),
     requireVenueMembership: async () => undefined,
-    findVenueForSubmit: async () => ({ ...completeVenue, description: "short", featuredAssetId: null, images: [] }),
+    findVenueForSubmit: async () => ({ ...completeVenue, city: null, country: null, featuredAssetId: null, images: [] }),
     upsertSubmission: async () => ({ id: "sub-1", status: "SUBMITTED", createdAt: new Date(), submittedAt: new Date() }),
     setVenuePublishedDraft: async () => undefined,
     enqueueSubmissionNotification: async () => undefined,
@@ -119,8 +119,9 @@ test("handleVenueSubmit returns invalid_request with issues when venue is incomp
 
   assert.equal(res.status, 400);
   const body = await res.json();
-  assert.equal(body.error.code, "invalid_request");
-  assert.equal(Array.isArray(body.error.details.issues), true);
+  assert.equal(body.error, "NOT_READY");
+  assert.equal(Array.isArray(body.blocking), true);
+  assert.equal(body.blocking.some((item: { id: string }) => item.id === "venue-city"), true);
 });
 
 test("handleVenueSubmit creates submission when venue is complete", async () => {

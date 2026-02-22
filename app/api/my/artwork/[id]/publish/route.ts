@@ -17,11 +17,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   return handlePatchArtworkPublish(req, { artworkId: parsedId.data.id, isPublished: parsedBody.data.isPublished }, {
     requireMyArtworkAccess,
     findArtworkById: (artworkId) => db.artwork.findUnique({ where: { id: artworkId }, select: { id: true, title: true, description: true, year: true, medium: true, featuredAssetId: true, isPublished: true } }),
-    countArtworkImages: (artworkId) => db.artworkImage.count({ where: { artworkId } }),
-    findFirstArtworkImageAssetId: async (artworkId) => {
-      const image = await db.artworkImage.findFirst({ where: { artworkId }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { assetId: true } });
-      return image?.assetId ?? null;
-    },
+    listArtworkImages: (artworkId) => db.artworkImage.findMany({ where: { artworkId }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true, assetId: true } }),
     updateArtworkPublishState: (artworkId, input) => db.artwork.update({ where: { id: artworkId }, data: { isPublished: input.isPublished, ...(input.featuredAssetId ? { featuredAssetId: input.featuredAssetId } : {}) } }),
     logAdminAction,
   });
