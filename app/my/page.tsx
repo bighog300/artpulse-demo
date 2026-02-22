@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirectToLogin } from "@/lib/auth-redirect";
 import { getSessionUser } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
-import { PublisherDashboardClient } from "@/app/my/_components/publisher-dashboard-client";
+import { MyDashboardClient } from "@/components/my/my-dashboard-client";
 
 export default async function MyDashboardPage() {
   const user = await getSessionUser();
@@ -13,16 +13,15 @@ export default async function MyDashboardPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Publisher Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Manage your artist profile, venues, events, and artworks.</p>
+          <p className="text-sm text-muted-foreground">Your Creator Hub for artworks, performance, and publishing tasks.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button asChild><Link href="/my/artwork/new">+ Add artwork</Link></Button>
-          <Button asChild variant="secondary"><Link href="/my/events">+ Create event</Link></Button>
-          <Button asChild variant="ghost"><Link href="/my/analytics">View analytics</Link></Button>
+          <Button asChild variant="secondary"><Link href="/my/analytics">View analytics</Link></Button>
+          <Button asChild variant="outline"><Link href="/my/artist">Edit profile</Link></Button>
         </div>
       </div>
-
-      <PublisherDashboardClient />
+      <MyDashboardClient />
     </main>
   );
 }
