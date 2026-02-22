@@ -482,13 +482,10 @@ export const myVenuePatchSchema = z.object({
 });
 
 export const myVenueCreateSchema = z.object({
-  name: z.string().trim().min(1),
-  slug: slugSchema.optional(),
-  description: z.string().optional().nullable(),
-  address: z.string().optional().nullable(),
-  website: httpUrlSchema.optional().nullable(),
-  lat: z.number().min(-90).max(90).optional().nullable(),
-  lng: z.number().min(-180).max(180).optional().nullable(),
+  name: z.string().trim().min(2).max(80),
+  city: z.string().trim().max(80).optional().nullable(),
+  country: z.string().trim().max(80).optional().nullable(),
+  websiteUrl: httpUrlSchema.optional().nullable(),
 });
 
 const eventImageSchema = z.object({

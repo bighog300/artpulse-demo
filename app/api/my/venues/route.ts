@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api";
 import { requireAuth } from "@/lib/auth";
-import { myVenueCreateSchema, parseBody, zodDetails } from "@/lib/validators";
 import { setOnboardingFlagForSession } from "@/lib/onboarding";
-import { ensureUniqueVenueSlugWithDeps, slugifyVenueName } from "@/lib/venue-slug";
+import { handlePostMyVenue } from "@/lib/my-venue-create-route";
+import { logAdminAction } from "@/lib/admin-audit";
 
 export const runtime = "nodejs";
 
@@ -52,67 +52,90 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  let user;
-  try {
-    user = await requireAuth();
-  } catch {
-    return apiError(401, "unauthorized", "Authentication required");
-  }
+  return handlePostMyVenue(req, {
+    requireAuth,
+    findExistingManagedVenue: async ({ userId, createKey }) => {
+      const normalize = (value?: string | null) => (value ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+      const memberships = await db.venueMembership.findMany({
+        where: { userId, role: "OWNER" },
+        orderBy: { createdAt: "desc" },
+        select: { venue: { select: { id: true, slug: true, name: true, city: true, country: true, isPublished: true } } },
+      });
 
-  try {
-    const parsedBody = myVenueCreateSchema.safeParse(await parseBody(req));
-    if (!parsedBody.success) return apiError(400, "invalid_request", "Invalid payload", zodDetails(parsedBody.error));
+      const matched = memberships.find(({ venue }) => [
+        normalize(venue.name),
+        normalize(venue.city),
+        normalize(venue.country),
+      ].join("|") === createKey);
 
-    const data = parsedBody.data;
-    const baseSlug = data.slug ?? slugifyVenueName(data.name);
-    const slug = await ensureUniqueVenueSlugWithDeps(
-      {
-        findBySlug: (candidate) => db.venue.findUnique({ where: { slug: candidate }, select: { id: true } }),
-      },
-      baseSlug,
-    );
+      if (matched) return { id: matched.venue.id, slug: matched.venue.slug, name: matched.venue.name, isPublished: matched.venue.isPublished };
 
-    const venue = await db.venue.create({
+      const fallback = memberships[0]?.venue;
+      return fallback ? { id: fallback.id, slug: fallback.slug, name: fallback.name, isPublished: fallback.isPublished } : null;
+    },
+    findVenueBySlug: async (slug) => db.venue.findUnique({ where: { slug }, select: { id: true } }),
+    createVenue: async (data) => db.venue.create({
       data: {
         name: data.name,
-        slug,
-        description: data.description ?? null,
-        addressLine1: data.address ?? null,
-        websiteUrl: data.website ?? null,
-        lat: data.lat ?? null,
-        lng: data.lng ?? null,
+        slug: data.slug,
+        city: data.city ?? null,
+        country: data.country ?? null,
+        websiteUrl: data.websiteUrl ?? null,
+        featuredAssetId: null,
         isPublished: false,
       },
-      select: { id: true, slug: true },
-    });
+      select: { id: true, slug: true, name: true, isPublished: true },
+    }),
+    ensureOwnerMembership: async (venueId, userId) => {
+      await db.venueMembership.upsert({
+        where: { userId_venueId: { userId, venueId } },
+        create: { userId, venueId, role: "OWNER" },
+        update: { role: "OWNER" },
+      });
+    },
+    upsertVenueDraftSubmission: async (venueId, userId) => {
+      const current = await db.submission.findUnique({ where: { targetVenueId: venueId }, select: { id: true, status: true } });
 
-    await db.venueMembership.create({
-      data: {
-        userId: user.id,
-        venueId: venue.id,
-        role: "OWNER",
-      },
-    });
+      if (current) {
+        await db.submission.update({
+          where: { id: current.id },
+          data: {
+            status: current.status === "APPROVED" ? current.status : "DRAFT",
+            submitterUserId: userId,
+            type: "VENUE",
+            kind: "PUBLISH",
+            decidedAt: current.status === "APPROVED" ? undefined : null,
+            decidedByUserId: current.status === "APPROVED" ? undefined : null,
+            decisionReason: current.status === "APPROVED" ? undefined : null,
+            submittedAt: null,
+          },
+        });
+        return;
+      }
 
-    await db.submission.upsert({
-      where: { targetVenueId: venue.id },
-      create: {
-        type: "VENUE",
-        status: "DRAFT",
-        submitterUserId: user.id,
-        venueId: venue.id,
-        targetVenueId: venue.id,
-      },
-      update: {
-        status: "DRAFT",
-        submitterUserId: user.id,
-      },
-    });
-
+      await db.submission.create({
+        data: {
+          type: "VENUE",
+          kind: "PUBLISH",
+          status: "DRAFT",
+          submitterUserId: userId,
+          venueId,
+          targetVenueId: venueId,
+        },
+      });
+    },
+    setOnboardingFlag: async (user) => {
       await setOnboardingFlagForSession(user, "hasCreatedVenue", true, { path: "/api/my/venues" });
-
-    return NextResponse.json({ ok: true, venueId: venue.id, slug: venue.slug });
-  } catch {
-    return apiError(500, "internal_error", "Unexpected server error");
-  }
+    },
+    logAudit: async ({ action, user, venue, reused, createKey, req: request }) => {
+      await logAdminAction({
+        actorEmail: user.email ?? "unknown@local",
+        action,
+        targetType: "venue",
+        targetId: venue.id,
+        metadata: { userId: user.id, venueId: venue.id, slug: venue.slug, reused, createKey },
+        req: request,
+      });
+    },
+  });
 }

@@ -6,6 +6,8 @@ import { OnboardingPanel } from "@/components/onboarding/onboarding-panel";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
+import { Button } from "@/components/ui/button";
+import { CreateVenueForm } from "@/app/my/venues/_components/CreateVenueForm";
 
 export const dynamic = "force-dynamic";
 
@@ -73,37 +75,51 @@ export default async function MyVenuesPage() {
         </section>
       ) : null}
 
-      {hasNoMemberships && hasNoInvites ? (
-        <EmptyState
-          title="Create a venue or join one"
-          description="Create a venue to start posting events, or accept an invite."
-          actions={[
-            { label: "Create venue", href: "/my/venues/new" },
-            { label: "Browse venues", href: "/venues", variant: "secondary" },
-            { label: "Check notifications", href: "/notifications", variant: "secondary" },
-          ]}
-        />
+      {hasNoMemberships ? (
+        hasNoInvites ? (
+          <section className="space-y-3">
+            <EmptyState
+              title="Create a venue or join one"
+              description="Create a venue to start posting events, or accept an invite."
+              actions={[
+                { label: "Browse venues", href: "/venues", variant: "secondary" },
+                { label: "Check notifications", href: "/notifications", variant: "secondary" },
+              ]}
+            />
+            <CreateVenueForm />
+          </section>
+        ) : (
+          <section className="space-y-3">
+            <p className="text-sm text-muted-foreground">No managed venues yet. You can still create your own venue draft now.</p>
+            <CreateVenueForm />
+          </section>
+        )
       ) : (
-        <ul className="space-y-2">
-          {memberships.map((item) => (
-            <li key={item.id} className="border rounded p-3">
-              <div className="font-medium">{item.venue.name}</div>
-              <div className="text-sm text-neutral-600">Role: {item.role}</div>
-              {item.venue.targetSubmissions[0] ? (
-                <div className="text-sm text-neutral-700">
-                  Submission: {item.venue.targetSubmissions[0].status}
-                  {item.venue.targetSubmissions[0].submittedAt ? ` • Submitted ${new Date(item.venue.targetSubmissions[0].submittedAt).toLocaleString()}` : ""}
-                  {item.venue.targetSubmissions[0].decidedAt ? ` • Decided ${new Date(item.venue.targetSubmissions[0].decidedAt).toLocaleString()}` : ""}
+        <>
+          <div>
+            <Button asChild variant="outline"><Link href="/my/venues/new">+ Create venue</Link></Button>
+          </div>
+          <ul className="space-y-2">
+            {memberships.map((item) => (
+              <li key={item.id} className="border rounded p-3">
+                <div className="font-medium">{item.venue.name}</div>
+                <div className="text-sm text-neutral-600">Role: {item.role}</div>
+                {item.venue.targetSubmissions[0] ? (
+                  <div className="text-sm text-neutral-700">
+                    Submission: {item.venue.targetSubmissions[0].status}
+                    {item.venue.targetSubmissions[0].submittedAt ? ` • Submitted ${new Date(item.venue.targetSubmissions[0].submittedAt).toLocaleString()}` : ""}
+                    {item.venue.targetSubmissions[0].decidedAt ? ` • Decided ${new Date(item.venue.targetSubmissions[0].decidedAt).toLocaleString()}` : ""}
+                  </div>
+                ) : null}
+                {item.venue.targetSubmissions[0]?.status === "REJECTED" && item.venue.targetSubmissions[0].decisionReason ? <div className="text-sm text-red-700">Reason: {item.venue.targetSubmissions[0].decisionReason}</div> : null}
+                <div className="text-sm mt-2 space-x-3">
+                  <Link className="underline" href={`/my/venues/${item.venue.id}`}>Edit profile</Link>
+                  <Link className="underline" href={`/my/venues/${item.venue.id}/submit-event`}>Submit event</Link>
                 </div>
-              ) : null}
-              {item.venue.targetSubmissions[0]?.status === "REJECTED" && item.venue.targetSubmissions[0].decisionReason ? <div className="text-sm text-red-700">Reason: {item.venue.targetSubmissions[0].decisionReason}</div> : null}
-              <div className="text-sm mt-2 space-x-3">
-                <Link className="underline" href={`/my/venues/${item.venue.id}`}>Edit profile</Link>
-                <Link className="underline" href={`/my/venues/${item.venue.id}/submit-event`}>Submit event</Link>
-              </div>
-            </li>
-          ))}
-        </ul>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </main>
   );
