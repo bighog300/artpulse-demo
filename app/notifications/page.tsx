@@ -8,6 +8,7 @@ import { NotificationsEmptyState } from "@/components/notifications/notification
 import { PageHeader } from "@/components/ui/page-header";
 import { PageShell } from "@/components/ui/page-shell";
 import { EmptyState } from "@/components/ui/empty-state";
+import { listNotifications } from "@/lib/notifications";
 
 export default async function NotificationsPage() {
   const user = await getSessionUser();
@@ -22,22 +23,15 @@ export default async function NotificationsPage() {
     );
   }
 
-  const limit = 20;
-  const page = await db.notification.findMany({
-    where: { userId: user.id },
-    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-    take: limit + 1,
-  });
+  const page = await listNotifications(db, user.id, { limit: 20 });
   await setOnboardingFlagForSession(user, "hasViewedNotifications", true, { path: "/notifications" });
-
-  const hasMore = page.length > limit;
-  const items = hasMore ? page.slice(0, limit) : page;
+  const items = page.items;
 
   return (
     <PageShell className="page-stack">
       <PageHeader title="Notifications" subtitle="Updates from your follows, invites, and saved searches" />
       {items.length === 0 ? <NotificationsEmptyState /> : null}
-      <NotificationsClient initialItems={items} initialNextCursor={hasMore ? items[items.length - 1]?.id ?? null : null} />
+      <NotificationsClient initialItems={items} initialNextCursor={page.nextCursor} />
     </PageShell>
   );
 }

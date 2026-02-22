@@ -3,6 +3,7 @@ import { apiError } from "@/lib/api";
 import { requireAuth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
+import { countUnreadNotifications } from "@/lib/notifications";
 
 type Deps = {
   requireAuth: typeof requireAuth;
@@ -26,7 +27,7 @@ export function defaultUnreadCountDeps(): Deps {
     requireAuth,
     countUnread: async (userId) => {
       if (!hasDatabaseUrl()) return 0;
-      return db.notification.count({ where: { userId, status: "UNREAD" } });
+      return countUnreadNotifications(db, userId);
     },
   };
 }
