@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api";
 import { resolveImageUrl } from "@/lib/assets";
 import { START_AT_ID_ORDER_BY } from "@/lib/cursor-predicate";
 import { getBoundingBox, isWithinRadiusKm } from "@/lib/geo";
 import { buildNearbyEventsFilters } from "@/lib/nearby-events";
+import { decodeNearbyCursor, encodeNearbyCursor } from "@/lib/nearby-cursor";
 import { nearbyEventsQuerySchema, paramsToObject, zodDetails } from "@/lib/validators";
 
 export const runtime = "nodejs";
@@ -14,80 +16,102 @@ type NearbyEventWithJoin = {
   lat: number | null;
   lng: number | null;
   startAt: Date;
-  venue: { name: string; slug: string; city: string | null; lat: number | null; lng: number | null } | null;
+  venue?: { name: string; slug: string; city: string | null; lat: number | null; lng: number | null } | null;
   images?: Array<{ url: string | null; asset?: { url: string } | null }>;
   eventTags?: Array<{ tag: { name: string; slug: string } }>;
 };
-
-function encodeCursor(item: Pick<NearbyEventWithJoin, "id" | "startAt">) {
-  return Buffer.from(JSON.stringify({ id: item.id, startAt: item.startAt.toISOString() })).toString("base64url");
-}
-
-function decodeCursor(cursor: string) {
-  try {
-    const parsed = JSON.parse(Buffer.from(cursor, "base64url").toString("utf-8")) as { id?: string; startAt?: string };
-    if (!parsed.id || !parsed.startAt) return null;
-    const startAt = new Date(parsed.startAt);
-    if (Number.isNaN(startAt.getTime())) return null;
-    return { id: parsed.id, startAt };
-  } catch {
-    return null;
-  }
-}
 
 export async function GET(req: NextRequest) {
   const parsed = nearbyEventsQuerySchema.safeParse(paramsToObject(req.nextUrl.searchParams));
   if (!parsed.success) return apiError(400, "invalid_request", "Invalid query parameters", zodDetails(parsed.error));
 
-  const { lat, lng, radiusKm, days, cursor, limit } = parsed.data;
+  const { lat, lng, radiusKm, days, cursor, limit, q, tags, from, to, sort } = parsed.data;
   const now = new Date();
-  const to = new Date(now);
-  to.setDate(to.getDate() + days);
+  const dateFrom = from ? new Date(from) : now;
+  const dateTo = to ? new Date(to) : (() => {
+    const next = new Date(dateFrom);
+    next.setDate(next.getDate() + (days ?? 30));
+    return next;
+  })();
   const box = getBoundingBox(lat, lng, radiusKm);
-  const decodedCursor = cursor ? decodeCursor(cursor) : null;
-  const nearbyFilters = buildNearbyEventsFilters({ cursor: decodedCursor, from: now, to });
+  let workingCursor = cursor ? decodeNearbyCursor(cursor) : null;
+  const pageItems: NearbyEventWithJoin[] = [];
+  const batchSize = Math.min(50, Math.max(limit * 3, limit + 1));
+  let iterations = 0;
+  let dbHasMore = true;
 
-  const items = (await db.event.findMany({
-    where: {
-      isPublished: true,
-      startAt: nearbyFilters.startAt,
-      AND: [
-        {
-          OR: [
-            { lat: { gte: box.minLat, lte: box.maxLat }, lng: { gte: box.minLng, lte: box.maxLng } },
-            { venue: { lat: { gte: box.minLat, lte: box.maxLat }, lng: { gte: box.minLng, lte: box.maxLng } } },
-          ],
-        },
-        ...nearbyFilters.cursorFilters,
-      ],
-    },
-    take: limit + 1,
-    orderBy: START_AT_ID_ORDER_BY,
-    include: {
-      venue: { select: { name: true, slug: true, city: true, lat: true, lng: true } },
-      images: { take: 1, orderBy: { sortOrder: "asc" }, include: { asset: { select: { url: true } } } },
-      eventTags: { include: { tag: { select: { name: true, slug: true } } } },
-    },
-  })) as NearbyEventWithJoin[];
+  while (pageItems.length < limit && dbHasMore && iterations < 5) {
+    iterations += 1;
+    const nearbyFilters = buildNearbyEventsFilters({ cursor: workingCursor, from: dateFrom, to: dateTo });
+    const andFilters: Prisma.EventWhereInput[] = [
+      {
+        OR: [
+          { lat: { gte: box.minLat, lte: box.maxLat }, lng: { gte: box.minLng, lte: box.maxLng } },
+          { venue: { lat: { gte: box.minLat, lte: box.maxLat }, lng: { gte: box.minLng, lte: box.maxLng } } },
+        ],
+      },
+      ...nearbyFilters.cursorFilters,
+    ];
+    if (q) andFilters.push({ OR: [{ title: { contains: q, mode: "insensitive" as const } }, { venue: { name: { contains: q, mode: "insensitive" as const } } }] });
+    if (tags.length) andFilters.push({ eventTags: { some: { tag: { slug: { in: tags } } } } });
 
-  const filtered = items.filter((event) => {
-    const sourceLat = event.lat ?? event.venue?.lat;
-    const sourceLng = event.lng ?? event.venue?.lng;
-    return sourceLat != null && sourceLng != null && isWithinRadiusKm(lat, lng, sourceLat, sourceLng, radiusKm);
-  });
+    const batch = (await db.event.findMany({
+      where: {
+        isPublished: true,
+        startAt: nearbyFilters.startAt,
+        AND: andFilters,
+      },
+      take: batchSize,
+      orderBy: START_AT_ID_ORDER_BY,
+      include: {
+        venue: { select: { name: true, slug: true, city: true, lat: true, lng: true } },
+        images: { take: 1, orderBy: { sortOrder: "asc" }, include: { asset: { select: { url: true } } } },
+        eventTags: { include: { tag: { select: { name: true, slug: true } } } },
+      },
+    })) as NearbyEventWithJoin[];
 
-  const hasMore = filtered.length > limit;
-  const page = hasMore ? filtered.slice(0, limit) : filtered;
+    if (batch.length < batchSize) dbHasMore = false;
+    if (!batch.length) break;
 
-  return NextResponse.json({
-    items: page.map((event) => ({
+    const lastBatchItem = batch[batch.length - 1];
+    workingCursor = { id: lastBatchItem.id, startAt: lastBatchItem.startAt };
+
+    const withinRadius = batch.filter((event) => {
+      const sourceLat = event.lat ?? event.venue?.lat;
+      const sourceLng = event.lng ?? event.venue?.lng;
+      return sourceLat != null && sourceLng != null && isWithinRadiusKm(lat, lng, sourceLat, sourceLng, radiusKm);
+    });
+
+    for (const event of withinRadius) {
+      if (pageItems.length >= limit) break;
+      pageItems.push(event);
+    }
+  }
+
+  const sortedItems = sort === "distance"
+    ? pageItems.slice().sort((a, b) => {
+      const aLat = a.lat ?? a.venue?.lat;
+      const aLng = a.lng ?? a.venue?.lng;
+      const bLat = b.lat ?? b.venue?.lat;
+      const bLng = b.lng ?? b.venue?.lng;
+      const aDist = aLat != null && aLng != null ? Math.hypot(aLat - lat, aLng - lng) : Number.POSITIVE_INFINITY;
+      const bDist = bLat != null && bLng != null ? Math.hypot(bLat - lat, bLng - lng) : Number.POSITIVE_INFINITY;
+      return aDist - bDist || a.startAt.getTime() - b.startAt.getTime() || a.id.localeCompare(b.id);
+    })
+    : pageItems;
+
+  const response = NextResponse.json({
+    items: sortedItems.map((event) => ({
       ...event,
       venueName: event.venue?.name ?? null,
       mapLat: event.lat ?? event.venue?.lat ?? null,
       mapLng: event.lng ?? event.venue?.lng ?? null,
+      distanceKm: event.lat != null && event.lng != null ? Number((Math.hypot(event.lat - lat, event.lng - lng) * 111).toFixed(2)) : null,
       primaryImageUrl: resolveImageUrl(event.images?.[0]?.asset?.url, event.images?.[0]?.url ?? undefined),
       tags: (event.eventTags ?? []).map((eventTag) => ({ name: eventTag.tag.name, slug: eventTag.tag.slug })),
     })),
-    nextCursor: hasMore ? encodeCursor(page[page.length - 1]) : null,
+    nextCursor: dbHasMore && workingCursor ? encodeNearbyCursor(workingCursor) : null,
   });
+  response.headers.set("Cache-Control", "no-store");
+  return response;
 }

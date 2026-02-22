@@ -393,9 +393,20 @@ export const nearbyEventsQuerySchema = z.object({
   lat: z.coerce.number().min(-90).max(90),
   lng: z.coerce.number().min(-180).max(180),
   radiusKm: z.coerce.number().int().min(1).max(200),
-  days: z.enum(["7", "30"]).default("7").transform((value) => Number(value) as 7 | 30),
+  q: z.string().trim().min(1).max(100).optional(),
+  tags: z.string().optional().transform((value) => (value ?? "").split(",").map((entry) => entry.trim()).filter(Boolean).slice(0, 10)).refine((values) => values.every((tag) => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(tag)), "tags must be slug-safe"),
+  days: z.enum(["7", "30", "90"]).optional().transform((value) => value ? Number(value) as 7 | 30 | 90 : undefined),
+  from: fromQueryDateSchema.optional(),
+  to: toQueryDateSchema.optional(),
+  sort: z.enum(["soonest", "distance"]).default("soonest"),
   cursor: z.string().max(512).optional(),
-  limit: z.coerce.number().int().min(1).max(50).default(20),
+  limit: z.coerce.number().int().min(1).max(50).default(24),
+}).superRefine((data, ctx) => {
+  const hasDays = data.days != null;
+  const hasRange = data.from != null || data.to != null;
+  if (hasDays && hasRange) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["days"], message: "Provide either days or from/to, not both" });
+  }
 });
 
 export const adminArtistCreateSchema = z.object({

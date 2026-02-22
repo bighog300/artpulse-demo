@@ -12,6 +12,9 @@ import { track } from "@/lib/analytics/client";
 type EventsFiltersBarProps = {
   availableTags?: string[];
   defaultSort?: "soonest" | "popular" | "nearby";
+  queryParamName?: "query" | "q";
+  sortOptions?: Array<"soonest" | "popular" | "nearby" | "distance">;
+  dayOptions?: number[];
 };
 
 function dateRangeForPreset(preset: string) {
@@ -35,7 +38,7 @@ function dateRangeForPreset(preset: string) {
   return { from: "", to: "" };
 }
 
-export function EventsFiltersBar({ availableTags = [], defaultSort = "soonest" }: EventsFiltersBarProps) {
+export function EventsFiltersBar({ availableTags = [], defaultSort = "soonest", queryParamName = "query", sortOptions = ["soonest", "popular", "nearby"], dayOptions }: EventsFiltersBarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -45,10 +48,11 @@ export function EventsFiltersBar({ availableTags = [], defaultSort = "soonest" }
   const [frequency, setFrequency] = useState<"WEEKLY" | "OFF">("WEEKLY");
   const [savedSearchId, setSavedSearchId] = useState<string | null>(null);
 
-  const query = searchParams?.get("query") ?? "";
+  const query = searchParams?.get(queryParamName) ?? "";
   const from = searchParams?.get("from") ?? "";
   const to = searchParams?.get("to") ?? "";
   const sort = searchParams?.get("sort") ?? defaultSort;
+  const days = searchParams?.get("days") ?? "";
   const tags = (searchParams?.get("tags") ?? "").split(",").filter(Boolean);
 
   const datePreset = useMemo(() => {
@@ -61,8 +65,8 @@ export function EventsFiltersBar({ availableTags = [], defaultSort = "soonest" }
     return from || to ? "range" : "all";
   }, [from, to]);
 
-  const hasFilters = Boolean(query || from || to || tags.length || sort !== defaultSort);
-  const canSaveSearch = Boolean(query.trim() || tags.length || datePreset !== "all" || sort !== defaultSort);
+  const hasFilters = Boolean(query || from || to || tags.length || days || sort !== defaultSort);
+  const canSaveSearch = Boolean(query.trim() || tags.length || datePreset !== "all" || days || sort !== defaultSort);
 
   const updateQuery = (updates: Record<string, string | null>) => {
     const next = buildEventQueryString(searchParams, updates);
@@ -112,19 +116,22 @@ export function EventsFiltersBar({ availableTags = [], defaultSort = "soonest" }
   const bar = (
     <div className="space-y-3 rounded-xl border border-border bg-card p-3">
       <div className="grid gap-2 md:grid-cols-[1fr_auto_auto_auto]">
-        <Input value={query} onChange={(event) => updateQuery({ query: event.target.value || null })} placeholder="Search events" aria-label="Search events" className="ui-trans focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" />
+        <Input value={query} onChange={(event) => updateQuery({ [queryParamName]: event.target.value || null })} placeholder="Search events" aria-label="Search events" className="ui-trans focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" />
         <select className="h-10 rounded-md border border-input bg-background px-3 text-sm ui-trans hover:border-ring/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" value={sort} onChange={(event) => updateQuery({ sort: event.target.value || null })} aria-label="Sort events">
-          <option value="soonest">Soonest</option>
-          <option value="popular">Popular</option>
-          <option value="nearby">Nearby</option>
+          {sortOptions.includes("soonest") ? <option value="soonest">Soonest</option> : null}
+          {sortOptions.includes("distance") ? <option value="distance">Distance</option> : null}
+          {sortOptions.includes("popular") ? <option value="popular">Popular</option> : null}
+          {sortOptions.includes("nearby") ? <option value="nearby">Nearby</option> : null}
         </select>
         <Button type="button" variant="outline" onClick={onOpenSave}>Save search</Button>
-        {hasFilters ? <Button type="button" variant="ghost" className="ui-trans ui-press" onClick={() => updateQuery({ query: null, from: null, to: null, tags: null, sort: null })}>Clear</Button> : null}
+        {hasFilters ? <Button type="button" variant="ghost" className="ui-trans ui-press" onClick={() => updateQuery({ [queryParamName]: null, from: null, to: null, tags: null, days: null, sort: null })}>Clear</Button> : null}
       </div>
+
+      {dayOptions?.length ? <Tabs value={days || "30"} onValueChange={(value) => updateQuery({ days: value, from: null, to: null })}><TabsList className="grid w-full grid-cols-3">{dayOptions.map((option) => <TabsTrigger key={option} value={String(option)}>Next {option}d</TabsTrigger>)}</TabsList></Tabs> : null}
 
       <Tabs value={datePreset} onValueChange={(value) => {
         const range = dateRangeForPreset(value);
-        updateQuery({ from: range.from || null, to: range.to || null });
+        updateQuery({ from: range.from || null, to: range.to || null, days: null });
       }}>
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="all">Any day</TabsTrigger>
