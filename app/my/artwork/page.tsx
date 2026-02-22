@@ -7,17 +7,26 @@ import { Badge } from "@/components/ui/badge";
 import { MyArtworkEmptyState } from "@/components/artwork/my-artwork-empty-state";
 import { computeArtworkCompleteness } from "@/lib/artwork-completeness";
 
+type ArtworkFilter = "missingCover" | "draft" | undefined;
+
+export function parseArtworkFilter(filter?: string): ArtworkFilter {
+  if (filter === "missingCover" || filter === "draft") return filter;
+  return undefined;
+}
+
 export default async function MyArtworkPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
   const user = await getSessionUser();
   if (!user) redirectToLogin("/my/artwork");
 
   const { filter } = await searchParams;
+  const parsedFilter = parseArtworkFilter(filter);
   const artist = await db.artist.findUnique({ where: { userId: user.id }, select: { id: true } });
+
   const items = await db.artwork.findMany({
-    where: user.role === "ADMIN" ? {} : {
-      artistId: artist?.id,
-      ...(filter === "draft" ? { isPublished: false } : {}),
-      ...(filter === "missingCover" ? { featuredAssetId: null, images: { none: {} } } : {}),
+    where: {
+      ...(user.role === "ADMIN" ? {} : { artistId: artist?.id }),
+      ...(parsedFilter === "draft" ? { isPublished: false } : {}),
+      ...(parsedFilter === "missingCover" ? { featuredAssetId: null, images: { none: {} } } : {}),
     },
     orderBy: { updatedAt: "desc" },
     select: { id: true, title: true, isPublished: true, description: true, year: true, medium: true, featuredAssetId: true, _count: { select: { images: true } } },

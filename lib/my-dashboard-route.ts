@@ -53,6 +53,14 @@ type ManagedVenueRecord = {
   submissions: Array<{ status: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" }>;
 };
 
+type ActionInboxItem = {
+  id: string;
+  label: string;
+  count: number;
+  href: string;
+  severity: "warn" | "info";
+};
+
 type AuditRecord = {
   action: string;
   targetId: string | null;
@@ -128,6 +136,30 @@ function getProfileCompleteness(artist: ArtistRecord, publishedArtworkCount: num
   };
 }
 
+function buildActionInbox(items: ActionInboxItem[]) {
+  const severityRank: Record<ActionInboxItem["severity"], number> = { warn: 0, info: 1 };
+  const priority: Record<string, number> = {
+    "venue-needs-edits": 0,
+    "venue-submitted": 1,
+    "artwork-missing-cover": 2,
+    "venue-missing-cover": 3,
+    "artwork-drafts": 4,
+    "event-drafts": 5,
+    "events-missing-venue": 6,
+    "profile-missing-avatar": 7,
+    "profile-missing-bio": 8,
+  };
+
+  return items
+    .filter((item) => item.count > 0)
+    .sort((a, b) => {
+      const severityDiff = severityRank[a.severity] - severityRank[b.severity];
+      if (severityDiff !== 0) return severityDiff;
+      return (priority[a.id] ?? Number.MAX_SAFE_INTEGER) - (priority[b.id] ?? Number.MAX_SAFE_INTEGER);
+    })
+    .slice(0, 8);
+}
+
 export async function handleGetMyDashboard(deps: Deps) {
   try {
     const user = await deps.requireAuth();
@@ -191,14 +223,24 @@ export async function handleGetMyDashboard(deps: Deps) {
       });
     const venuePublishedCount = venueList.filter((venue) => venue.isPublished).length;
     const venueDraftCount = venueList.filter((venue) => !venue.isPublished).length;
+    const venueMissingCoverCount = venueList.filter((venue) => !venue.coverUrl).length;
     const venueSubmissionsPending = venueList.filter((venue) => venue.submissionStatus === "SUBMITTED").length;
+    const venueSubmissionsNeedsEdits = venueList.filter((venue) => venue.submissionStatus === "REJECTED").length;
+    const hasAvatar = Boolean(artist.featuredAssetId || artist.avatarImageUrl || artist.featuredAsset?.url);
+    const profileMissingAvatarCount = hasAvatar ? 0 : 1;
+    const profileMissingBioCount = artist.bio?.trim() ? 0 : 1;
 
-    const actionInbox = [
-      { id: "missing-cover", label: "Artworks missing cover", count: missingCoverCount, href: "/my/artwork?filter=missingCover", severity: "warn" as const },
-      { id: "artwork-drafts", label: "Draft artworks", count: artworkDraftCount, href: "/my/artwork?filter=draft", severity: "info" as const },
-      { id: "events-missing-venue", label: "Events missing venue", count: missingVenueCount, href: "/my/events?filter=missingVenue", severity: "warn" as const },
-      { id: "event-drafts", label: "Draft events", count: draftEventCount, href: "/my/events?filter=draft", severity: "info" as const },
-    ].filter((item) => item.count > 0).slice(0, 6);
+    const actionInbox = buildActionInbox([
+      { id: "artwork-missing-cover", label: "Artworks missing cover", count: missingCoverCount, href: "/my/artwork?filter=missingCover", severity: "warn" },
+      { id: "artwork-drafts", label: "Draft artworks", count: artworkDraftCount, href: "/my/artwork?filter=draft", severity: "warn" },
+      { id: "events-missing-venue", label: "Events missing venue", count: missingVenueCount, href: "/my/events?filter=missingVenue", severity: "warn" },
+      { id: "event-drafts", label: "Draft events", count: draftEventCount, href: "/my/events?filter=draft", severity: "warn" },
+      { id: "venue-missing-cover", label: "Venues missing cover", count: venueMissingCoverCount, href: "/my/venues?filter=missingCover", severity: "warn" },
+      { id: "venue-needs-edits", label: "Venue submissions needing edits", count: venueSubmissionsNeedsEdits, href: "/my/venues?filter=needsEdits", severity: "warn" },
+      { id: "venue-submitted", label: "Venue submissions pending moderation", count: venueSubmissionsPending, href: "/my/venues?filter=submitted", severity: "warn" },
+      { id: "profile-missing-avatar", label: "Artist profile missing avatar", count: profileMissingAvatarCount, href: "/my/artist#avatar", severity: "info" },
+      { id: "profile-missing-bio", label: "Artist profile missing bio", count: profileMissingBioCount, href: "/my/artist#bio", severity: "info" },
+    ]);
 
     const recent = mapAuditToRecent(audits);
     const topArtworks30 = analytics.views.top30.slice(0, 5).map((item) => {

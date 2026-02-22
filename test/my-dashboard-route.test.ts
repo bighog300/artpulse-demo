@@ -46,12 +46,17 @@ test("/api/my/dashboard returns onboarding payload when user has no artist", asy
   assert.equal(body.nextHref, "/my/artist");
 });
 
-test("/api/my/dashboard computes stats, inbox, and top artworks ordering", async () => {
+test("/api/my/dashboard computes stats, inbox counts, and top artworks ordering", async () => {
   const deps = baseDeps();
+  deps.listManagedVenuesByUserId = async () => [{ id: "venue-1" }, { id: "venue-2" }, { id: "venue-3" }];
+  deps.listManagedVenueDetailsByUserId = async () => [
+    { id: "venue-1", slug: "venue-one", name: "Venue One", city: "Paris", country: "FR", isPublished: true, featuredAssetId: "asset-1", featuredAsset: { url: "https://img/v1.jpg" }, submissions: [] },
+    { id: "venue-2", slug: null, name: "Venue Two", city: null, country: null, isPublished: false, featuredAssetId: null, featuredAsset: null, submissions: [{ status: "SUBMITTED" }] },
+    { id: "venue-3", slug: "venue-three", name: "Venue Three", city: "Berlin", country: "DE", isPublished: false, featuredAssetId: null, featuredAsset: null, submissions: [{ status: "REJECTED" }] },
+  ];
   deps.listArtworksByArtistId = async () => [
     { id: "a1", title: "Draft", slug: "draft", isPublished: false, featuredAssetId: null, updatedAt: day(1), featuredAsset: null, images: [], _count: { images: 0 } },
     { id: "a2", title: "Published High", slug: "high", isPublished: true, featuredAssetId: "asset-a2", updatedAt: day(2), featuredAsset: { url: "https://img/a2.jpg" }, images: [{ asset: { url: "https://img/a2.jpg" } }], _count: { images: 1 } },
-    { id: "a3", title: "Published Low", slug: "low", isPublished: true, featuredAssetId: null, updatedAt: day(3), featuredAsset: null, images: [{ asset: { url: "https://img/a3.jpg" } }], _count: { images: 1 } },
   ];
   deps.listEventsByContext = async () => [
     { id: "e1", title: "No venue", slug: "event-1", startAt: day(-5), updatedAt: day(0), isPublished: false, venueId: null, venue: null },
@@ -60,19 +65,46 @@ test("/api/my/dashboard computes stats, inbox, and top artworks ordering", async
   deps.listArtworkViewDailyRows = async () => [
     { entityId: "a2", day: day(0), views: 10 },
     { entityId: "a2", day: day(5), views: 6 },
-    { entityId: "a3", day: day(10), views: 7 },
   ];
+  deps.findOwnedArtistByUserId = async () => ({
+    id: "artist-1",
+    name: "Artist",
+    slug: "artist",
+    bio: "",
+    websiteUrl: "https://artist.test",
+    featuredAssetId: null,
+    avatarImageUrl: null,
+    featuredAsset: null,
+  });
 
   const res = await handleGetMyDashboard(deps);
   const body = await res.json();
 
-  assert.equal(body.stats.artworks.total, 3);
+  assert.equal(body.stats.artworks.total, 2);
   assert.equal(body.stats.artworks.drafts, 1);
   assert.equal(body.stats.artworks.missingCover, 1);
   assert.equal(body.stats.events.missingVenue, 1);
-  assert.equal(body.actionInbox.find((item: { id: string }) => item.id === "missing-cover")?.count, 1);
-  assert.equal(body.actionInbox.find((item: { id: string }) => item.id === "artwork-drafts")?.count, 1);
-  assert.equal(body.actionInbox.find((item: { id: string }) => item.id === "events-missing-venue")?.count, 1);
+  assert.equal(body.stats.venues.submissionsPending, 1);
+
+  assert.deepEqual(
+    body.actionInbox.map((item: { id: string }) => item.id),
+    [
+      "venue-needs-edits",
+      "venue-submitted",
+      "artwork-missing-cover",
+      "venue-missing-cover",
+      "artwork-drafts",
+      "event-drafts",
+      "events-missing-venue",
+      "profile-missing-avatar",
+    ],
+  );
+
+  assert.equal(body.actionInbox.find((item: { id: string }) => item.id === "venue-needs-edits")?.href, "/my/venues?filter=needsEdits");
+  assert.equal(body.actionInbox.find((item: { id: string }) => item.id === "venue-submitted")?.href, "/my/venues?filter=submitted");
+  assert.equal(body.actionInbox.find((item: { id: string }) => item.id === "artwork-missing-cover")?.href, "/my/artwork?filter=missingCover");
+  assert.equal(body.actionInbox.find((item: { id: string }) => item.id === "profile-missing-avatar")?.href, "/my/artist#avatar");
+  assert.equal(body.actionInbox.find((item: { id: string }) => item.id === "profile-missing-bio"), undefined);
   assert.equal(body.topArtworks30[0].id, "a2");
 });
 
@@ -88,8 +120,6 @@ test("/api/my/dashboard prefers allowed audit activity in recent list", async ()
   assert.equal(body.recent.length, 1);
   assert.match(body.recent[0].label, /Artwork Updated/i);
 });
-
-
 
 test("/api/my/dashboard includes scoped venue entities and venue stats", async () => {
   const deps = baseDeps();
