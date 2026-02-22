@@ -1,8 +1,28 @@
 import test from "node:test";
+import assert from "node:assert/strict";
+import { decodeNearbyCursor, encodeNearbyCursor } from "../../lib/nearby-cursor";
+import { START_AT_ID_ORDER_BY } from "../../lib/cursor-predicate";
 
 // PHASE 0 safety-net invariants only.
 // These are intentionally todo/skip when behavior is not yet enforced,
 // so we can land guardrails without breaking CI.
+
+test("nearby cursor roundtrips via base64url encoding", () => {
+  const payload = { id: "evt_123", startAt: new Date("2026-03-01T12:00:00.000Z") };
+
+  const encoded = encodeNearbyCursor(payload);
+  const decoded = decodeNearbyCursor(encoded);
+
+  assert.deepEqual(decoded, payload);
+});
+
+test("nearby cursor decode returns null for invalid payload", () => {
+  assert.equal(decodeNearbyCursor("not-a-valid-cursor"), null);
+});
+
+test("startAt/id ordering keeps id as deterministic tie-breaker", () => {
+  assert.deepEqual(START_AT_ID_ORDER_BY, [{ startAt: "asc" }, { id: "asc" }]);
+});
 
 test.todo("moderation approval is atomic: no partial writes on failure", {
   // Planned harness for Phase 1:
