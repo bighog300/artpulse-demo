@@ -13,12 +13,12 @@ export default async function MyDashboardPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Publisher Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Your Creator Hub for artworks, performance, and publishing tasks.</p>
+          <p className="text-sm text-muted-foreground">Your creator hub for artworks, events, and performance.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button asChild><Link href="/my/artwork/new">+ Add artwork</Link></Button>
+          <Button asChild><Link href="/my/events/new">+ Create event</Link></Button>
           <Button asChild variant="secondary"><Link href="/my/analytics">View analytics</Link></Button>
-          <Button asChild variant="outline"><Link href="/my/artist">Edit profile</Link></Button>
         </div>
       </div>
       <MyDashboardClient />
