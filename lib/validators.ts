@@ -569,6 +569,19 @@ export const myEventPatchSchema = z.object({
   }
 });
 
+export const CreateEventSchema = z.object({
+  title: z.string().trim().min(2).max(120),
+  startAt: isoDatetimeSchema,
+  endAt: isoDatetimeSchema.optional(),
+  venueId: z.string().uuid().optional(),
+  ticketUrl: httpUrlSchema.optional(),
+  timezone: z.string().trim().min(1).max(80).optional(),
+}).superRefine((data, ctx) => {
+  if (data.endAt && new Date(data.endAt) < new Date(data.startAt)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["endAt"], message: "endAt must be >= startAt" });
+  }
+});
+
 
 
 export const eventRevisionPatchSchema = z.object({
