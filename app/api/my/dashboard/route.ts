@@ -56,7 +56,6 @@ export async function GET() {
         },
       },
       orderBy: [{ isPublished: "asc" }, { updatedAt: "desc" }],
-      take: 5,
     }),
     listArtworksByArtistId: async (artistId) => db.artwork.findMany({
       where: { artistId },

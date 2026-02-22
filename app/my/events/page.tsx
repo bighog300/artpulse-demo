@@ -9,11 +9,19 @@ import { CreateEventForm } from "@/app/my/events/_components/CreateEventForm";
 
 export const dynamic = "force-dynamic";
 
+type EventFilter = "missingVenue" | "draft" | undefined;
+
+export function parseEventFilter(filter?: string): EventFilter {
+  if (filter === "missingVenue" || filter === "draft") return filter;
+  return undefined;
+}
+
 export default async function MyEventsPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
   const user = await getSessionUser();
   if (!user) redirectToLogin("/my/events");
 
   const { filter } = await searchParams;
+  const parsedFilter = parseEventFilter(filter);
 
   const memberships = await db.venueMembership.findMany({
     where: { userId: user.id, role: { in: ["OWNER", "EDITOR"] } },
@@ -26,10 +34,10 @@ export default async function MyEventsPage({ searchParams }: { searchParams: Pro
     where: {
       OR: [
         { submissions: { some: { submitterUserId: user.id, type: "EVENT", OR: [{ kind: "PUBLISH" }, { kind: null }] } } },
-        venueIds.length ? { venueId: { in: venueIds } } : {},
+        ...(venueIds.length ? [{ venueId: { in: venueIds } }] : []),
       ],
-      ...(filter === "missingVenue" ? { venueId: null } : {}),
-      ...(filter === "draft" ? { isPublished: false } : {}),
+      ...(parsedFilter === "missingVenue" ? { venueId: null } : {}),
+      ...(parsedFilter === "draft" ? { isPublished: false } : {}),
     },
     select: {
       id: true,

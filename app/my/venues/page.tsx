@@ -11,7 +11,14 @@ import { CreateVenueForm } from "@/app/my/venues/_components/CreateVenueForm";
 
 export const dynamic = "force-dynamic";
 
-export default async function MyVenuesPage() {
+type VenueFilter = "missingCover" | "needsEdits" | "submitted" | undefined;
+
+export function parseVenueFilter(filter?: string): VenueFilter {
+  if (filter === "missingCover" || filter === "needsEdits" || filter === "submitted") return filter;
+  return undefined;
+}
+
+export default async function MyVenuesPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
   const user = await getSessionUser();
   if (!user) redirectToLogin("/my/venues");
 
@@ -23,6 +30,9 @@ export default async function MyVenuesPage() {
       </main>
     );
   }
+
+  const { filter } = await searchParams;
+  const parsedFilter = parseVenueFilter(filter);
 
   const memberships = await db.venueMembership.findMany({
     where: { userId: user.id },
@@ -40,6 +50,14 @@ export default async function MyVenuesPage() {
     orderBy: { createdAt: "desc" },
   });
 
+  const filteredMemberships = memberships.filter((item) => {
+    const latestStatus = item.venue.targetSubmissions[0]?.status;
+    if (parsedFilter === "missingCover") return item.venue.featuredAssetId === null;
+    if (parsedFilter === "needsEdits") return latestStatus === "REJECTED";
+    if (parsedFilter === "submitted") return latestStatus === "SUBMITTED";
+    return true;
+  });
+
   const pendingInvites = await db.venueInvite.findMany({
     where: {
       email: user.email.toLowerCase(),
@@ -52,7 +70,7 @@ export default async function MyVenuesPage() {
     orderBy: { createdAt: "desc" },
   });
 
-  const hasNoMemberships = memberships.length === 0;
+  const hasNoMemberships = filteredMemberships.length === 0;
   const hasNoInvites = pendingInvites.length === 0;
 
   return (
@@ -100,7 +118,7 @@ export default async function MyVenuesPage() {
             <Button asChild variant="outline"><Link href="/my/venues/new">+ Create venue</Link></Button>
           </div>
           <ul className="space-y-2">
-            {memberships.map((item) => (
+            {filteredMemberships.map((item) => (
               <li key={item.id} className="border rounded p-3">
                 <div className="font-medium">{item.venue.name}</div>
                 <div className="text-sm text-neutral-600">Role: {item.role}</div>
