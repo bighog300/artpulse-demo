@@ -18,7 +18,7 @@ import { getPreferenceSnapshot } from "@/lib/personalization/preferences";
 import { recordFeedback } from "@/lib/personalization/feedback";
 import { recordExposureBatch, recordOutcome } from "@/lib/personalization/measurement";
 
-type SavedSearch = { id: string; name: string; type: "NEARBY" | "EVENTS_FILTER"; frequency: "WEEKLY"; isEnabled: boolean; lastSentAt: string | null; createdAt?: string; paramsJson?: { q?: string; tags?: string[] } };
+type SavedSearch = { id: string; name: string; type: "NEARBY" | "EVENTS_FILTER" | "ARTWORK"; frequency: "WEEKLY"; isEnabled: boolean; lastSentAt: string | null; createdAt?: string; paramsJson?: { q?: string; tags?: string[] } };
 type RunItem = { id: string; slug: string; title: string; startAt: string; endAt: string | null; venue: { name: string | null } | null };
 
 
@@ -34,7 +34,9 @@ const emptySignals: OnboardingSignals = {
 };
 
 function humanTypeLabel(type: SavedSearch["type"]) {
-  return type === "NEARBY" ? "Nearby events" : "Search filters";
+  if (type === "NEARBY") return "Nearby events";
+  if (type === "ARTWORK") return "Artwork filters";
+  return "Search filters";
 }
 
 export function SavedSearchesClient() {

@@ -17,6 +17,8 @@ test("saved search params normalize and clamp schema", () => {
   const filtered = normalizeSavedSearchParams("EVENTS_FILTER", { q: "painting", tags: ["modern"] });
   assert.equal(filtered.q, "painting");
   assert.deepEqual(filtered.tags, ["modern"]);
+  const artwork = normalizeSavedSearchParams("ARTWORK", { query: "blue", medium: ["Painting"], sort: "VIEWS_30D_DESC" });
+  assert.equal((artwork as any).provider, "ARTWORKS");
 });
 
 test("digest dedupe key stable by iso week", () => {
