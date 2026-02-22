@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
 import { db } from "@/lib/db";
 import { requireEditor } from "@/lib/auth";
+import { decodeSubmissionsCursor, encodeSubmissionsCursor } from "@/lib/admin-submissions-cursor";
 
 export const runtime = "nodejs";
 
@@ -16,11 +17,27 @@ export async function GET(req: NextRequest) {
     const rawStatus = req.nextUrl.searchParams.get("status") || "SUBMITTED";
     const status: SubmissionStatusFilter = allowedStatuses.includes(rawStatus as SubmissionStatusFilter) ? (rawStatus as SubmissionStatusFilter) : "SUBMITTED";
 
+    const parsedCursor = cursor ? decodeSubmissionsCursor(cursor) : null;
+    const legacyCursorRow = cursor && !parsedCursor
+      ? await db.submission.findUnique({ where: { id: cursor }, select: { id: true, submittedAt: true } })
+      : null;
+
+    const effectiveCursor = parsedCursor
+      ?? (legacyCursorRow?.submittedAt ? { id: legacyCursorRow.id, submittedAtISO: legacyCursorRow.submittedAt.toISOString() } : null);
+
     const items = await db.submission.findMany({
-      where: { status },
+      where: {
+        status,
+        submittedAt: { not: null },
+        ...(effectiveCursor ? {
+          OR: [
+            { submittedAt: { lt: new Date(effectiveCursor.submittedAtISO) } },
+            { submittedAt: new Date(effectiveCursor.submittedAtISO), id: { lt: effectiveCursor.id } },
+          ],
+        } : {}),
+      },
       take: limit,
-      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
-      orderBy: [{ submittedAt: "asc" }, { id: "asc" }],
+      orderBy: [{ submittedAt: "desc" }, { id: "desc" }],
       select: {
         id: true,
         type: true,
@@ -35,7 +52,13 @@ export async function GET(req: NextRequest) {
         submitter: { select: { id: true, email: true, name: true } },
       },
     });
-    return NextResponse.json(items);
+
+    const last = items[items.length - 1];
+    const nextCursor = last?.submittedAt
+      ? encodeSubmissionsCursor({ submittedAtISO: last.submittedAt.toISOString(), id: last.id })
+      : null;
+
+    return NextResponse.json({ items, nextCursor });
   } catch (error) {
     if (error instanceof Error && error.message === "unauthorized") {
       return apiError(401, "unauthorized", "Authentication required");

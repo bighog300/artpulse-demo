@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
-import { db } from "@/lib/db";
 import { requireEditor } from "@/lib/auth";
 import { idParamSchema, parseBody, submissionDecisionSchema, zodDetails } from "@/lib/validators";
 import { submissionDecisionDedupeKey } from "@/lib/notification-keys";
 import { buildInAppFromTemplate, enqueueNotification } from "@/lib/notifications";
 import { RATE_LIMITS, enforceRateLimit, isRateLimitError, rateLimitErrorResponse } from "@/lib/rate-limit";
-import { logAdminAction } from "@/lib/admin-audit";
+import { decideSubmission, ModerationDecisionError } from "@/lib/moderation-decision-service";
 
 export const runtime = "nodejs";
 
@@ -25,103 +24,40 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const parsedBody = submissionDecisionSchema.safeParse(await parseBody(req));
     if (!parsedBody.success) return apiError(400, "invalid_request", "Invalid payload", zodDetails(parsedBody.error));
 
-    const submission = await db.submission.findUnique({
-      where: { id: parsedId.data.id },
-      include: {
-        submitter: { select: { id: true, email: true } },
-        targetEvent: { select: { slug: true } },
-        targetVenue: { select: { slug: true } },
-      },
+    const result = await decideSubmission({
+      submissionId: parsedId.data.id,
+      actor: { id: user.id, email: user.email, role: user.role },
+      decision: parsedBody.data.action === "approve" ? "APPROVE" : "REJECT",
+      rejectionReason: parsedBody.data.decisionReason,
     });
-    if (!submission) return apiError(404, "not_found", "Submission not found");
-    if (submission.status !== "SUBMITTED") return apiError(409, "invalid_state", "Submission is not pending moderation");
 
-    if (parsedBody.data.action === "approve") {
-      if (submission.type === "EVENT" && submission.targetEventId) {
-        await db.event.update({ where: { id: submission.targetEventId }, data: { isPublished: true, publishedAt: new Date() } });
-      }
-      if (submission.type === "VENUE" && submission.targetVenueId) {
-        await db.venue.update({ where: { id: submission.targetVenueId }, data: { isPublished: true } });
-      }
-
-      const updated = await db.submission.update({
-        where: { id: submission.id },
-        data: {
-          status: "APPROVED",
-          decidedByUserId: user.id,
-          decidedAt: new Date(),
-          decisionReason: null,
-        },
-      });
-      await logAdminAction({
-        actorEmail: user.email,
-        action: "admin.submission.approve",
-        targetType: "submission",
-        targetId: submission.id,
-        metadata: { submissionType: submission.type },
-        req,
-      });
-
-
-      await enqueueNotification({
-        type: "SUBMISSION_APPROVED",
-        toEmail: submission.submitter.email,
-        dedupeKey: submissionDecisionDedupeKey(submission.id, "APPROVED"),
-        payload: {
-          submissionId: updated.id,
-          status: updated.status,
-          decidedAt: updated.decidedAt?.toISOString() ?? null,
-        },
-        inApp: buildInAppFromTemplate(submission.submitter.id, "SUBMISSION_APPROVED", {
-          type: "SUBMISSION_APPROVED",
-          submissionId: updated.id,
-          submissionType: submission.type,
-          targetEventSlug: submission.targetEvent?.slug,
-          targetVenueSlug: submission.targetVenue?.slug,
-        }),
-      });
-      return NextResponse.json(updated);
-    }
-
-    const updated = await db.submission.update({
-      where: { id: submission.id },
-      data: {
-        status: "REJECTED",
-        decidedByUserId: user.id,
-        decidedAt: new Date(),
-        decisionReason: parsedBody.data.decisionReason ?? "Rejected by moderator",
-      },
-    });
-    await logAdminAction({
-      actorEmail: user.email,
-      action: "admin.submission.reject",
-      targetType: "submission",
-      targetId: submission.id,
-      metadata: { submissionType: submission.type, decisionReason: updated.decisionReason },
-      req,
-    });
+    if (result.idempotent) return apiError(409, "invalid_state", "Submission is not pending moderation");
 
     await enqueueNotification({
-      type: "SUBMISSION_REJECTED",
-      toEmail: submission.submitter.email,
-      dedupeKey: submissionDecisionDedupeKey(submission.id, "REJECTED"),
+      type: result.submission.status === "APPROVED" ? "SUBMISSION_APPROVED" : "SUBMISSION_REJECTED",
+      toEmail: result.submitterEmail,
+      dedupeKey: submissionDecisionDedupeKey(result.submission.id, result.submission.status),
       payload: {
-        submissionId: updated.id,
-        status: updated.status,
-        decisionReason: updated.decisionReason,
-        decidedAt: updated.decidedAt?.toISOString() ?? null,
+        submissionId: result.submission.id,
+        status: result.submission.status,
+        decisionReason: result.submission.decisionReason,
+        decidedAt: result.submission.decidedAt?.toISOString() ?? null,
       },
-      inApp: buildInAppFromTemplate(submission.submitter.id, "SUBMISSION_REJECTED", {
-        type: "SUBMISSION_REJECTED",
-        submissionId: updated.id,
-        submissionType: submission.type,
-        targetVenueId: submission.targetVenueId,
-        decisionReason: updated.decisionReason,
+      inApp: buildInAppFromTemplate(result.submitterId, result.submission.status === "APPROVED" ? "SUBMISSION_APPROVED" : "SUBMISSION_REJECTED", {
+        type: result.submission.status === "APPROVED" ? "SUBMISSION_APPROVED" : "SUBMISSION_REJECTED",
+        submissionId: result.submission.id,
+        submissionType: result.submission.type,
+        targetVenueId: result.submission.targetVenueId,
+        decisionReason: result.submission.decisionReason,
       }),
     });
-    return NextResponse.json(updated);
+
+    return NextResponse.json(result.submission);
   } catch (error) {
     if (isRateLimitError(error)) return rateLimitErrorResponse(error);
+    if (error instanceof ModerationDecisionError) {
+      return apiError(error.status, error.code, error.message);
+    }
     if (error instanceof Error && error.message === "unauthorized") {
       return apiError(401, "unauthorized", "Authentication required");
     }
