@@ -6,15 +6,10 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { CreateEventForm } from "@/app/my/events/_components/CreateEventForm";
+import { parseEventFilter } from "@/lib/my-filters";
 
 export const dynamic = "force-dynamic";
 
-type EventFilter = "missingVenue" | "draft" | undefined;
-
-export function parseEventFilter(filter?: string): EventFilter {
-  if (filter === "missingVenue" || filter === "draft") return filter;
-  return undefined;
-}
 
 export default async function MyEventsPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
   const user = await getSessionUser();
