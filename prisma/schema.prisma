@@ -131,6 +131,13 @@ enum AnalyticsEntityType {
   EVENT
 }
 
+enum EditorialNotificationKind {
+  COLLECTION_GOES_LIVE_SOON
+  COLLECTION_EXPIRES_SOON
+  COLLECTION_QA_ISSUES
+  RANK_COLLISION_ALERT
+}
+
 model User {
   id                   String                @id @default(uuid()) @db.Uuid
   email                String                @unique
@@ -706,6 +713,15 @@ model CuratedCollection {
   @@index([isPublished, publishStartsAt, publishEndsAt])
   @@index([homeRank])
   @@index([updatedAt])
+}
+
+model EditorialNotificationLog {
+  id          String                   @id @default(uuid()) @db.Uuid
+  kind        EditorialNotificationKind
+  fingerprint String                   @unique
+  payloadJson Json
+  sentTo      String[]
+  createdAt   DateTime                 @default(now())
 }
 
 model CuratedCollectionItem {
