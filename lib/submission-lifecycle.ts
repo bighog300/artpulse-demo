@@ -14,6 +14,7 @@ type MinimalSubmission = {
   submittedAt: Date | null;
   decidedAt: Date | null;
   decisionReason: string | null;
+  rejectionReason: string | null;
 };
 
 type LifecycleDb = {
@@ -21,7 +22,7 @@ type LifecycleDb = {
     findFirst: (args: {
       where: Record<string, unknown>;
       orderBy: Array<Record<string, "asc" | "desc">>;
-      select: { id: true; status: true; submittedAt: true; decidedAt: true; decisionReason: true };
+      select: { id: true; status: true; submittedAt: true; decidedAt: true; decisionReason: true; rejectionReason: true };
     }) => Promise<MinimalSubmission | null>;
   };
 };
@@ -33,7 +34,7 @@ function toSummary(row: MinimalSubmission | null): SubmissionLifecycleSummary | 
     status: row.status,
     submittedAt: row.submittedAt,
     reviewedAt: row.decidedAt,
-    rejectionReason: row.decisionReason,
+    rejectionReason: row.rejectionReason ?? row.decisionReason,
   };
 }
 
@@ -41,7 +42,7 @@ async function getLatest(db: LifecycleDb, where: Record<string, unknown>) {
   return toSummary(await db.submission.findFirst({
     where,
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-    select: { id: true, status: true, submittedAt: true, decidedAt: true, decisionReason: true },
+    select: { id: true, status: true, submittedAt: true, decidedAt: true, decisionReason: true, rejectionReason: true },
   }));
 }
 

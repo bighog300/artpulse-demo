@@ -639,6 +639,10 @@ export const submissionDecisionSchema = z.object({
   decisionReason: z.string().trim().max(2000).optional().nullable(),
 });
 
+export const adminModerationRejectSchema = z.object({
+  rejectionReason: z.string().trim().min(5).max(2000),
+});
+
 export const venueMemberCreateSchema = z.object({
   email: z.string().trim().email().transform((value) => value.toLowerCase()),
   role: z.enum(["OWNER", "EDITOR"]),

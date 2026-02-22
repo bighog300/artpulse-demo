@@ -406,6 +406,7 @@ model Submission {
   note            String?
   details         Json?
   decisionReason  String?
+  rejectionReason String?
   decidedByUserId String?          @db.Uuid
   submittedAt     DateTime?
   decidedAt       DateTime?
