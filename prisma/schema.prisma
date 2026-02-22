@@ -309,6 +309,7 @@ model Artist {
   featuredAsset     Asset?                   @relation("ArtistFeaturedAsset", fields: [featuredAssetId], references: [id], onDelete: SetNull)
   venueAssociations ArtistVenueAssociation[]
   artworks          Artwork[]
+  featuredArtworks  ArtistFeaturedArtwork[]
 
   @@index([isPublished])
   @@index([featuredAssetId])
@@ -665,11 +666,52 @@ model Artwork {
   images          ArtworkImage[]
   venues          ArtworkVenue[]
   events          ArtworkEvent[]
+  featuredBy      ArtistFeaturedArtwork[]
+  curatedItems    CuratedCollectionItem[]
 
   @@index([artistId])
   @@index([isPublished])
   @@index([artistId, isPublished, updatedAt])
   @@index([featuredAssetId])
+}
+
+model ArtistFeaturedArtwork {
+  id        String   @id @default(uuid()) @db.Uuid
+  artistId  String   @db.Uuid
+  artworkId String   @db.Uuid
+  sortOrder Int
+  createdAt DateTime @default(now())
+  artist    Artist   @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  artwork   Artwork  @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+
+  @@unique([artistId, artworkId])
+  @@index([artistId, sortOrder])
+}
+
+model CuratedCollection {
+  id          String                  @id @default(uuid()) @db.Uuid
+  slug        String                  @unique
+  title       String
+  description String?
+  isPublished Boolean                 @default(false)
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+  items       CuratedCollectionItem[]
+
+  @@index([isPublished])
+}
+
+model CuratedCollectionItem {
+  id           String            @id @default(uuid()) @db.Uuid
+  collectionId String            @db.Uuid
+  artworkId    String            @db.Uuid
+  sortOrder    Int
+  createdAt    DateTime          @default(now())
+  collection   CuratedCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  artwork      Artwork           @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, artworkId])
+  @@index([collectionId, sortOrder])
 }
 
 model ArtworkImage {

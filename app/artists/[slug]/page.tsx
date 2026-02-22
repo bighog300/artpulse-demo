@@ -18,7 +18,7 @@ import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { buildArtistJsonLd, getDetailUrl } from "@/lib/seo.public-profiles";
 import { resolveEntityPrimaryImage } from "@/lib/public-images";
 import { ArtworkCountBadge } from "@/components/artwork/artwork-count-badge";
-import { countPublishedArtworksByArtist, listPublishedArtworksByArtist } from "@/lib/artworks";
+import { countPublishedArtworksByArtist, listFeaturedArtworksByArtist, listPublishedArtworksByArtist } from "@/lib/artworks";
 
 const FALLBACK_METADATA = { title: "Artist | Artpulse", description: "Browse artist profiles and related events on Artpulse." };
 
@@ -76,11 +76,12 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
 
   if (!artist) notFound();
 
-  const [followersCount, existingFollow, artworks, artworkCount] = await Promise.all([
+  const [followersCount, existingFollow, artworks, artworkCount, featuredArtworks] = await Promise.all([
     db.follow.count({ where: { targetType: "ARTIST", targetId: artist.id } }),
     user ? db.follow.findUnique({ where: { userId_targetType_targetId: { userId: user.id, targetType: "ARTIST", targetId: artist.id } }, select: { id: true } }) : Promise.resolve(null),
     listPublishedArtworksByArtist(artist.id, 6),
     countPublishedArtworksByArtist(artist.id),
+    listFeaturedArtworksByArtist(artist.id, 6),
   ]);
 
   const imageUrl = resolveEntityPrimaryImage(artist)?.url ?? null;
@@ -121,6 +122,7 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
         upcoming={(
           <section className="space-y-3">
             <SectionHeader title="Upcoming events" subtitle="Catch this artist's next exhibitions and shows." />
+            {featuredArtworks.length > 0 ? <ArtworkRelatedSection title="Featured artworks" subtitle="Selected by the artist." items={featuredArtworks} viewAllHref={artworkCount > 6 ? `/artwork?artistId=${artist.id}` : undefined} /> : null}
             <ArtworkRelatedSection title={`Artworks by ${artist.name}`} subtitle="Published works from this artist." items={artworks} viewAllHref={artworkCount > 6 ? `/artwork?artistId=${artist.id}` : undefined} />
             {events.length === 0 ? <EmptyState title="No upcoming events" description="Follow this artist and we’ll keep you posted." /> : (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
