@@ -82,7 +82,7 @@ test("/api/my/dashboard scopes only owned artist data and computes todos/views/t
   assert.equal(body.topArtworks30.length, 2);
   assert.equal(body.topArtworks30[0].id, "a2");
 
-  const missingCover = body.todo.find((item: { id: string }) => item.id === "missing-cover");
+  const missingCover = body.todo.find((item: { id: string }) => item.id === "missing-image");
   const draftTodo = body.todo.find((item: { id: string }) => item.id === "draft-artwork");
   assert.equal(missingCover?.count, 1);
   assert.equal(draftTodo?.count, 1);

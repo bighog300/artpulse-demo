@@ -6,6 +6,7 @@ import { requireAuth } from "@/lib/auth";
 import { logAdminAction } from "@/lib/admin-audit";
 import { ensureUniqueArtworkSlugWithDeps, slugifyArtworkTitle } from "@/lib/artwork-slug";
 import { myArtworkCreateSchema, parseBody, zodDetails } from "@/lib/validators";
+import { computeArtworkCompleteness } from "@/lib/artwork-completeness";
 
 export const runtime = "nodejs";
 
@@ -17,9 +18,21 @@ export async function GET() {
   const items = await db.artwork.findMany({
     where: user.role === "ADMIN" ? {} : { artistId: artist!.id },
     orderBy: { updatedAt: "desc" },
-    select: { id: true, title: true, slug: true, isPublished: true, updatedAt: true },
+    select: { id: true, title: true, slug: true, isPublished: true, updatedAt: true, description: true, year: true, medium: true, featuredAssetId: true, _count: { select: { images: true } } },
   });
-  return NextResponse.json({ items });
+  return NextResponse.json({
+    items: items.map((item) => {
+      const completeness = computeArtworkCompleteness(item, item._count.images);
+      return {
+        id: item.id,
+        title: item.title,
+        slug: item.slug,
+        isPublished: item.isPublished,
+        updatedAt: item.updatedAt,
+        completeness: { scorePct: completeness.scorePct, requiredOk: completeness.required.ok },
+      };
+    }),
+  });
 }
 
 export async function POST(req: NextRequest) {
