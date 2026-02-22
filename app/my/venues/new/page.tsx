@@ -1,6 +1,6 @@
 import { getSessionUser } from "@/lib/auth";
 import { redirectToLogin } from "@/lib/auth-redirect";
-import CreateVenueForm from "@/app/my/_components/CreateVenueForm";
+import { CreateVenueForm } from "@/app/my/venues/_components/CreateVenueForm";
 
 export default async function CreateVenuePage() {
   const user = await getSessionUser();
