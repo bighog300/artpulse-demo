@@ -23,20 +23,9 @@ export async function GET() {
     }),
     listManagedVenuesByUserId: async (userId) => db.venueMembership.findMany({
       where: { userId },
-      select: {
-        venue: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            isPublished: true,
-            featuredImageUrl: true,
-            featuredAsset: { select: { url: true } },
-          },
-        },
-      },
+      select: { venueId: true },
       orderBy: { createdAt: "asc" },
-    }).then((rows) => rows.map((row) => row.venue)),
+    }).then((rows) => rows.map((row) => ({ id: row.venueId }))),
     listArtworksByArtistId: async (artistId) => db.artwork.findMany({
       where: { artistId },
       select: {
@@ -47,7 +36,11 @@ export async function GET() {
         featuredAssetId: true,
         updatedAt: true,
         featuredAsset: { select: { url: true } },
-        images: { select: { id: true }, take: 1 },
+        images: {
+          select: { id: true, asset: { select: { url: true } } },
+          orderBy: { sortOrder: "asc" },
+          take: 1,
+        },
       },
       orderBy: { updatedAt: "desc" },
     }),

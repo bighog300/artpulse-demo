@@ -25,7 +25,7 @@ type ArtworkRecord = {
   featuredAssetId: string | null;
   updatedAt: Date;
   featuredAsset: { url: string } | null;
-  images: Array<{ id: string }>;
+  images: Array<{ id: string; asset: { url: string } }>;
 };
 
 type EventRecord = {
@@ -37,14 +37,7 @@ type EventRecord = {
   venueId: string | null;
 };
 
-type VenueRecord = {
-  id: string;
-  name: string;
-  slug: string;
-  isPublished: boolean;
-  featuredAsset: { url: string } | null;
-  featuredImageUrl: string | null;
-};
+type VenueRecord = { id: string };
 
 type Deps = {
   requireAuth: () => Promise<SessionUser>;
@@ -68,7 +61,8 @@ function profileCompleteness(artist: ArtistRecord) {
     { key: "name", ok: Boolean(artist.name.trim()) },
     { key: "bio", ok: Boolean(artist.bio?.trim()) },
     { key: "avatar", ok: Boolean(artist.featuredAssetId || artist.avatarImageUrl || artist.featuredAsset?.url) },
-    { key: "websiteOrSocial", ok: Boolean(artist.websiteUrl?.trim() || artist.instagramUrl?.trim()) },
+    { key: "website", ok: Boolean(artist.websiteUrl?.trim()) },
+    { key: "instagram", ok: Boolean(artist.instagramUrl?.trim()) },
   ];
   const complete = checks.filter((item) => item.ok).length;
   return {
@@ -84,7 +78,7 @@ export async function handleGetMyDashboard(deps: Deps) {
     if (!artist) {
       return NextResponse.json({
         needsOnboarding: true,
-        message: "Create your artist profile to unlock your publisher dashboard.",
+        message: "Create your artist profile to unlock your creator hub.",
         nextHref: "/my/artist",
       }, { headers: { "Cache-Control": "no-store" } });
     }
@@ -110,16 +104,6 @@ export async function handleGetMyDashboard(deps: Deps) {
       now,
     );
 
-    let prior30Views = 0;
-    const start30Key = addDays(today, -29).toISOString().slice(0, 10);
-    const priorStartKey = addDays(today, -59).toISOString().slice(0, 10);
-    const priorEndKey = addDays(today, -30).toISOString().slice(0, 10);
-    for (const row of dailyRows) {
-      const day = row.day.toISOString().slice(0, 10);
-      if (day >= priorStartKey && day <= priorEndKey) prior30Views += row.views;
-      if (day < priorStartKey || day > start30Key) continue;
-    }
-
     const publishedCount = artworks.filter((item) => item.isPublished).length;
     const drafts = artworks.filter((item) => !item.isPublished);
     const missingCover = artworks.filter((item) => !item.featuredAssetId && item.images.length === 0);
@@ -130,10 +114,15 @@ export async function handleGetMyDashboard(deps: Deps) {
 
     const profile = profileCompleteness(artist);
     const todo = [
-      { id: "missing-cover", label: "Artworks missing cover image", count: missingCover.length, href: "/my/artwork?filter=missingCover" },
       { id: "draft-artwork", label: "Draft artworks to publish", count: drafts.length, href: "/my/artwork?filter=draft" },
+      { id: "missing-cover", label: "Artworks missing cover image", count: missingCover.length, href: "/my/artwork?filter=missingCover" },
       { id: "missing-bio", label: "Artist profile missing bio", count: artist.bio?.trim() ? 0 : 1, href: "/my/artist#bio" },
-      { id: "missing-avatar", label: "Artist avatar missing", count: artist.featuredAssetId ? 0 : 1, href: "/my/artist#avatar" },
+      {
+        id: "missing-avatar",
+        label: "Artist avatar missing",
+        count: artist.featuredAssetId || artist.avatarImageUrl || artist.featuredAsset?.url ? 0 : 1,
+        href: "/my/artist#avatar",
+      },
       { id: "event-missing-venue", label: "Upcoming events missing venue", count: upcomingEvents.filter((item) => !item.venueId).length, href: "/my/events?filter=missingVenue" },
     ].filter((item) => item.count > 0).slice(0, 5);
 
@@ -145,6 +134,17 @@ export async function handleGetMyDashboard(deps: Deps) {
       .slice(0, 8)
       .map((item) => ({ label: item.label, href: item.href, occurredAtISO: item.occurredAt.toISOString() }));
 
+    const topArtworks30 = analytics.views.top30.slice(0, 5).map((item) => {
+      const artwork = artworks.find((row) => row.id === item.artworkId);
+      return {
+        id: item.artworkId,
+        title: item.title,
+        slug: item.slug,
+        views30: item.views,
+        coverUrl: resolveImageUrl(artwork?.featuredAsset?.url, artwork?.images[0]?.asset.url ?? null),
+      };
+    });
+
     return NextResponse.json({
       artist: {
         id: artist.id,
@@ -153,34 +153,28 @@ export async function handleGetMyDashboard(deps: Deps) {
         avatarUrl: resolveImageUrl(artist.featuredAsset?.url, artist.avatarImageUrl),
       },
       stats: {
-        artworks: { total: artworks.length, published: publishedCount, drafts: drafts.length },
-        views: { last30: analytics.views.last30, last7: analytics.views.last7, last90: analytics.views.last90, prior30: prior30Views },
+        artworks: { total: artworks.length, published: publishedCount, drafts: drafts.length, missingCover: missingCover.length },
+        views: { last7: analytics.views.last7, last30: analytics.views.last30, last90: analytics.views.last90 },
         upcomingEvents: {
           next30Count: upcomingEvents.length,
           nextEvent: upcomingEvents[0]
             ? { id: upcomingEvents[0].id, slug: upcomingEvents[0].slug, title: upcomingEvents[0].title, startAt: upcomingEvents[0].startAt.toISOString() }
-            : undefined,
+            : null,
         },
         profile,
       },
       todo,
       drafts: {
-        artworks: drafts.slice(0, 5).map((item) => ({ id: item.id, title: item.title, slug: item.slug, coverUrl: item.featuredAsset?.url })),
-      },
-      topArtworks: analytics.views.top30.slice(0, 5).map((item) => {
-        const artwork = artworks.find((row) => row.id === item.artworkId);
-        return { id: item.artworkId, title: item.title, slug: item.slug, views30: item.views, coverUrl: artwork?.featuredAsset?.url ?? null };
-      }),
-      recent,
-      entities: {
-        venues: managedVenues.slice(0, 3).map((venue) => ({
-          id: venue.id,
-          name: venue.name,
-          slug: venue.slug,
-          isPublished: venue.isPublished,
-          coverUrl: resolveImageUrl(venue.featuredAsset?.url, venue.featuredImageUrl),
+        artworks: drafts.slice(0, 5).map((item) => ({
+          id: item.id,
+          title: item.title,
+          slug: item.slug,
+          coverUrl: resolveImageUrl(item.featuredAsset?.url, item.images[0]?.asset.url ?? null),
+          updatedAtISO: item.updatedAt.toISOString(),
         })),
       },
+      topArtworks30,
+      recent,
     }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     if (error instanceof Error && error.message === "unauthorized") return apiError(401, "unauthorized", "Authentication required");
