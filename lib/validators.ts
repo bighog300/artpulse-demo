@@ -175,6 +175,28 @@ export const myArtistPatchSchema = z.object({
   featuredAssetId: z.string().uuid().optional().nullable(),
 });
 
+export const artistFeaturedArtworksReplaceSchema = z.object({
+  artworkIds: z.array(z.string().uuid()).max(6),
+});
+
+export const curatedCollectionCreateSchema = z.object({
+  slug: slugSchema,
+  title: z.string().trim().min(1).max(160),
+  description: z.string().trim().max(4000).optional().nullable(),
+  isPublished: z.boolean().optional(),
+});
+
+export const curatedCollectionPatchSchema = z.object({
+  slug: slugSchema.optional(),
+  title: z.string().trim().min(1).max(160).optional(),
+  description: z.string().trim().max(4000).optional().nullable(),
+  isPublished: z.boolean().optional(),
+}).refine((value) => Object.keys(value).length > 0, "At least one field must be provided");
+
+export const curatedCollectionItemsReplaceSchema = z.object({
+  artworkIds: z.array(z.string().uuid()).max(50),
+});
+
 export const venueImageCreateSchema = z.object({
   url: httpUrlSchema,
   key: z.string().trim().min(1).max(400).optional(),

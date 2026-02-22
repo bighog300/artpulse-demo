@@ -11,6 +11,7 @@ import { ArtistPublishPanel } from "@/app/my/_components/ArtistPublishPanel";
 import { ArtistVenuesPanel } from "@/components/artists/artist-venues-panel";
 import { Button } from "@/components/ui/button";
 import { countAllArtworksByArtist } from "@/lib/artworks";
+import { ArtistFeaturedArtworksPanel } from "@/components/artists/artist-featured-artworks-panel";
 
 export default async function MyArtistPage() {
   const user = await getSessionUser();
@@ -63,7 +64,7 @@ export default async function MyArtistPage() {
   }
 
   const latestSubmission = artist.targetSubmissions[0] ?? null;
-  const [publishedVenues, artworkCount] = await Promise.all([
+  const [publishedVenues, artworkCount, publishedArtworks, featuredArtworks] = await Promise.all([
     db.venue.findMany({
       where: { isPublished: true },
       orderBy: { name: "asc" },
@@ -71,6 +72,17 @@ export default async function MyArtistPage() {
       take: 100,
     }),
     countAllArtworksByArtist(artist.id),
+    db.artwork.findMany({
+      where: { artistId: artist.id, isPublished: true },
+      orderBy: { updatedAt: "desc" },
+      select: { id: true, slug: true, title: true, featuredAsset: { select: { url: true } }, images: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], take: 1, select: { asset: { select: { url: true } } } }, isPublished: true },
+      take: 100,
+    }),
+    db.artistFeaturedArtwork.findMany({
+      where: { artistId: artist.id },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      select: { sortOrder: true, artwork: { select: { id: true, slug: true, title: true, featuredAsset: { select: { url: true } }, images: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], take: 1, select: { asset: { select: { url: true } } } } } } },
+    }),
   ]);
 
   return (
@@ -113,6 +125,10 @@ export default async function MyArtistPage() {
         initialCover={resolveArtistCoverUrl(artist)}
       />
       <ArtistVenuesPanel initialVenues={publishedVenues} />
+      <ArtistFeaturedArtworksPanel
+        initialFeatured={featuredArtworks.map((row) => ({ id: row.artwork.id, slug: row.artwork.slug, title: row.artwork.title, coverUrl: row.artwork.featuredAsset?.url ?? row.artwork.images[0]?.asset?.url ?? null, sortOrder: row.sortOrder }))}
+        options={publishedArtworks.map((item) => ({ id: item.id, slug: item.slug, title: item.title, coverUrl: item.featuredAsset?.url ?? item.images[0]?.asset?.url ?? null, isPublished: item.isPublished }))}
+      />
     </main>
   );
 }

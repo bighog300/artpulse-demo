@@ -3,6 +3,7 @@ import { getSessionUser } from "@/lib/auth";
 import { GetStartedEntryPoint } from "@/components/onboarding/get-started-entry-point";
 import { PageShell } from "@/components/ui/page-shell";
 import { Card } from "@/components/ui/card";
+import { CuratedCollectionsRail } from "@/components/artwork/curated-collections-rail";
 
 const publicTiles = [
   { title: "Browse events", description: "See what's coming up across exhibitions, openings, and talks.", href: "/events" },
@@ -47,6 +48,8 @@ export default async function Home() {
       ) : (
         <GetStartedEntryPoint />
       )}
+
+      <CuratedCollectionsRail />
     </PageShell>
   );
 }

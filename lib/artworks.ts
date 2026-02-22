@@ -103,3 +103,26 @@ export async function listPublishedArtworksByEvent(eventId: string, limit = 6): 
   const items = await db.artwork.findMany({ where: publishedArtworksByEventWhere(eventId), orderBy: { updatedAt: "desc" }, take: limit, select: selectRelatedArtwork });
   return items.map(mapPublishedArtworkRow);
 }
+
+type ArtistFeaturedDeps = {
+  findMany: (args: {
+    where: { artistId: string; artwork: { isPublished: true } };
+    orderBy: Array<{ sortOrder: "asc" } | { createdAt: "asc" }>;
+    take: number;
+    select: { artwork: { select: typeof selectRelatedArtwork } };
+  }) => Promise<Array<{ artwork: PublishedArtworkRow }>>;
+};
+
+function artistFeaturedDeps(): ArtistFeaturedDeps {
+  return { findMany: (args) => db.artistFeaturedArtwork.findMany(args) };
+}
+
+export async function listFeaturedArtworksByArtist(artistId: string, limit = 6, deps: ArtistFeaturedDeps = artistFeaturedDeps()): Promise<PublishedArtworkListItem[]> {
+  const items = await deps.findMany({
+    where: { artistId, artwork: { isPublished: true } },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    take: limit,
+    select: { artwork: { select: selectRelatedArtwork } },
+  });
+  return items.map((item) => mapPublishedArtworkRow(item.artwork));
+}
