@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { CreateVenueForm } from "@/app/my/venues/_components/CreateVenueForm";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -306,6 +307,7 @@ export function MyDashboardClient() {
   const venueLimit = 3;
   const atVenueLimit = ownedCount >= venueLimit;
   const canManageEvents = data.viewer?.role !== "USER";
+  const showInlineVenueCreate = canManageEvents && ownedCount === 0 && !atVenueLimit;
 
   if (data.needsOnboarding) {
     return (
@@ -356,7 +358,14 @@ export function MyDashboardClient() {
             <div className="rounded-lg border border-dashed p-4 sm:p-5">
               <p className="font-medium">Create your first venue</p>
               <p className="mt-1 text-sm text-muted-foreground">Add your venue so you can publish events and manage your profile.</p>
-              {atVenueLimit ? (
+              {showInlineVenueCreate ? (
+                <div className="mt-4 space-y-2">
+                  <CreateVenueForm buttonLabel="+ Create venue" />
+                  <p className="text-xs text-muted-foreground">
+                    Prefer the full page editor? <Link className="underline" href={data.links.venuesNewHref}>Open it here</Link>.
+                  </p>
+                </div>
+              ) : atVenueLimit ? (
                 <Button type="button" className="mt-4" disabled>+ Create venue</Button>
               ) : (
                 <Button asChild className="mt-4"><Link href={data.links.venuesNewHref}>+ Create venue</Link></Button>
