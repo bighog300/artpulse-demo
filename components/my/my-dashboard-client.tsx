@@ -86,6 +86,8 @@ function formatFeedback(feedback: string | null | undefined) {
 
 function getEventSubmissionState(event: EventPipelineItem) {
   const submissionStatus = event.submissionStatus ?? null;
+  const changesRequestedStatuses = new Set(["REJECTED", "CHANGES_REQUESTED", "NEEDS_CHANGES"]);
+
   if (submissionStatus === "SUBMITTED") {
     return {
       label: "Submitted",
@@ -93,6 +95,8 @@ function getEventSubmissionState(event: EventPipelineItem) {
       feedback: null,
       showPublished: false,
       showSubmitAction: false,
+      showResubmitAction: false,
+      showFeedbackAction: false,
     };
   }
   if (submissionStatus === "APPROVED") {
@@ -102,15 +106,19 @@ function getEventSubmissionState(event: EventPipelineItem) {
       feedback: null,
       showPublished: Boolean(event.isPublished),
       showSubmitAction: false,
+      showResubmitAction: false,
+      showFeedbackAction: false,
     };
   }
-  if (submissionStatus === "REJECTED") {
+  if (submissionStatus && changesRequestedStatuses.has(submissionStatus)) {
     return {
       label: "Changes requested",
       meta: event.decidedAtISO ? `Reviewed ${formatEventDate(event.decidedAtISO)}` : null,
       feedback: formatFeedback(event.feedback),
       showPublished: false,
       showSubmitAction: false,
+      showResubmitAction: true,
+      showFeedbackAction: true,
     };
   }
 
@@ -120,6 +128,8 @@ function getEventSubmissionState(event: EventPipelineItem) {
     feedback: null,
     showPublished: Boolean(event.isPublished),
     showSubmitAction: !event.isPublished,
+    showResubmitAction: false,
+    showFeedbackAction: false,
   };
 }
 
@@ -211,17 +221,30 @@ export function MyDashboardClient() {
     await uploadFeaturedImage(activeUploadEventId, file);
   }, [activeUploadEventId, uploadFeaturedImage]);
 
-  const submitEventForReview = useCallback(async (eventId: string) => {
+  const submitEventForReview = useCallback(async (eventId: string, successTitle = "Submitted for review") => {
     setSubmittingEventId(eventId);
     try {
       const response = await fetch(`/api/my/events/${eventId}/submit`, { method: "POST" });
-      const body = await response.json().catch(() => ({}));
+      const responseText = await response.text();
+      let responseBody: { message?: string; error?: string | { message?: string } } | null = null;
 
-      if (!response.ok) {
-        throw new Error(body?.message || body?.error || "Failed to submit event");
+      if (responseText) {
+        try {
+          responseBody = JSON.parse(responseText) as { message?: string; error?: string | { message?: string } };
+        } catch {
+          responseBody = null;
+        }
       }
 
-      enqueueToast({ title: "Submitted for review", variant: "success" });
+      if (!response.ok) {
+        const errorMessage = responseBody?.message
+          || (typeof responseBody?.error === "string" ? responseBody.error : responseBody?.error?.message)
+          || responseText
+          || "Failed to submit event";
+        throw new Error(errorMessage);
+      }
+
+      enqueueToast({ title: successTitle, variant: "success" });
       await load();
       router.refresh();
     } catch (error) {
@@ -385,15 +408,39 @@ export function MyDashboardClient() {
                               {isSubmitting ? "Submitting..." : "Submit"}
                             </Button>
                           ) : null}
+                          {submissionState.showResubmitAction ? (
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              disabled={isUploading || isSubmitting}
+                              onClick={() => {
+                                void submitEventForReview(event.id, "Resubmitted");
+                              }}
+                            >
+                              {isSubmitting ? "Submitting..." : "Resubmit"}
+                            </Button>
+                          ) : null}
                         </div>
                         {submissionState.feedback ? (
                           <p className="line-clamp-2 text-xs text-muted-foreground">Feedback: {submissionState.feedback}</p>
                         ) : null}
-                        {event.submissionStatus === "REJECTED" ? (
+                        {submissionState.showFeedbackAction ? (
                           <p className="text-xs"><Link className="underline" href={`/my/events/${event.id}`}>View feedback</Link></p>
                         ) : null}
                       </div>
-                      <Link className="shrink-0 text-sm underline" href={`/my/events/${event.id}`}>Edit</Link>
+                      <Link
+                        className="shrink-0 text-sm underline"
+                        href={`/my/events/${event.id}`}
+                        aria-disabled={isUploading || isSubmitting}
+                        onClick={(eventClick) => {
+                          if (isUploading || isSubmitting) {
+                            eventClick.preventDefault();
+                          }
+                        }}
+                      >
+                        Edit
+                      </Link>
                     </li>
                   );
                 })}
