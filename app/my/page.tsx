@@ -2,10 +2,12 @@ import Link from "next/link";
 import { getSessionUser } from "@/lib/auth";
 import { redirectToLogin } from "@/lib/auth-redirect";
 import { MyDashboardResponseSchema } from "@/lib/my/dashboard-schema";
+import { getServerBaseUrl } from "@/lib/server/get-base-url";
 
 async function getDashboard(venueId?: string) {
   const qs = venueId ? `?venueId=${encodeURIComponent(venueId)}` : "";
-  const res = await fetch(`/api/my/dashboard${qs}`, { cache: "no-store" });
+  const baseUrl = await getServerBaseUrl();
+  const res = await fetch(`${baseUrl}/api/my/dashboard${qs}`, { cache: "no-store" });
   if (!res.ok) return null;
   return MyDashboardResponseSchema.parse(await res.json());
 }
