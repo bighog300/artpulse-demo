@@ -34,5 +34,6 @@ test("dashboard client includes events pipeline card content", () => {
   assert.match(source, /View all events/);
   assert.match(source, /Changes requested/);
   assert.match(source, /View feedback/);
+  assert.match(source, /Resubmit/);
   assert.match(source, /\/my\/events\/\$\{event\.id\}/);
 });
