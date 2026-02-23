@@ -11,7 +11,7 @@ const tabs = [
   ["Artist Profile", "/my/artist"],
   ["Team", "/my/team"],
   ["Analytics", "/my/analytics"],
-  ["Settings", "/settings"],
+  ["Settings", "/my/settings"],
 ] as const;
 
 export function MySubNav() {
