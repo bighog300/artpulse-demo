@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getServerBaseUrl } from "@/lib/server/get-base-url";
 
 async function fetchJson(path: string, token?: string) {
   const res = await fetch(path, { cache: "no-store", headers: token ? { authorization: `Bearer ${token}` } : undefined });
@@ -7,9 +8,10 @@ async function fetchJson(path: string, token?: string) {
 }
 
 export default async function AdminOpsPage() {
-  const health = await fetchJson("/api/health");
+  const baseUrl = await getServerBaseUrl();
+  const health = await fetchJson(`${baseUrl}/api/health`);
   const ops = process.env.OPS_SECRET
-    ? await fetchJson("/api/ops/metrics", process.env.OPS_SECRET)
+    ? await fetchJson(`${baseUrl}/api/ops/metrics`, process.env.OPS_SECRET)
     : null;
 
   const degraded = !health?.ok;

@@ -2,10 +2,12 @@ import Link from "next/link";
 import { getSessionUser } from "@/lib/auth";
 import { redirectToLogin } from "@/lib/auth-redirect";
 import { MyTeamResponseSchema } from "@/lib/my/dashboard-schema";
+import { getServerBaseUrl } from "@/lib/server/get-base-url";
 
 async function getTeamData(venueId?: string) {
   const qs = venueId ? `?venueId=${encodeURIComponent(venueId)}` : "";
-  const res = await fetch(`/api/my/team${qs}`, { cache: "no-store" });
+  const baseUrl = await getServerBaseUrl();
+  const res = await fetch(`${baseUrl}/api/my/team${qs}`, { cache: "no-store" });
   if (!res.ok) return null;
   return MyTeamResponseSchema.parse(await res.json());
 }
