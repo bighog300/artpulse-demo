@@ -6,6 +6,7 @@ import { getSessionUser } from '@/lib/auth';
 import { CommandPalette } from '@/components/command-palette/command-palette';
 import { AppShell } from '@/components/shell/app-shell';
 import { isAdminEmail } from '@/lib/admin';
+import { Providers } from './providers';
 
 export const metadata: Metadata = {
   title: { default: 'Artpulse', template: '%s | Artpulse' },
@@ -21,16 +22,18 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   return (
     <html lang="en">
       <body className="min-h-screen bg-background font-sans text-foreground">
-        <a
-          href="#main"
-          className="sr-only z-50 m-2 inline-block rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground focus:not-sr-only focus:absolute focus:left-2 focus:top-2"
-        >
-          Skip to content
-        </a>
-        <AppShell user={user} isAdmin={isAdmin}>{children}</AppShell>
-        <ToastViewport />
-        <MobileBottomNav isAuthenticated={Boolean(user)} />
-        <CommandPalette isAuthenticated={Boolean(user)} isAdmin={isAdmin} />
+        <Providers>
+          <a
+            href="#main"
+            className="sr-only z-50 m-2 inline-block rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground focus:not-sr-only focus:absolute focus:left-2 focus:top-2"
+          >
+            Skip to content
+          </a>
+          <AppShell user={user} isAdmin={isAdmin}>{children}</AppShell>
+          <ToastViewport />
+          <MobileBottomNav isAuthenticated={Boolean(user)} />
+          <CommandPalette isAuthenticated={Boolean(user)} isAdmin={isAdmin} />
+        </Providers>
       </body>
     </html>
   );
