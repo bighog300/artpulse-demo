@@ -3,13 +3,18 @@ import assert from "node:assert/strict";
 import { scoreForYouEvents, getForYouRecommendations } from "../lib/recommendations-for-you.ts";
 import { handleForYouGet } from "../lib/api-recommendations-for-you.ts";
 
-test("API rejects unauthenticated requests", async () => {
-  const req = { nextUrl: new URL("http://localhost/api/recommendations/for-you") } as never;
+test("API rejects unauthenticated requests with 401 JSON (no redirect)", async () => {
+  const req = {
+    nextUrl: new URL("http://localhost/api/recommendations/for-you"),
+    headers: new Headers({ cookie: "next-auth.session-token=fake" }),
+  } as never;
   const res = await handleForYouGet(req, {
     requireAuthFn: async () => { throw new Error("unauthorized"); },
     getForYouRecommendationsFn: async () => ({ windowDays: 7, items: [], candidateCount: 0 }),
   });
   assert.equal(res.status, 401);
+  assert.equal(res.headers.get("location"), null);
+  assert.match(res.headers.get("content-type") ?? "", /application\/json/);
 });
 
 test("scoring produces capped reasons and diversity dampening", () => {
