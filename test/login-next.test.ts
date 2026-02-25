@@ -7,8 +7,10 @@ test("sanitizeNextPath allows relative in-app paths", () => {
   assert.equal(sanitizeNextPath("/for-you?tab=all#top"), "/for-you?tab=all#top");
 });
 
-test("sanitizeNextPath rejects absolute/external paths", () => {
+test("sanitizeNextPath rejects unsafe paths", () => {
   assert.equal(sanitizeNextPath("https://evil.example/for-you", "/account"), "/account");
   assert.equal(sanitizeNextPath("//evil.example/for-you", "/account"), "/account");
   assert.equal(sanitizeNextPath("for-you", "/account"), "/account");
+  assert.equal(sanitizeNextPath("/\\evil.example/for-you", "/account"), "/account");
+  assert.equal(sanitizeNextPath("/javascript:alert(1)", "/account"), "/account");
 });

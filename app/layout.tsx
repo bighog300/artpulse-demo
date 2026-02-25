@@ -8,6 +8,11 @@ import { AppShell } from '@/components/shell/app-shell';
 import { isAdminEmail } from '@/lib/admin';
 import { Providers } from './providers';
 
+
+// Root layout reads NextAuth session on every request; keep Node runtime to avoid
+// Edge/Node auth cookie parsing drift that can cause login redirect loops.
+export const runtime = "nodejs";
+
 export const metadata: Metadata = {
   title: { default: 'Artpulse', template: '%s | Artpulse' },
   description: 'Discover art exhibitions, openings, talks, workshops, and fairs.',
