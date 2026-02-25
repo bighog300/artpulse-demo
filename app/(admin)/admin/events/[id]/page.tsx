@@ -4,6 +4,7 @@ import AdminPageHeader from "@/app/(admin)/admin/_components/AdminPageHeader";
 import { db } from "@/lib/db";
 import { ADMIN_IMAGE_ALT_REQUIRED } from "@/lib/admin-policy";
 import { AdminArchiveActions } from "@/app/(admin)/admin/_components/AdminArchiveActions";
+import AdminHardDeleteButton from "@/app/(admin)/admin/_components/AdminHardDeleteButton";
 
 export default async function AdminEditEvent({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -15,7 +16,7 @@ export default async function AdminEditEvent({ params }: { params: Promise<{ id:
 
   return (
     <main className="space-y-6">
-      <AdminPageHeader title="Edit event" backHref="/admin/events" backLabel="Back to events" right={<AdminArchiveActions entity="events" id={event.id} archived={!!event.deletedAt} />} />
+      <AdminPageHeader title="Edit event" backHref="/admin/events" backLabel="Back to events" />
       <EventAdminForm
         title="Edit Event"
         endpoint={`/api/admin/events/${id}`}
@@ -35,6 +36,17 @@ export default async function AdminEditEvent({ params }: { params: Promise<{ id:
         }}
         altRequired={ADMIN_IMAGE_ALT_REQUIRED}
       />
+      <section className="rounded-lg border border-destructive/30 bg-card p-4">
+        <h2 className="text-base font-semibold">Danger zone</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Archive or restore first. Permanent delete is irreversible.</p>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <AdminArchiveActions entity="events" id={event.id} archived={!!event.deletedAt} />
+        </div>
+        <div className="mt-4 border-t pt-4">
+          <p className="mb-2 text-sm text-muted-foreground">Hard delete permanently removes this event and related data.</p>
+          <AdminHardDeleteButton entityLabel="Event" entityId={event.id} deleteUrl={`/api/admin/events/${event.id}`} redirectTo="/admin/events" />
+        </div>
+      </section>
     </main>
   );
 }

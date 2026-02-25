@@ -4,6 +4,7 @@ import AdminPageHeader from "@/app/(admin)/admin/_components/AdminPageHeader";
 import { db } from "@/lib/db";
 import { ADMIN_IMAGE_ALT_REQUIRED } from "@/lib/admin-policy";
 import { AdminArchiveActions } from "@/app/(admin)/admin/_components/AdminArchiveActions";
+import AdminHardDeleteButton from "@/app/(admin)/admin/_components/AdminHardDeleteButton";
 
 export default async function AdminVenue({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -12,7 +13,7 @@ export default async function AdminVenue({ params }: { params: Promise<{ id: str
 
   return (
     <main className="space-y-6">
-      <AdminPageHeader title="Edit venue" backHref="/admin/venues" backLabel="Back to venues" right={<AdminArchiveActions entity="venues" id={venue.id} archived={!!venue.deletedAt} />} />
+      <AdminPageHeader title="Edit venue" backHref="/admin/venues" backLabel="Back to venues" />
       <AdminEntityForm
         title="Edit Venue"
         endpoint={`/api/admin/venues/${id}`}
@@ -41,6 +42,17 @@ export default async function AdminVenue({ params }: { params: Promise<{ id: str
         ]}
         altRequired={ADMIN_IMAGE_ALT_REQUIRED}
       />
+      <section className="rounded-lg border border-destructive/30 bg-card p-4">
+        <h2 className="text-base font-semibold">Danger zone</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Archive or restore first. Permanent delete is irreversible.</p>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <AdminArchiveActions entity="venues" id={venue.id} archived={!!venue.deletedAt} />
+        </div>
+        <div className="mt-4 border-t pt-4">
+          <p className="mb-2 text-sm text-muted-foreground">Hard delete permanently removes this venue and related data.</p>
+          <AdminHardDeleteButton entityLabel="Venue" entityId={venue.id} deleteUrl={`/api/admin/venues/${venue.id}`} redirectTo="/admin/venues" />
+        </div>
+      </section>
     </main>
   );
 }
