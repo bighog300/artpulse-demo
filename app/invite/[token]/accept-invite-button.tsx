@@ -6,7 +6,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 
 export function AcceptInviteButton({ token }: { token: string }) {
-  const { status } = useSession();
+  const session = useSession();
+  const status = session?.status ?? "unauthenticated";
   const [state, setState] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
 

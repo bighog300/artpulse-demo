@@ -63,13 +63,15 @@ export async function fetchForYouRecommendations({
 }
 
 export function ForYouClient() {
-  const { status } = useSession();
+  const session = useSession();
+  const status = session?.status ?? "unauthenticated";
   const [data, setData] = useState<ForYouResponse>({ windowDays: 7, items: [] });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAuthFallback, setShowAuthFallback] = useState(false);
   const [hiddenIds, setHiddenIds] = useState<string[]>([]);
   const [signals, setSignals] = useState<OnboardingSignals>(emptySignals);
+
 
   const load = useCallback(async () => {
     setIsLoading(true);
