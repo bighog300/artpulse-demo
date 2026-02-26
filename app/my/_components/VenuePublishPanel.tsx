@@ -1,84 +1,65 @@
-"use client";
-
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { buildLoginRedirectUrl } from "@/lib/auth-redirect";
-import { enqueueToast } from "@/lib/toast";
-import { SubmissionStatusPanel } from "@/components/publishing/submission-status-panel";
+import Link from "next/link";
 import VenueSubmitButton from "@/app/my/_components/VenueSubmitButton";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-type PublishIssue = { field: string; message: string };
-type ReadinessItem = { id: string; label: string };
+type SubmissionStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | null;
 
-type Props = {
-  venueId: string;
-  venueSlug: string;
-  isOwner: boolean;
-  isPublished: boolean;
-  submissionStatus: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | null;
-  submittedAt: string | null;
-  reviewedAt: string | null;
-  decisionReason: string | null;
-  initialIssues: PublishIssue[];
-  readiness: {
-    ready: boolean;
-    blocking: ReadinessItem[];
-  };
+type Checks = {
+  basicInfo: boolean;
+  location: boolean;
+  images: boolean;
+  contact: boolean;
+  publishReady: boolean;
 };
 
-export default function VenuePublishPanel(props: Props) {
-  const router = useRouter();
-  const [pending, setPending] = useState(false);
-  const [issues, setIssues] = useState<PublishIssue[]>(props.initialIssues);
-
-  async function onSubmit() {
-    if (!props.isOwner || pending || props.submissionStatus === "SUBMITTED") return;
-    setPending(true);
-    setIssues([]);
-    try {
-      const res = await fetch(`/api/my/venues/${props.venueId}/submit`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({}) });
-      if (res.status === 401) {
-        window.location.href = buildLoginRedirectUrl(`/my/venues/${props.venueId}`);
-        return;
-      }
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        if (body?.error === "NOT_READY" && Array.isArray(body?.blocking)) setIssues(body.blocking.map((item: { id: string; label: string }) => ({ field: item.id, message: item.label })));
-        enqueueToast({ title: body?.message || body?.error || "Unable to submit for review", variant: "error" });
-        if (body?.error === "NOT_READY") document.getElementById("publish-readiness")?.scrollIntoView({ behavior: "smooth", block: "start" });
-        return;
-      }
-      enqueueToast({ title: "Submitted for review", variant: "success" });
-      router.refresh();
-    } finally {
-      setPending(false);
-    }
-  }
-
-  const primaryAction = props.submissionStatus === "SUBMITTED"
-    ? { label: "Submitted (pending)", disabled: true }
-    : props.isPublished || props.submissionStatus === "APPROVED"
-      ? { label: "View public page", href: `/venues/${props.venueSlug}` }
-      : { label: "Submit for review", disabled: !props.isOwner || pending || issues.length > 0, onClick: onSubmit };
+export default function VenuePublishPanel({
+  venue,
+  checks,
+  submissionStatus,
+  isOwner,
+}: {
+  venue: { id: string; slug: string; isPublished: boolean };
+  checks: Checks;
+  submissionStatus: SubmissionStatus;
+  isOwner: boolean;
+}) {
+  const showAwaitingReview = submissionStatus === "SUBMITTED";
+  const showPublished = venue.isPublished || submissionStatus === "APPROVED";
 
   return (
-    <div className="space-y-3">
-      <SubmissionStatusPanel
-        entityType="venue"
-        status={props.submissionStatus}
-        submittedAtISO={props.submittedAt}
-        reviewedAtISO={props.reviewedAt}
-        rejectionReason={props.decisionReason}
-        primaryAction={primaryAction}
-        publicHref={props.isPublished || props.submissionStatus === "APPROVED" ? `/venues/${props.venueSlug}` : null}
-        readiness={{ ready: issues.length === 0, blocking: issues.map((i) => ({ id: i.field, label: i.message })), warnings: [] }}
-      />
-      <VenueSubmitButton
-        venueId={props.venueId}
-        isReady={props.readiness.ready}
-        blocking={props.readiness.blocking}
-        initialStatus={props.submissionStatus}
-      />
-    </div>
+    <Card id="publish-panel" className="lg:sticky lg:top-4">
+      <CardHeader>
+        <CardTitle className="text-lg">Publish venue</CardTitle>
+        <CardDescription>Complete required items before submitting for review.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <ul className="space-y-2 text-sm">
+          <li className="flex items-center justify-between"><span>Basic info</span><span>{checks.basicInfo ? "✓" : "✕"}</span></li>
+          <li className="flex items-center justify-between"><span>Location</span><span>{checks.location ? "✓" : "✕"}</span></li>
+          <li className="flex items-center justify-between"><span>Images</span><span>{checks.images ? "✓" : "✕"}</span></li>
+          <li className="flex items-center justify-between"><span>Contact/Details</span><span>{checks.contact ? "✓" : "○"}</span></li>
+        </ul>
+
+        {showPublished ? (
+          <div className="space-y-1 text-sm">
+            <p className="font-medium text-emerald-700">Published</p>
+            <Link className="underline" href={`/venues/${venue.slug}`}>View public page</Link>
+          </div>
+        ) : showAwaitingReview ? (
+          <p className="text-sm font-medium text-muted-foreground">Awaiting review</p>
+        ) : (
+          <VenueSubmitButton
+            venueId={venue.id}
+            isReady={checks.publishReady && isOwner}
+            blocking={[
+              !checks.basicInfo ? { id: "name_description", label: "Add basic info" } : null,
+              !checks.location ? { id: "location", label: "Add location coordinates" } : null,
+              !checks.images ? { id: "images", label: "Add at least one image" } : null,
+            ].filter((item): item is { id: string; label: string } => Boolean(item))}
+            initialStatus={submissionStatus}
+          />
+        )}
+      </CardContent>
+    </Card>
   );
 }
