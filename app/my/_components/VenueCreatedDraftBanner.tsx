@@ -14,10 +14,11 @@ export default function VenueCreatedDraftBanner({ venueId, missingRequired }: Pr
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [shouldShow, setShouldShow] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
   const isCreated = searchParams.get("created") === "1";
-  const visible = isCreated && !dismissed;
+  const visible = shouldShow && !dismissed;
 
   const trimmedQuery = useMemo(() => {
     const params = new URLSearchParams(searchParams.toString());
@@ -25,6 +26,11 @@ export default function VenueCreatedDraftBanner({ venueId, missingRequired }: Pr
     const qs = params.toString();
     return qs ? `${pathname}?${qs}` : pathname;
   }, [pathname, searchParams]);
+
+  useEffect(() => {
+    if (!isCreated) return;
+    setShouldShow(true);
+  }, [isCreated]);
 
   useEffect(() => {
     if (!isCreated) return;
@@ -50,8 +56,8 @@ export default function VenueCreatedDraftBanner({ venueId, missingRequired }: Pr
             </ul>
           ) : null}
           <div className="flex flex-wrap items-center gap-3 text-sm">
-            <Link className="underline" href={`#images-section-${venueId}`}>Jump to Images</Link>
-            <Link className="underline" href={`#location-section-${venueId}`}>Jump to Location</Link>
+            <Link className="underline" href={`#images-section-${venueId}`} onClick={() => setDismissed(true)}>Jump to Images</Link>
+            <Link className="underline" href={`#location-section-${venueId}`} onClick={() => setDismissed(true)}>Jump to Location</Link>
           </div>
         </div>
         <Button type="button" variant="outline" onClick={() => setDismissed(true)}>Dismiss</Button>
