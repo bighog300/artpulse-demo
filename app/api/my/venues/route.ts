@@ -71,9 +71,7 @@ export async function POST(req: NextRequest) {
       ].join("|") === createKey);
 
       if (matched) return { id: matched.venue.id, slug: matched.venue.slug, name: matched.venue.name, isPublished: matched.venue.isPublished };
-
-      const fallback = memberships[0]?.venue;
-      return fallback ? { id: fallback.id, slug: fallback.slug, name: fallback.name, isPublished: fallback.isPublished } : null;
+      return null;
     },
     findVenueBySlug: async (slug) => db.venue.findUnique({ where: { slug }, select: { id: true } }),
     assertCanCreateVenue: async (user) => {
