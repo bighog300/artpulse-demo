@@ -13,7 +13,7 @@ test("non-admin gets 403", async () => {
 
 test("admin queue returns submitted items only", async () => {
   const res = await handleAdminModerationQueue(new NextRequest("http://localhost/api/admin/moderation/queue"), {
-    requireAdminUser: async () => ({ id: "admin-1", email: "admin@example.com" }),
+    requireAdminUser: async () => ({ id: "admin-1", email: "admin@example.com", role: "ADMIN" }),
     getQueueItems: async () => [{ entityType: "ARTIST", submissionId: "sub-1", entityId: "artist-1", title: "A", slug: "a", submittedAtISO: "2026-01-02T00:00:00.000Z" }],
   });
   assert.equal(res.status, 200);
@@ -29,7 +29,7 @@ test("queue ordering by submittedAt desc", async () => {
   ] as const;
 
   const res = await handleAdminModerationQueue(new NextRequest("http://localhost/api/admin/moderation/queue"), {
-    requireAdminUser: async () => ({ id: "admin-1", email: "admin@example.com" }),
+    requireAdminUser: async () => ({ id: "admin-1", email: "admin@example.com", role: "ADMIN" }),
     getQueueItems: async () => [...items].sort((a, b) => new Date(b.submittedAtISO).getTime() - new Date(a.submittedAtISO).getTime()),
   });
 

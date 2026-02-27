@@ -9,7 +9,7 @@ const params = { submissionId: "11111111-1111-4111-8111-111111111111" };
 test("approve transitions submitted and publishes entity", async () => {
   let approved = false;
   const res = await handleAdminModerationApprove("VENUE", params, {
-    requireAdminUser: async () => ({ id: "admin-1", email: "admin@example.com" }),
+    requireAdminUser: async () => ({ id: "admin-1", email: "admin@example.com", role: "ADMIN" }),
     findSubmission: async () => ({ id: params.submissionId, status: "SUBMITTED", targetArtistId: null, targetVenueId: "venue-1", targetEventId: null }),
     approveSubmission: async (_type, _submissionId, admin) => {
       approved = admin.id === "admin-1";
@@ -18,6 +18,21 @@ test("approve transitions submitted and publishes entity", async () => {
 
   assert.equal(res.status, 200);
   assert.equal(approved, true);
+});
+
+
+test("approve accepts editor role", async () => {
+  let actorRole = "";
+  const res = await handleAdminModerationApprove("EVENT", params, {
+    requireAdminUser: async () => ({ id: "editor-1", email: "editor@example.com", role: "EDITOR" }),
+    findSubmission: async () => ({ id: params.submissionId, status: "SUBMITTED", targetArtistId: null, targetVenueId: null, targetEventId: "event-1" }),
+    approveSubmission: async (_type, _submissionId, admin) => {
+      actorRole = admin.role;
+    },
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(actorRole, "EDITOR");
 });
 
 test("reject transitions submitted and does not publish", async () => {
@@ -29,7 +44,7 @@ test("reject transitions submitted and does not publish", async () => {
   });
 
   const res = await handleAdminModerationReject(req, "VENUE", params, {
-    requireAdminUser: async () => ({ id: "admin-1", email: "admin@example.com" }),
+    requireAdminUser: async () => ({ id: "admin-1", email: "admin@example.com", role: "ADMIN" }),
     findSubmission: async () => ({ id: params.submissionId, status: "SUBMITTED", targetArtistId: null, targetVenueId: "venue-1", targetEventId: null }),
     rejectSubmission: async (_type, _submissionId, _admin, reason) => {
       rejectionReason = reason;
@@ -42,7 +57,7 @@ test("reject transitions submitted and does not publish", async () => {
 
 test("already decided returns 409", async () => {
   const res = await handleAdminModerationApprove("ARTIST", params, {
-    requireAdminUser: async () => ({ id: "admin-1", email: "admin@example.com" }),
+    requireAdminUser: async () => ({ id: "admin-1", email: "admin@example.com", role: "ADMIN" }),
     findSubmission: async () => ({ id: params.submissionId, status: "APPROVED", targetArtistId: "artist-1", targetVenueId: null, targetEventId: null }),
     approveSubmission: async () => undefined,
   });
@@ -52,7 +67,7 @@ test("already decided returns 409", async () => {
 
 test("approve maps moderation decision errors to api responses", async () => {
   const res = await handleAdminModerationApprove("EVENT", params, {
-    requireAdminUser: async () => ({ id: "admin-1", email: "admin@example.com" }),
+    requireAdminUser: async () => ({ id: "admin-1", email: "admin@example.com", role: "ADMIN" }),
     findSubmission: async () => ({ id: params.submissionId, status: "SUBMITTED", targetArtistId: null, targetVenueId: null, targetEventId: "event-1" }),
     approveSubmission: async () => {
       throw new ModerationDecisionError(403, "forbidden", "Moderators cannot decide their own submissions");
@@ -72,7 +87,7 @@ test("reject maps moderation decision errors to api responses", async () => {
   });
 
   const res = await handleAdminModerationReject(rejectReq, "EVENT", params, {
-    requireAdminUser: async () => ({ id: "admin-1", email: "admin@example.com" }),
+    requireAdminUser: async () => ({ id: "admin-1", email: "admin@example.com", role: "ADMIN" }),
     findSubmission: async () => ({ id: params.submissionId, status: "SUBMITTED", targetArtistId: null, targetVenueId: null, targetEventId: "event-1" }),
     rejectSubmission: async () => {
       throw new ModerationDecisionError(403, "forbidden", "Moderators cannot decide their own submissions");
@@ -87,7 +102,7 @@ test("reject maps moderation decision errors to api responses", async () => {
 test("approve/reject invoke audit-capable deps", async () => {
   const actions: string[] = [];
   await handleAdminModerationApprove("EVENT", params, {
-    requireAdminUser: async () => ({ id: "admin-1", email: "admin@example.com" }),
+    requireAdminUser: async () => ({ id: "admin-1", email: "admin@example.com", role: "ADMIN" }),
     findSubmission: async () => ({ id: params.submissionId, status: "SUBMITTED", targetArtistId: null, targetVenueId: null, targetEventId: "event-1" }),
     approveSubmission: async () => { actions.push("ADMIN_SUBMISSION_APPROVED"); },
   });
@@ -98,7 +113,7 @@ test("approve/reject invoke audit-capable deps", async () => {
     body: JSON.stringify({ rejectionReason: "Need updates before publishing." }),
   });
   await handleAdminModerationReject(rejectReq, "EVENT", params, {
-    requireAdminUser: async () => ({ id: "admin-1", email: "admin@example.com" }),
+    requireAdminUser: async () => ({ id: "admin-1", email: "admin@example.com", role: "ADMIN" }),
     findSubmission: async () => ({ id: params.submissionId, status: "SUBMITTED", targetArtistId: null, targetVenueId: null, targetEventId: "event-1" }),
     rejectSubmission: async () => { actions.push("ADMIN_SUBMISSION_REJECTED"); },
   });
