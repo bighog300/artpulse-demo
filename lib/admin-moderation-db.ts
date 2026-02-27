@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth";
+import { requireEditor } from "@/lib/auth";
 import type { EntityType, ModerationDeps, QueueItem } from "@/lib/admin-moderation-route";
 import { decideSubmission } from "@/lib/moderation-decision-service";
 
@@ -11,7 +11,10 @@ function queueSort(items: QueueItem[]) {
 
 export function createAdminModerationDeps(): ModerationDeps {
   return {
-    requireAdminUser: requireAdmin,
+    requireAdminUser: async () => {
+      const user = await requireEditor();
+      return { id: user.id, email: user.email, role: user.role };
+    },
     getQueueItems: async () => {
       const [artistSubmissions, venueSubmissions, eventSubmissions] = await Promise.all([
         db.submission.findMany({
@@ -69,14 +72,14 @@ export function createAdminModerationDeps(): ModerationDeps {
     approveSubmission: async (_entityType: EntityType, submissionId: string, admin) => {
       await decideSubmission({
         submissionId,
-        actor: { id: admin.id, email: admin.email, role: "ADMIN" },
+        actor: { id: admin.id, email: admin.email, role: admin.role },
         decision: "APPROVE",
       });
     },
     rejectSubmission: async (_entityType: EntityType, submissionId: string, admin, rejectionReason: string) => {
       await decideSubmission({
         submissionId,
-        actor: { id: admin.id, email: admin.email, role: "ADMIN" },
+        actor: { id: admin.id, email: admin.email, role: admin.role },
         decision: "REJECT",
         rejectionReason,
       });

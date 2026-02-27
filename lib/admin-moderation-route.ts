@@ -5,7 +5,7 @@ import { ModerationDecisionError } from "@/lib/moderation-decision-service";
 
 type EntityType = "ARTIST" | "VENUE" | "EVENT";
 
-type AdminUser = { id: string; email: string | null };
+type ModeratorUser = { id: string; email: string | null; role: "EDITOR" | "ADMIN" };
 
 type QueueItem = {
   entityType: EntityType;
@@ -21,11 +21,11 @@ type QueueItem = {
 type ModerationSubmission = { id: string; status: "SUBMITTED" | "APPROVED" | "REJECTED" | "DRAFT"; targetArtistId: string | null; targetVenueId: string | null; targetEventId: string | null };
 
 type ModerationDeps = {
-  requireAdminUser: () => Promise<AdminUser>;
+  requireAdminUser: () => Promise<ModeratorUser>;
   getQueueItems: () => Promise<QueueItem[]>;
   findSubmission: (entityType: EntityType, submissionId: string) => Promise<ModerationSubmission | null>;
-  approveSubmission: (entityType: EntityType, submissionId: string, admin: AdminUser) => Promise<void>;
-  rejectSubmission: (entityType: EntityType, submissionId: string, admin: AdminUser, rejectionReason: string) => Promise<void>;
+  approveSubmission: (entityType: EntityType, submissionId: string, admin: ModeratorUser) => Promise<void>;
+  rejectSubmission: (entityType: EntityType, submissionId: string, admin: ModeratorUser, rejectionReason: string) => Promise<void>;
 };
 
 function parseSubmissionId(params: { submissionId?: string }) {
@@ -46,7 +46,7 @@ export async function handleAdminModerationQueue(_req: NextRequest, deps: Pick<M
 }
 
 async function resolvePending(entityType: EntityType, params: { submissionId?: string }, deps: Pick<ModerationDeps, "requireAdminUser" | "findSubmission">) {
-  let admin: AdminUser;
+  let admin: ModeratorUser;
   try {
     admin = await deps.requireAdminUser();
   } catch (error) {
