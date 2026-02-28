@@ -37,7 +37,8 @@ export async function decideSubmission(input: DecideSubmissionInput, dbClient: D
     });
 
     if (!submission) throw new ModerationDecisionError(404, "not_found", "Submission not found");
-    if (submission.submitterUserId === input.actor.id) throw new ModerationDecisionError(403, "forbidden", "Moderators cannot decide their own submissions");
+    const isAdminActor = input.actor.role === "ADMIN";
+    if (!isAdminActor && submission.submitterUserId === input.actor.id) throw new ModerationDecisionError(403, "forbidden", "Editors cannot decide their own submissions");
 
     if (input.actor.role && input.actor.role !== "EDITOR" && input.actor.role !== "ADMIN") {
       throw new ModerationDecisionError(403, "forbidden", "Editor role required");

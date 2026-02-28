@@ -18,10 +18,12 @@ export default function EventPublishPanel({
   event,
   checks,
   submissionStatus,
+  canPublishDirectly = false,
 }: {
   event: { id: string; slug: string | null; isPublished: boolean };
   checks: Checks;
   submissionStatus: SubmissionStatus;
+  canPublishDirectly?: boolean;
 }) {
   const showAwaitingReview = submissionStatus === "SUBMITTED";
   const showPublished = event.isPublished || submissionStatus === "APPROVED";
@@ -30,7 +32,7 @@ export default function EventPublishPanel({
     <Card id="publish-panel" className="lg:sticky lg:top-4">
       <CardHeader>
         <CardTitle className="text-lg">Publish event</CardTitle>
-        <CardDescription>Complete required items before submitting for review.</CardDescription>
+        <CardDescription>{canPublishDirectly ? "Complete required items, then use admin moderation controls to publish." : "Complete required items before submitting for review."}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <ul className="space-y-2 text-sm">
@@ -49,6 +51,11 @@ export default function EventPublishPanel({
           <p className="text-sm font-medium text-muted-foreground">Awaiting review</p>
         ) : (
           <EventSubmitButton
+            ctaLabel={canPublishDirectly ? "Submit to review queue" : "Submit Event for Review"}
+            readyHelperText={canPublishDirectly ? "As admin, you can also publish directly from moderation controls." : "Ready to submit for approval."}
+            submittingHelperText={canPublishDirectly ? "Submitting to review queue." : "Submitting your event for review."}
+            pendingHelperText={canPublishDirectly ? "Submission pending in review queue." : "Your event is awaiting review."}
+
             eventId={event.id}
             isReady={checks.readyToSubmit}
             blocking={[

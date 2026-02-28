@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { getSessionUser } from "@/lib/auth";
+import { canSelfPublish, getSessionUser } from "@/lib/auth";
 import { redirectToLogin } from "@/lib/auth-redirect";
 import { ensureDbUserForSession } from "@/lib/ensure-db-user-for-session";
 import { getMyDashboard } from "@/lib/my/dashboard/get-my-dashboard";
@@ -8,11 +8,13 @@ import CompletenessBar from "./_components/CompletenessBar";
 import StatusTileGroups from "./_components/StatusTileGroups";
 import NeedsAttentionPanel from "./_components/NeedsAttentionPanel";
 
-function venuePrimaryAction(venue: {
+function venuePrimaryAction(
+  venue: {
   id: string;
   status: "Draft" | "Submitted" | "Published" | "Rejected";
   completeness?: { percent: number } | null;
-}) {
+},
+canPublishDirectly: boolean) {
   const percent = venue.completeness?.percent ?? 0;
 
   if (venue.status === "Submitted") {
@@ -28,7 +30,7 @@ function venuePrimaryAction(venue: {
   }
 
   if (percent >= 80) {
-    return { label: "Submit for review", href: `/my/venues/${venue.id}`, className: "rounded border px-2 py-1 underline" };
+    return { label: canPublishDirectly ? "Open moderation controls" : "Submit for review", href: `/my/venues/${venue.id}`, className: "rounded border px-2 py-1 underline" };
   }
 
   return { label: "Complete profile", href: `/my/venues/${venue.id}`, className: "rounded border px-2 py-1 underline" };
@@ -42,6 +44,7 @@ export default async function MyDashboardPage({ searchParams }: { searchParams: 
   const { venueId } = await searchParams;
   const data = await getMyDashboard({ userId: dbUser?.id ?? user.id, venueId });
   const shouldShowOnboarding = data.quickLists.venues.length === 0 && data.quickLists.upcomingEvents.length === 0;
+  const canPublishDirectly = canSelfPublish(user);
 
   return (
     <main className="space-y-4">
@@ -56,7 +59,7 @@ export default async function MyDashboardPage({ searchParams }: { searchParams: 
             <li>Create your venue</li>
             <li>Add images and location details</li>
             <li>Create your first event</li>
-            <li>Submit for review</li>
+            <li>{canPublishDirectly ? "Open moderation controls" : "Submit for review"}</li>
           </ol>
           <div className="mt-3">
             <Link className="inline-flex rounded border px-3 py-1.5 text-sm font-medium" href="/my/venues/new">Create venue</Link>
@@ -71,7 +74,7 @@ export default async function MyDashboardPage({ searchParams }: { searchParams: 
         </div>
         <div className="space-y-2 text-sm">
           {data.quickLists.venues.length === 0 ? <p className="rounded border p-2 text-muted-foreground">You haven&apos;t created any venues yet. <Link className="underline" href="/my/venues/new">Create Venue</Link></p> : data.quickLists.venues.map((venue) => {
-            const action = venuePrimaryAction(venue);
+            const action = venuePrimaryAction(venue, canPublishDirectly);
 
             return (
               <article className="rounded border p-2" key={venue.id}>

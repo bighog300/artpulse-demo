@@ -248,6 +248,10 @@ export function hasGlobalVenueAccess(role: SessionUser["role"]) {
   return role === "EDITOR" || role === "ADMIN";
 }
 
+export function canSelfPublish(user: { role: string } | null | undefined): boolean {
+  return user?.role === "ADMIN";
+}
+
 export async function requireEditor(): Promise<EditorSessionUser> {
   const user = await requireAuth();
   if (user.role !== "EDITOR" && user.role !== "ADMIN") throw new ForbiddenError();

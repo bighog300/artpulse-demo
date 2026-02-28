@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { getSessionUser } from "@/lib/auth";
+import { canSelfPublish, getSessionUser } from "@/lib/auth";
 import { redirectToLogin } from "@/lib/auth-redirect";
 import VenueSelfServeForm from "@/app/my/_components/VenueSelfServeForm";
 import VenueMembersManager from "@/app/my/_components/VenueMembersManager";
@@ -116,6 +116,7 @@ export default async function MyVenueEditPage({
   const submission = venue.targetSubmissions[0] ?? null;
   const checks = getVenueCompletionChecks(venue);
   const isOwner = memberRole === "OWNER" || user.role === "ADMIN";
+  const canPublishDirectly = canSelfPublish(user);
 
   const isCreatedFirstVisit = query.created === "1";
   const firstRequired = !checks.basicInfo ? "basic" : !checks.location ? "location" : !checks.images ? "images" : "basic";
@@ -144,9 +145,9 @@ export default async function MyVenueEditPage({
       {checks.publishReady && submission?.status !== "SUBMITTED" && !venue.isPublished ? (
         <div className="rounded-md border border-emerald-300 bg-emerald-50 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm font-semibold text-emerald-900">This venue is ready to submit for review.</p>
+            <p className="text-sm font-semibold text-emerald-900">{canPublishDirectly ? "This venue is ready for direct publish control in admin moderation." : "This venue is ready to submit for review."}</p>
             <Button asChild>
-              <Link href="#publish-panel">Submit for review</Link>
+              <Link href="#publish-panel">{canPublishDirectly ? "Open moderation controls" : "Submit for review"}</Link>
             </Button>
           </div>
         </div>
@@ -207,6 +208,7 @@ export default async function MyVenueEditPage({
             checks={checks}
             submissionStatus={submission?.status ?? null}
             isOwner={isOwner}
+            canPublishDirectly={canPublishDirectly}
           />
         </aside>
       </div>

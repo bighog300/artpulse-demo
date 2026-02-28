@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { getSessionUser } from "@/lib/auth";
+import { canSelfPublish, getSessionUser } from "@/lib/auth";
 import { redirectToLogin } from "@/lib/auth-redirect";
 import { PageHeader } from "@/components/ui/page-header";
 import EventSetupHeader from "@/app/my/_components/EventSetupHeader";
@@ -45,6 +45,7 @@ export default async function MyEventEditPage({ params }: { params: Promise<{ ev
   if (!event) notFound();
   const submissionStatus = event.submissions[0]?.status ?? null;
   const checks = getEventCompletionChecks({ event, venueForEvent: event.venue });
+  const canPublishDirectly = canSelfPublish(user);
 
   const managedVenueMemberships = await db.venueMembership.findMany({
     where: { userId: user.id, role: { in: ["OWNER", "EDITOR"] } },
@@ -54,7 +55,7 @@ export default async function MyEventEditPage({ params }: { params: Promise<{ ev
 
   return (
     <main className="space-y-6 p-6">
-      <PageHeader title="Event Setup" subtitle="Complete your event details and submit for review." />
+      <PageHeader title="Event Setup" subtitle={canPublishDirectly ? "Complete your event details. As an admin, you can publish via moderation controls." : "Complete your event details and submit for review."} />
 
       <EventSetupHeader event={{ title: event.title, isPublished: event.isPublished }} submissionStatus={submissionStatus} />
       <EventCompletionProgress checks={checks} />
@@ -92,13 +93,13 @@ export default async function MyEventEditPage({ params }: { params: Promise<{ ev
 
           <div className="rounded-md border bg-muted/20 p-4 text-sm">
             <p className="font-medium">Ready to submit?</p>
-            <p className="mt-1 text-muted-foreground">If your checklist is complete, submit your event for moderation.</p>
-            <Link className="mt-2 inline-block underline" href="#publish-panel">Submit for review</Link>
+            <p className="mt-1 text-muted-foreground">{canPublishDirectly ? "If your checklist is complete, use admin moderation controls to publish directly." : "If your checklist is complete, submit your event for moderation."}</p>
+            <Link className="mt-2 inline-block underline" href="#publish-panel">{canPublishDirectly ? "Open moderation controls" : "Submit for review"}</Link>
           </div>
         </section>
 
         <aside className="order-1 lg:order-2 lg:col-span-1">
-          <EventPublishPanel event={{ id: event.id, slug: event.slug, isPublished: event.isPublished }} checks={checks} submissionStatus={submissionStatus} />
+          <EventPublishPanel event={{ id: event.id, slug: event.slug, isPublished: event.isPublished }} checks={checks} submissionStatus={submissionStatus} canPublishDirectly={canPublishDirectly} />
         </aside>
       </div>
     </main>
