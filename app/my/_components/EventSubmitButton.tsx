@@ -14,24 +14,32 @@ function deriveEventSubmitButtonUiState({
   initialStatus,
   isSubmitting,
   locallySubmitted,
+  ctaLabel = "Submit Event for Review",
+  pendingHelperText = "Your event is awaiting review.",
+  submittingHelperText = "Submitting your event for review.",
+  readyHelperText = "Ready to submit for approval.",
 }: {
   isReady: boolean;
   initialStatus?: SubmissionStatus;
   isSubmitting: boolean;
   locallySubmitted: boolean;
+  ctaLabel?: string;
+  pendingHelperText?: string;
+  submittingHelperText?: string;
+  readyHelperText?: string;
 }) {
-  if (locallySubmitted || initialStatus === "SUBMITTED") return { label: "Submitted (pending)", disabled: true, helperText: "Your event is awaiting review." };
-  if (isSubmitting) return { label: "Submitting…", disabled: true, helperText: "Submitting your event for review." };
-  if (!isReady) return { label: "Submit Event for Review", disabled: true, helperText: "Complete required fields to submit." };
-  return { label: "Submit Event for Review", disabled: false, helperText: "Ready to submit for approval." };
+  if (locallySubmitted || initialStatus === "SUBMITTED") return { label: "Submitted (pending)", disabled: true, helperText: pendingHelperText };
+  if (isSubmitting) return { label: "Submitting…", disabled: true, helperText: submittingHelperText };
+  if (!isReady) return { label: ctaLabel, disabled: true, helperText: "Complete required fields to submit." };
+  return { label: ctaLabel, disabled: false, helperText: readyHelperText };
 }
 
-export default function EventSubmitButton({ eventId, isReady, blocking = [], initialStatus = null }: { eventId: string; isReady: boolean; blocking?: { id: string; label: string }[]; initialStatus?: SubmissionStatus }) {
+export default function EventSubmitButton({ eventId, isReady, blocking = [], initialStatus = null, ctaLabel, pendingHelperText, submittingHelperText, readyHelperText }: { eventId: string; isReady: boolean; blocking?: { id: string; label: string }[]; initialStatus?: SubmissionStatus; ctaLabel?: string; pendingHelperText?: string; submittingHelperText?: string; readyHelperText?: string }) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [locallySubmitted, setLocallySubmitted] = useState(false);
 
-  const ui = deriveEventSubmitButtonUiState({ isReady, initialStatus, isSubmitting, locallySubmitted });
+  const ui = deriveEventSubmitButtonUiState({ isReady, initialStatus, isSubmitting, locallySubmitted, ctaLabel, pendingHelperText, submittingHelperText, readyHelperText });
 
   async function onSubmit() {
     if (ui.disabled) return;

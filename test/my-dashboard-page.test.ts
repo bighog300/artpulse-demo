@@ -29,13 +29,13 @@ test("/my venues quick list renders completeness bar and onboarding callout gati
   assert.match(page, /Create your venue/);
   assert.match(page, /Add images and location details/);
   assert.match(page, /Create your first event/);
-  assert.match(page, /Submit for review/);
+  assert.match(page, /canPublishDirectly \? "Open moderation controls" : "Submit for review"/);
 });
 
 test("/my venue cards use status-aware primary CTAs", () => {
   const source = readFileSync("app/my/page.tsx", "utf8");
   assert.match(source, /label: "Complete profile"/);
-  assert.match(source, /label: "Submit for review"/);
+  assert.match(source, /label: canPublishDirectly \? "Open moderation controls" : "Submit for review"/);
   assert.match(source, /label: "Pending review"/);
   assert.match(source, /label: "\+ New event"/);
   assert.match(source, /label: "Fix & resubmit"/);

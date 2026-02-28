@@ -25,11 +25,13 @@ export default function VenuePublishPanel({
   checks,
   submissionStatus,
   isOwner,
+  canPublishDirectly = false,
 }: {
   venue: { id: string; slug: string; isPublished: boolean };
   checks: Checks;
   submissionStatus: SubmissionStatus;
   isOwner: boolean;
+  canPublishDirectly?: boolean;
 }) {
   const showAwaitingReview = submissionStatus === "SUBMITTED";
   const showPublished = venue.isPublished || submissionStatus === "APPROVED";
@@ -38,7 +40,7 @@ export default function VenuePublishPanel({
     <Card id="publish-panel" className="lg:sticky lg:top-4">
       <CardHeader>
         <CardTitle className="text-lg">Publish venue</CardTitle>
-        <CardDescription>Complete required items before submitting for review.</CardDescription>
+        <CardDescription>{canPublishDirectly ? "Complete required items, then use admin moderation controls to publish." : "Complete required items before submitting for review."}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <ul className="space-y-2 text-sm">
@@ -49,12 +51,21 @@ export default function VenuePublishPanel({
         </ul>
 
         <div className="rounded-md border bg-muted/20 p-3 text-sm">
-          <p className="font-medium">What happens next</p>
+          <p className="font-medium">{canPublishDirectly ? "Admin publish control" : "What happens next"}</p>
           <ul className="mt-1 list-disc pl-5 text-muted-foreground">
-            <li>Submitting sends your venue to the moderation queue for review.</li>
-            <li>We review core listing details like description, location, links, and images.</li>
-            <li>Most reviews are completed quickly, but timing can vary with queue volume.</li>
-            <li>You can continue editing while your submission is under review.</li>
+            {canPublishDirectly ? (
+              <>
+                <li>As an admin, you can publish this venue directly from moderation controls.</li>
+                <li>Submission endpoints remain available for standard review workflows.</li>
+              </>
+            ) : (
+              <>
+                <li>Submitting sends your venue to the moderation queue for review.</li>
+                <li>We review core listing details like description, location, links, and images.</li>
+                <li>Most reviews are completed quickly, but timing can vary with queue volume.</li>
+                <li>You can continue editing while your submission is under review.</li>
+              </>
+            )}
           </ul>
         </div>
 
@@ -68,7 +79,7 @@ export default function VenuePublishPanel({
         ) : (
           <div className="space-y-2">
             {checks.publishReady ? (
-              <p className="text-sm font-medium text-emerald-700">Ready to submit for admin approval</p>
+              <p className="text-sm font-medium text-emerald-700">{canPublishDirectly ? "Ready for admin publish control" : "Ready to submit for admin approval"}</p>
             ) : (
               <div className="space-y-1">
                 <p className="text-sm font-medium">What&apos;s missing</p>
@@ -82,7 +93,7 @@ export default function VenuePublishPanel({
             <VenueSubmitButton
               venueId={venue.id}
               isReady={checks.publishReady && isOwner}
-              ctaLabel="Submit for review"
+              ctaLabel={canPublishDirectly ? "Submit to review queue" : "Submit for review"}
               blocking={checks.missingRequired.map(blockingItemFromMissing)}
               initialStatus={submissionStatus}
             />

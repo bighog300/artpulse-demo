@@ -70,7 +70,7 @@ test("approve maps moderation decision errors to api responses", async () => {
     requireAdminUser: async () => ({ id: "admin-1", email: "admin@example.com", role: "ADMIN" }),
     findSubmission: async () => ({ id: params.submissionId, status: "SUBMITTED", targetArtistId: null, targetVenueId: null, targetEventId: "event-1" }),
     approveSubmission: async () => {
-      throw new ModerationDecisionError(403, "forbidden", "Moderators cannot decide their own submissions");
+      throw new ModerationDecisionError(403, "forbidden", "Editors cannot decide their own submissions");
     },
   });
 
@@ -90,7 +90,7 @@ test("reject maps moderation decision errors to api responses", async () => {
     requireAdminUser: async () => ({ id: "admin-1", email: "admin@example.com", role: "ADMIN" }),
     findSubmission: async () => ({ id: params.submissionId, status: "SUBMITTED", targetArtistId: null, targetVenueId: null, targetEventId: "event-1" }),
     rejectSubmission: async () => {
-      throw new ModerationDecisionError(403, "forbidden", "Moderators cannot decide their own submissions");
+      throw new ModerationDecisionError(403, "forbidden", "Editors cannot decide their own submissions");
     },
   });
 

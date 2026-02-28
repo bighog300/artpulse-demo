@@ -100,19 +100,36 @@ test("moderation approval is atomic: no partial writes on failure", async () => 
   assert.deepEqual(state.notifications, []);
 });
 
-test("moderators cannot approve their own submissions", async () => {
+test("editors cannot approve their own submissions", async () => {
   const state = makeModerationDbState();
   const dbHarness = makeDbHarness(state);
 
   await assert.rejects(
     decideSubmission({ submissionId: state.submission.id, actor: { id: "user-1", role: "EDITOR" }, decision: "APPROVE" }, dbHarness as never),
-    (error: unknown) => error instanceof ModerationDecisionError && error.status === 403,
+    (error: unknown) => error instanceof ModerationDecisionError
+      && error.status === 403
+      && error.code === "forbidden"
+      && error.message === "Editors cannot decide their own submissions",
   );
 
   assert.equal(state.submission.status, "SUBMITTED");
   assert.equal(state.venuePublished, false);
   assert.deepEqual(state.audits, []);
   assert.deepEqual(state.notifications, []);
+});
+
+test("admins can approve their own submissions", async () => {
+  const state = makeModerationDbState();
+  const dbHarness = makeDbHarness(state);
+
+  const result = await decideSubmission({ submissionId: state.submission.id, actor: { id: "user-1", role: "ADMIN" }, decision: "APPROVE" }, dbHarness as never);
+
+  assert.equal(result.idempotent, false);
+  assert.equal(state.submission.status, "APPROVED");
+  assert.equal(state.submission.decidedByUserId, "user-1");
+  assert.equal(state.venuePublished, true);
+  assert.equal(state.audits.length, 1);
+  assert.equal(state.notifications.length, 1);
 });
 
 test("admin submissions pagination: no duplicates/skips across cursor pages under mixed submittedAt", () => {
