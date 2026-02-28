@@ -19,6 +19,7 @@ import { buildVenueJsonLd, getDetailUrl } from "@/lib/seo.public-profiles";
 import { getVenueDescriptionExcerpt } from "@/lib/venues";
 import { resolveEntityPrimaryImage } from "@/lib/public-images";
 import { ArtworkCountBadge } from "@/components/artwork/artwork-count-badge";
+import Link from "next/link";
 import { countPublishedArtworksByVenue, listPublishedArtworksByVenue } from "@/lib/artworks";
 
 export const revalidate = 300;
@@ -51,6 +52,7 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
       city: true,
       region: true,
       country: true,
+      claimStatus: true,
       featuredImageUrl: true,
       images: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { url: true, alt: true, sortOrder: true, isPrimary: true, width: true, height: true, asset: { select: { url: true } } } },
       events: {
@@ -103,6 +105,11 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
     <PageShell className="page-stack">
       <PageViewTracker name="entity_viewed" props={{ type: "venue", slug }} />
       <EntityPageViewTracker entityType="VENUE" entityId={venue.id} />
+      {venue.claimStatus !== "CLAIMED" ? (
+        <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+          Own or run this venue? <Link className="underline" href={`/venues/${venue.slug}/claim`}>Claim this venue</Link>.
+        </div>
+      ) : null}
       <EntityHeader
         title={venue.name}
         subtitle={subtitle}
