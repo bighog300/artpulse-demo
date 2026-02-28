@@ -26,6 +26,20 @@ enum VenueInviteStatus {
   EXPIRED
 }
 
+enum VenueClaimStatus {
+  UNCLAIMED
+  PENDING
+  CLAIMED
+}
+
+enum VenueClaimRequestStatus {
+  PENDING_VERIFICATION
+  VERIFIED
+  REJECTED
+  EXPIRED
+  REVOKED
+}
+
 enum SubmissionType {
   EVENT
   VENUE
@@ -184,6 +198,8 @@ model User {
   adminInvitesCreated  AdminInvite[]         @relation("AdminInviteCreatedBy")
   importMappingPresets ImportMappingPreset[]
   pageViewEvents       PageViewEvent[]
+  venueGenerationRunsTriggered VenueGenerationRun[]
+  venueClaimRequests   VenueClaimRequest[]
 
   @@index([locationLat, locationLng])
 }
@@ -292,9 +308,14 @@ model Venue {
   websiteUrl         String?
   instagramUrl       String?
   contactEmail       String?
+  contactPhone       String?
+  openingHours       Json?
   featuredImageUrl   String?
   featuredAssetId    String?                  @db.Uuid
   isPublished        Boolean                  @default(false)
+  aiGenerated        Boolean                  @default(false)
+  aiGeneratedAt      DateTime?
+  claimStatus        VenueClaimStatus         @default(UNCLAIMED)
   createdAt          DateTime                 @default(now())
   updatedAt          DateTime                 @updatedAt
   deletedAt          DateTime?
@@ -311,11 +332,44 @@ model Venue {
   artworkVenues      ArtworkVenue[]
   ingestRuns         IngestRun[]
   ingestExtractedEvents IngestExtractedEvent[]
+  claimRequests      VenueClaimRequest[]
 
   @@index([isPublished])
   @@index([featuredAssetId])
   @@index([deletedAt])
   @@index([timezone])
+}
+
+model VenueGenerationRun {
+  id            String   @id @default(uuid()) @db.Uuid
+  country       String
+  region        String
+  totalReturned Int
+  totalCreated  Int
+  totalSkipped  Int
+  triggeredById String   @db.Uuid
+  createdAt     DateTime @default(now())
+  triggeredBy   User     @relation(fields: [triggeredById], references: [id], onDelete: Restrict)
+
+  @@index([createdAt])
+}
+
+model VenueClaimRequest {
+  id          String                  @id @default(uuid()) @db.Uuid
+  venueId     String                  @db.Uuid
+  userId      String                  @db.Uuid
+  roleAtVenue String
+  message     String?
+  tokenHash   String?                 @unique
+  expiresAt   DateTime?
+  status      VenueClaimRequestStatus @default(PENDING_VERIFICATION)
+  createdAt   DateTime                @default(now())
+  verifiedAt  DateTime?
+  venue       Venue                   @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  user        User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([venueId])
+  @@index([userId])
 }
 
 model Artist {
