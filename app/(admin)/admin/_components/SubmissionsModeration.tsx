@@ -33,10 +33,12 @@ export function getSubmissionModerationErrorMessage(status: number) {
 }
 
 export type BulkResult = { status: "ok" | "error"; message?: string };
+type PublishResult = { status: "ok" } | { status: "blocked"; blockers: string[] } | { status: "error"; message: string };
 
-type SubmissionAction = "approve" | "reject";
+type SubmissionAction = "approve" | "reject" | "publish";
 
 export function buildModerationRequest(item: SubmissionItem, action: SubmissionAction, reason: string | null) {
+  if (action === "publish") return null;
   const trimmedReason = reason?.trim() || "";
   const venueFlow = item.type === "VENUE" || item.type === "ARTIST";
   const endpoint = venueFlow
@@ -130,6 +132,36 @@ export async function runBulkWithConcurrency(ids: string[], worker: (id: string)
   );
 }
 
+function getPublishTarget(item: SubmissionItem): { entityType: "event" | "venue"; entityId: string; title: string } | null {
+  if (item.type === "EVENT" && item.targetEvent) return { entityType: "event", entityId: item.targetEvent.id, title: item.targetEvent.title };
+  if (item.type === "VENUE" && item.targetVenue) return { entityType: "venue", entityId: item.targetVenue.id, title: item.targetVenue.name };
+  return null;
+}
+
+async function submitPublishAction(item: SubmissionItem): Promise<PublishResult> {
+  const target = getPublishTarget(item);
+  if (!target) return { status: "error", message: "This row is not publishable." };
+
+  try {
+    const res = await fetch(`/api/admin/${target.entityType}s/${target.entityId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "PUBLISHED", isPublished: true }),
+    });
+
+    if (res.ok) return { status: "ok" };
+
+    const body = (await res.json().catch(() => null)) as { details?: { blockers?: unknown }; error?: { details?: { blockers?: unknown } } } | null;
+    const rawBlockers = body?.details?.blockers ?? body?.error?.details?.blockers;
+    const blockers = Array.isArray(rawBlockers) ? rawBlockers.filter((value): value is string => typeof value === "string") : [];
+    if (res.status === 409 && blockers.length > 0) return { status: "blocked", blockers };
+
+    return { status: "error", message: getSubmissionModerationErrorMessage(res.status) };
+  } catch {
+    return { status: "error", message: "Request failed" };
+  }
+}
+
 export default function SubmissionsModeration({ items }: { items: SubmissionItem[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -143,11 +175,13 @@ export default function SubmissionsModeration({ items }: { items: SubmissionItem
   const [bulkRejectDialogOpen, setBulkRejectDialogOpen] = useState(false);
   const [bulkApproveDialogOpen, setBulkApproveDialogOpen] = useState(false);
   const [bulkRejectReason, setBulkRejectReason] = useState("");
+  const [bulkPublishSummaryOpen, setBulkPublishSummaryOpen] = useState(false);
+  const [publishSummary, setPublishSummary] = useState<{ succeeded: number; blocked: Array<{ id: string; title: string; blockers: string[] }> }>({ succeeded: 0, blocked: [] });
   const [approvedVenueContext, setApprovedVenueContext] = useState<{ id: string; slug: string } | null>(null);
 
   const actionableItems = useMemo(() => items.filter((item) => item.status === "SUBMITTED"), [items]);
   const actionableById = useMemo(() => new Map(actionableItems.map((item) => [item.id, item])), [actionableItems]);
-  const selectableIds = actionableItems.map((item) => item.id);
+  const selectableIds = useMemo(() => items.filter((item) => item.status === "SUBMITTED" || (item.status === "APPROVED" && Boolean(getPublishTarget(item)))).map((item) => item.id), [items]);
   const selectedSubmissionId = searchParams.get("submissionId");
   const selectedSubmission = items.find((item) => item.id === selectedSubmissionId) ?? null;
 
@@ -178,7 +212,7 @@ export default function SubmissionsModeration({ items }: { items: SubmissionItem
     router.replace(`/admin/submissions?${next.toString()}`);
   }
 
-  async function decide(item: SubmissionItem, action: SubmissionAction) {
+  async function decide(item: SubmissionItem, action: Extract<SubmissionAction, "approve" | "reject">) {
     setLoadingId(item.id);
     setPendingAction(action);
 
@@ -210,7 +244,7 @@ export default function SubmissionsModeration({ items }: { items: SubmissionItem
     }
   }
 
-  async function runBulk(action: SubmissionAction, sharedReason?: string | null) {
+  async function runBulk(action: Extract<SubmissionAction, "approve" | "reject">, sharedReason?: string | null) {
     const ids = [...selectedIds].filter((id) => actionableById.has(id));
     if (!ids.length) return;
 
@@ -245,6 +279,60 @@ export default function SubmissionsModeration({ items }: { items: SubmissionItem
     }
   }
 
+  async function runBulkPublish() {
+    const ids = [...selectedIds].filter((id) => {
+      const row = items.find((item) => item.id === id);
+      return row?.status === "APPROVED" && Boolean(getPublishTarget(row));
+    });
+    if (!ids.length) {
+      enqueueToast({ title: "Nothing to publish", message: "Select approved events or venues first.", variant: "error" });
+      return;
+    }
+
+    setIsBulkRunning(true);
+    setBulkAction("publish");
+
+    let succeeded = 0;
+    const blocked: Array<{ id: string; title: string; blockers: string[] }> = [];
+
+    try {
+      await runBulkWithConcurrency(ids, async (id) => {
+        const item = items.find((entry) => entry.id === id);
+        if (!item) return;
+        const target = getPublishTarget(item);
+        if (!target) return;
+
+        const result = await submitPublishAction(item);
+        if (result.status === "ok") {
+          succeeded += 1;
+          setBulkResults((prev) => ({ ...prev, [id]: { status: "ok" } }));
+          return;
+        }
+
+        if (result.status === "blocked") {
+          blocked.push({ id, title: target.title, blockers: result.blockers });
+          setBulkResults((prev) => ({ ...prev, [id]: { status: "error", message: result.blockers[0] || "Publishing is blocked" } }));
+          return;
+        }
+
+        setBulkResults((prev) => ({ ...prev, [id]: { status: "error", message: result.message } }));
+      });
+
+      setPublishSummary({ succeeded, blocked });
+      setBulkPublishSummaryOpen(true);
+      enqueueToast({
+        title: "Bulk publish completed",
+        message: `${succeeded} succeeded, ${blocked.length} blocked`,
+        variant: blocked.length ? "error" : "success",
+      });
+      router.refresh();
+    } finally {
+      setSelectedIds(new Set());
+      setIsBulkRunning(false);
+      setBulkAction(null);
+    }
+  }
+
   const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedIds.has(id));
 
   return (
@@ -265,6 +353,9 @@ export default function SubmissionsModeration({ items }: { items: SubmissionItem
             <span className="text-sm font-medium">{selectedIds.size} selected</span>
             <Button size="sm" disabled={isBulkRunning} onClick={() => setBulkApproveDialogOpen(true)}>
               {isBulkRunning && bulkAction === "approve" ? "Approving…" : "Approve selected"}
+            </Button>
+            <Button size="sm" variant="secondary" disabled={isBulkRunning} onClick={() => void runBulkPublish()}>
+              {isBulkRunning && bulkAction === "publish" ? "Publishing…" : "Publish selected"}
             </Button>
             <Button size="sm" variant="outline" disabled={isBulkRunning} onClick={() => setBulkRejectDialogOpen(true)}>
               {isBulkRunning && bulkAction === "reject" ? "Rejecting…" : "Reject selected"}
@@ -324,6 +415,31 @@ export default function SubmissionsModeration({ items }: { items: SubmissionItem
         </DialogContent>
       </Dialog>
 
+      <Dialog open={bulkPublishSummaryOpen} onOpenChange={setBulkPublishSummaryOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Bulk publish summary</DialogTitle>
+            <DialogDescription>
+              {publishSummary.succeeded} succeeded
+              {publishSummary.blocked.length ? `, ${publishSummary.blocked.length} blocked.` : "."}
+            </DialogDescription>
+          </DialogHeader>
+          {publishSummary.blocked.length ? (
+            <div className="space-y-2 text-sm">
+              <p className="font-medium">Blocked items</p>
+              <ul className="list-disc space-y-1 pl-5">
+                {publishSummary.blocked.map((item) => (
+                  <li key={item.id}>{item.title} ({item.blockers.join(", ")})</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          <div className="flex justify-end">
+            <Button onClick={() => setBulkPublishSummaryOpen(false)}>Close</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
         <ul className="space-y-3">
           <li className="flex items-center gap-2 rounded border p-3 text-sm">
@@ -348,7 +464,7 @@ export default function SubmissionsModeration({ items }: { items: SubmissionItem
                   <input
                     type="checkbox"
                     checked={isSelected}
-                    disabled={isBulkRunning || item.status !== "SUBMITTED"}
+                    disabled={isBulkRunning || !selectableIds.includes(item.id)}
                     onChange={() => toggleOne(item.id)}
                   />
                   Select row

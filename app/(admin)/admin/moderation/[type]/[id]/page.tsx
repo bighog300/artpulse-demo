@@ -1,9 +1,39 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { computeReadiness } from "@/lib/publish-blockers";
 import { db } from "@/lib/db";
 import ModerationDetailClient from "./moderation-detail-client";
 
 type Params = { type: "venue" | "event"; id: string };
+
+function formatDuration(startAt: Date | null, endAt: Date | null) {
+  if (!startAt || !endAt) return "—";
+  const minutes = Math.floor((endAt.getTime() - startAt.getTime()) / 60000);
+  if (minutes < 0) return "Invalid";
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return hours > 0 ? `${hours}h ${remainder}m` : `${remainder}m`;
+}
+
+function formatLocalTime(value: Date | null, timezone: string | null) {
+  if (!value || !timezone) return "—";
+  try {
+    return new Intl.DateTimeFormat("en-GB", {
+      weekday: "short",
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      timeZone: timezone,
+      timeZoneName: "short",
+    }).format(value);
+  } catch {
+    return "—";
+  }
+}
+
 
 export default async function ModerationDetailPage({ params }: { params: Promise<Params> }) {
   const { type, id } = await params;
@@ -59,7 +89,7 @@ export default async function ModerationDetailPage({ params }: { params: Promise
   const event = await db.event.findUnique({
     where: { id },
     include: {
-      venue: { select: { status: true, isPublished: true, name: true } },
+      venue: { select: { id: true, status: true, isPublished: true, name: true } },
       submissions: {
         orderBy: { createdAt: "desc" },
         take: 1,
@@ -96,6 +126,27 @@ export default async function ModerationDetailPage({ params }: { params: Promise
           <ul className="list-disc pl-5 text-sm">
             {readiness.blockers.map((blocker) => <li key={blocker}>{blocker}</li>)}
           </ul>
+        </section>
+
+        <section className="rounded border p-4 space-y-2">
+          <h2 className="font-semibold">Schedule Integrity Card</h2>
+          <p className="text-sm">StartAt: {event.startAt ? event.startAt.toISOString() : "—"}{event.timezone ? ` (${event.timezone})` : ""}</p>
+          <p className="text-sm">EndAt: {event.endAt ? event.endAt.toISOString() : "—"}</p>
+          <p className="text-sm">Duration: {formatDuration(event.startAt, event.endAt)}</p>
+          <p className="text-sm">Derived local time: {formatLocalTime(event.startAt, event.timezone)}</p>
+          {!event.timezone ? <p className="text-sm text-amber-700">Warning: timezone missing.</p> : null}
+          {!event.startAt ? <p className="text-sm text-amber-700">Warning: startAt missing.</p> : null}
+          {event.startAt && event.endAt && event.endAt < event.startAt ? <p className="text-sm text-amber-700">Warning: endAt is before startAt.</p> : null}
+        </section>
+
+        <section className="rounded border p-4 space-y-2">
+          <h2 className="font-semibold">Venue Dependency Card</h2>
+          {event.venue?.status !== "PUBLISHED" ? (
+            <>
+              <p className="text-sm text-amber-700">This event cannot be published until its venue is published.</p>
+              {event.venue?.id ? <Link className="underline text-sm" href={`/admin/moderation/venue/${event.venue.id}`}>Open venue moderation page</Link> : null}
+            </>
+          ) : <p className="text-sm">Venue is published.</p>}
         </section>
 
         <ModerationDetailClient type="event" id={event.id} status={event.status as never} blockers={readiness.blockers} />
