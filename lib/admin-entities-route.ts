@@ -28,10 +28,10 @@ const listQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   showArchived: z.enum(["0", "1"]).optional(),
   onlyArchived: z.enum(["0", "1"]).optional(),
-  status: z.enum(["DRAFT", "IN_REVIEW", "PUBLISHED", "PUBLISHED", "CHANGES_REQUESTED", "ARCHIVED"]).optional(),
+  status: z.enum(["DRAFT", "IN_REVIEW", "APPROVED", "PUBLISHED", "REJECTED", "CHANGES_REQUESTED", "ARCHIVED"]).optional(),
 });
 
-const moderationStatuses = ["DRAFT", "IN_REVIEW", "PUBLISHED", "PUBLISHED", "CHANGES_REQUESTED", "ARCHIVED"] as const;
+const moderationStatuses = ["DRAFT", "IN_REVIEW", "APPROVED", "PUBLISHED", "REJECTED", "CHANGES_REQUESTED", "ARCHIVED"] as const;
 
 function buildStatusCounts(rows: Array<{ status: string; _count: { _all: number } }>) {
   const counts = Object.fromEntries(moderationStatuses.map((status) => [status, 0])) as Record<(typeof moderationStatuses)[number], number>;
@@ -58,7 +58,7 @@ const venuePatchSchema = z.object({
   timezone: z.string().trim().max(80).nullable().optional(),
   websiteUrl: z.string().trim().url().nullable().optional(),
   isPublished: z.boolean().optional(),
-  status: z.enum(["DRAFT", "IN_REVIEW", "PUBLISHED", "PUBLISHED", "CHANGES_REQUESTED", "ARCHIVED"]).optional(),
+  status: z.enum(["DRAFT", "IN_REVIEW", "APPROVED", "PUBLISHED", "REJECTED", "CHANGES_REQUESTED", "ARCHIVED"]).optional(),
   description: z.string().trim().max(5000).nullable().optional(),
   featuredAssetId: z.string().uuid().nullable().optional(),
 }).strict();
@@ -70,7 +70,7 @@ const eventPatchSchema = z.object({
   venueId: z.string().uuid().nullable().optional(),
   ticketUrl: z.string().trim().url().nullable().optional(),
   isPublished: z.boolean().optional(),
-  status: z.enum(["DRAFT", "IN_REVIEW", "PUBLISHED", "PUBLISHED", "CHANGES_REQUESTED", "ARCHIVED"]).optional(),
+  status: z.enum(["DRAFT", "IN_REVIEW", "APPROVED", "PUBLISHED", "REJECTED", "CHANGES_REQUESTED", "ARCHIVED"]).optional(),
 }).strict().superRefine((data, ctx) => {
   if (data.startAt && data.endAt && new Date(data.endAt) < new Date(data.startAt)) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["endAt"], message: "endAt must be >= startAt" });
