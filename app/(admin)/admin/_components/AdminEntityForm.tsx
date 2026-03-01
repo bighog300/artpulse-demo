@@ -63,17 +63,15 @@ export default function AdminEntityForm({
             />
           </label>
         ))}
-        {uploadTargetType !== "venue" ? (
-          <label className="block text-sm">
-            <input
-              type="checkbox"
-              checked={Boolean(form.isPublished)}
-              onChange={(ev) => setForm((prev) => ({ ...prev, isPublished: ev.target.checked }))}
-              className="mr-2"
-            />
-            Published
-          </label>
-        ) : null}
+        <label className="block text-sm">
+          <input
+            type="checkbox"
+            checked={Boolean(form.isPublished)}
+            onChange={(ev) => setForm((prev) => ({ ...prev, isPublished: ev.target.checked }))}
+            className="mr-2"
+          />
+          Published
+        </label>
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
         <button className="rounded border px-3 py-1">Save</button>
       </form>
