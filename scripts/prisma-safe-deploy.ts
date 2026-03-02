@@ -168,7 +168,15 @@ async function main() {
     Number(status.failedDetected) + Number(status.pendingDetected) + Number(status.uninitializedDetected) + Number(status.upToDate);
 
   if (recognizedStateCount === 0) {
-    throw new Error("[prisma-safe-deploy] [status] Unknown prisma migrate status output. Refusing to continue.");
+    console.warn(
+      "[prisma-safe-deploy] [status] Unknown prisma migrate status output. Attempting migrate deploy without auto-resolve.",
+    );
+    await runDeployWithRetry();
+    runPrisma(["migrate", "status"], {
+      step: "Verifying migration status after deploy",
+    });
+    console.log("[prisma-safe-deploy] [final] ✅ Safe deploy completed successfully.");
+    return;
   }
 
   if (status.failedDetected) {

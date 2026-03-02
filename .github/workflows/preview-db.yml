@@ -10,7 +10,7 @@ on:
 
 jobs:
   migrate_preview_db:
-    if: github.event.action != 'closed'
+    if: github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 35
     permissions:
@@ -60,10 +60,24 @@ jobs:
         timeout-minutes: 10
         run: pnpm install --frozen-lockfile
 
+      - name: Check Neon secrets
+        id: neon_secrets
+        shell: bash
+        run: |
+          if [ -z "$NEON_API_KEY" ] || [ -z "$NEON_PROJECT_ID" ]; then
+            echo "has_neon_secrets=false" >> "$GITHUB_OUTPUT"
+            echo "NEON_API_KEY or NEON_PROJECT_ID is missing; skipping preview DB workflow."
+            exit 0
+          fi
+
+          echo "has_neon_secrets=true" >> "$GITHUB_OUTPUT"
+
       - name: Ensure preview Neon branch exists
+        if: ${{ steps.neon_secrets.outputs.has_neon_secrets == 'true' }}
         run: node scripts/neon/create-branch.mjs --branch-name "$PR_BRANCH_NAME" --parent-branch "$PARENT_NEON_BRANCH"
 
       - name: Wait until preview Neon branch is visible
+        if: ${{ steps.neon_secrets.outputs.has_neon_secrets == 'true' }}
         run: |
           max_attempts=20
           for attempt in $(seq 1 "$max_attempts"); do
@@ -84,6 +98,7 @@ jobs:
 
       - name: Fetch preview DB connection URLs
         id: neon-urls
+        if: ${{ steps.neon_secrets.outputs.has_neon_secrets == 'true' }}
         run: |
           max_attempts=24
           for attempt in $(seq 1 "$max_attempts"); do
@@ -123,6 +138,7 @@ jobs:
 
       - name: Normalize preview DB URLs (sslmode=require)
         id: normalize-urls
+        if: ${{ steps.neon_secrets.outputs.has_neon_secrets == 'true' }}
         env:
           RAW_DATABASE_URL: ${{ steps.neon-urls.outputs.database_url }}
           RAW_DIRECT_URL: ${{ steps.neon-urls.outputs.direct_url }}
@@ -130,9 +146,11 @@ jobs:
           node -e "const db = new URL(process.env.RAW_DATABASE_URL); db.searchParams.set('sslmode','require'); const direct = new URL(process.env.RAW_DIRECT_URL); direct.searchParams.set('sslmode','require'); console.log('database_url=' + db.toString()); console.log('direct_url=' + direct.toString());" >> "$GITHUB_OUTPUT"
 
       - name: Print Prisma version
+        if: ${{ steps.neon_secrets.outputs.has_neon_secrets == 'true' }}
         run: pnpm prisma --version
 
       - name: Validate preview DB URL hosts
+        if: ${{ steps.neon_secrets.outputs.has_neon_secrets == 'true' }}
         env:
           DATABASE_URL: ${{ steps.normalize-urls.outputs.database_url }}
           DIRECT_URL: ${{ steps.normalize-urls.outputs.direct_url }}
@@ -143,10 +161,12 @@ jobs:
           node -e "const db = new URL(process.env.DATABASE_URL); const d = new URL(process.env.DIRECT_URL); process.exit((db.searchParams.get('sslmode') === 'require' && d.searchParams.get('sslmode') === 'require') ? 0 : 1)"
 
       - name: Generate Prisma Client
+        if: ${{ steps.neon_secrets.outputs.has_neon_secrets == 'true' }}
         timeout-minutes: 5
         run: pnpm prisma:generate
 
       - name: Deploy migrations to preview DB
+        if: ${{ steps.neon_secrets.outputs.has_neon_secrets == 'true' }}
         timeout-minutes: 12
         env:
           DATABASE_URL: ${{ steps.normalize-urls.outputs.database_url }}
@@ -154,6 +174,7 @@ jobs:
         run: pnpm prisma:safe-deploy
 
       - name: Check migration status after deploy
+        if: ${{ steps.neon_secrets.outputs.has_neon_secrets == 'true' }}
         timeout-minutes: 5
         env:
           DATABASE_URL: ${{ steps.normalize-urls.outputs.database_url }}
@@ -161,6 +182,7 @@ jobs:
         run: pnpm prisma migrate status
 
       - name: Build app
+        if: ${{ steps.neon_secrets.outputs.has_neon_secrets == 'true' }}
         timeout-minutes: 12
         env:
           DATABASE_URL: ${{ steps.normalize-urls.outputs.database_url }}
@@ -170,6 +192,7 @@ jobs:
         run: pnpm vercel:build
 
       - name: Seed preview DB
+        if: ${{ steps.neon_secrets.outputs.has_neon_secrets == 'true' }}
         env:
           DATABASE_URL: ${{ steps.normalize-urls.outputs.database_url }}
           DIRECT_URL: ${{ steps.normalize-urls.outputs.direct_url }}
@@ -178,7 +201,7 @@ jobs:
         run: pnpm db:seed
 
       - name: Update Vercel Preview env vars for this git branch
-        if: ${{ steps.vercel_secrets.outputs.has_vercel_secrets == 'true' }}
+        if: ${{ steps.neon_secrets.outputs.has_neon_secrets == 'true' && steps.vercel_secrets.outputs.has_vercel_secrets == 'true' }}
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -194,5 +217,9 @@ jobs:
           echo "set-env OK: Vercel preview env vars updated for branch $PR_GIT_BRANCH"
 
       - name: Skip Vercel steps (missing secrets)
-        if: ${{ steps.vercel_secrets.outputs.has_vercel_secrets != 'true' }}
+        if: ${{ steps.neon_secrets.outputs.has_neon_secrets == 'true' && steps.vercel_secrets.outputs.has_vercel_secrets != 'true' }}
         run: echo "Skipping Vercel-related steps because Vercel secrets are not available."
+
+      - name: Skip preview DB steps (missing Neon secrets)
+        if: ${{ steps.neon_secrets.outputs.has_neon_secrets != 'true' }}
+        run: echo "Skipping Neon preview DB setup because required Neon secrets are unavailable."
