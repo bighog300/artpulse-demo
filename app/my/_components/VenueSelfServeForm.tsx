@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ImageUploader from "@/app/my/_components/ImageUploader";
+import { enqueueToast } from "@/lib/toast";
 
 type VenueRecord = {
   id: string;
@@ -51,6 +52,7 @@ export default function VenueSelfServeForm({
       return;
     }
 
+    enqueueToast({ title: "Venue saved", variant: "success" });
     router.refresh();
   }
 
@@ -71,6 +73,7 @@ export default function VenueSelfServeForm({
       return;
     }
 
+    enqueueToast({ title: "Featured image removed", variant: "success" });
     router.refresh();
   }
 
