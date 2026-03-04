@@ -46,6 +46,7 @@ export async function importApprovedEventImage(params: {
   title: string;
   sourceUrl: string | null;
   venueWebsiteUrl: string | null;
+  candidateImageUrl?: string | null;
   requestId: string;
 }) : Promise<ImportResult> {
   if (process.env.AI_INGEST_IMAGE_ENABLED !== "1") {
@@ -69,6 +70,7 @@ export async function importApprovedEventImage(params: {
   try {
     const htmlResponse = await fetchHtmlWithGuards(pageUrl, { maxBytes: 1_000_000 });
     const discoveredUrl = discoverEventImageUrl({
+      candidateImageUrl: params.candidateImageUrl ?? null,
       sourceUrl: pageUrl,
       venueWebsiteUrl: params.venueWebsiteUrl,
       html: htmlResponse.html,
