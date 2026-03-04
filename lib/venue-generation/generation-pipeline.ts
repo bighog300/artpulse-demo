@@ -51,6 +51,7 @@ type PipelineDb = {
       data: {
         country: string;
         region: string;
+        status: string;
         totalReturned: number;
         totalCreated: number;
         totalSkipped: number;
@@ -65,14 +66,15 @@ type PipelineDb = {
     update: (args: {
       where: { id: string };
       data: {
-        totalReturned: number;
-        totalCreated: number;
-        totalSkipped: number;
-        totalFailed: number;
-        geocodeAttempted: number;
-        geocodeSucceeded: number;
-        geocodeFailed: number;
-        geocodeFailureBreakdown: Record<string, number>;
+        status?: string;
+        totalReturned?: number;
+        totalCreated?: number;
+        totalSkipped?: number;
+        totalFailed?: number;
+        geocodeAttempted?: number;
+        geocodeSucceeded?: number;
+        geocodeFailed?: number;
+        geocodeFailureBreakdown?: Record<string, number>;
       };
     }) => Promise<{ id: string }>;
   };
@@ -287,6 +289,7 @@ export async function runVenueGenerationPipeline(args: {
     data: {
       country: args.input.country,
       region: args.input.region,
+      status: "RUNNING",
       totalReturned: 0,
       totalCreated: 0,
       totalSkipped: 0,
@@ -299,72 +302,73 @@ export async function runVenueGenerationPipeline(args: {
     },
   });
 
-  const response = await args.openai.createResponse({
-    model: args.model?.trim() || process.env.VENUE_GENERATION_MODEL?.trim() || "gpt-4o-mini",
-    input: [
-      { role: "system", content: "You are a cultural directory researcher. Return strict JSON only." },
-      { role: "user", content: venuePrompt(args.input) },
-    ],
-    schema: {
-      type: "object",
-      additionalProperties: false,
-      required: ["venues"],
-      properties: {
-        venues: {
-          type: "array",
-          items: {
-            type: "object",
-            additionalProperties: false,
-            required: ["name", "addressLine1", "addressLine2", "city", "region", "postcode", "country", "contactEmail", "contactPhone", "websiteUrl", "instagramUrl", "facebookUrl", "featuredImageUrl", "openingHours", "venueType"],
-            properties: {
-              name: { type: "string" },
-              addressLine1: { type: ["string", "null"] },
-              addressLine2: { type: ["string", "null"] },
-              city: { type: ["string", "null"] },
-              region: { type: ["string", "null"] },
-              postcode: { type: ["string", "null"] },
-              country: { type: "string" },
-              contactEmail: { type: ["string", "null"] },
-              contactPhone: { type: ["string", "null"] },
-              websiteUrl: { type: ["string", "null"] },
-              instagramUrl: { type: ["string", "null"] },
-              facebookUrl: { type: ["string", "null"] },
-              featuredImageUrl: { type: ["string", "null"] },
-              openingHours: { type: ["string", "null"] },
-              venueType: { type: "string", enum: ["GALLERY", "MUSEUM", "ART_CENTRE", "FOUNDATION", "OTHER"] },
+  try {
+    const response = await args.openai.createResponse({
+      model: args.model?.trim() || process.env.VENUE_GENERATION_MODEL?.trim() || "gpt-4o-mini",
+      input: [
+        { role: "system", content: "You are a cultural directory researcher. Return strict JSON only." },
+        { role: "user", content: venuePrompt(args.input) },
+      ],
+      schema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["venues"],
+        properties: {
+          venues: {
+            type: "array",
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["name", "addressLine1", "addressLine2", "city", "region", "postcode", "country", "contactEmail", "contactPhone", "websiteUrl", "instagramUrl", "facebookUrl", "featuredImageUrl", "openingHours", "venueType"],
+              properties: {
+                name: { type: "string" },
+                addressLine1: { type: ["string", "null"] },
+                addressLine2: { type: ["string", "null"] },
+                city: { type: ["string", "null"] },
+                region: { type: ["string", "null"] },
+                postcode: { type: ["string", "null"] },
+                country: { type: "string" },
+                contactEmail: { type: ["string", "null"] },
+                contactPhone: { type: ["string", "null"] },
+                websiteUrl: { type: ["string", "null"] },
+                instagramUrl: { type: ["string", "null"] },
+                facebookUrl: { type: ["string", "null"] },
+                featuredImageUrl: { type: ["string", "null"] },
+                openingHours: { type: ["string", "null"] },
+                venueType: { type: "string", enum: ["GALLERY", "MUSEUM", "ART_CENTRE", "FOUNDATION", "OTHER"] },
+              },
             },
           },
         },
       },
-    },
-  });
+    });
 
-  const payload = getStructuredPayloadFromResponses(response);
+    const payload = getStructuredPayloadFromResponses(response);
 
-  let parsed: ReturnType<typeof generatedVenuesResponseSchema.parse>;
-  try {
-    parsed = generatedVenuesResponseSchema.parse(payload);
-  } catch (error) {
-    if (error instanceof ZodError) {
-      throw new VenueGenerationError("OPENAI_SCHEMA_MISMATCH", "OpenAI output did not match venue schema", {
-        issues: error.issues,
-      });
+    let parsed: ReturnType<typeof generatedVenuesResponseSchema.parse>;
+    try {
+      parsed = generatedVenuesResponseSchema.parse(payload);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        throw new VenueGenerationError("OPENAI_SCHEMA_MISMATCH", "OpenAI output did not match venue schema", {
+          issues: error.issues,
+        });
+      }
+      throw error;
     }
-    throw error;
-  }
-  const geocodeFn = args.geocode ?? forwardGeocodeVenueAddressToLatLng;
+    const geocodeFn = args.geocode ?? forwardGeocodeVenueAddressToLatLng;
 
-  let totalCreated = 0;
-  let totalSkipped = 0;
-  let totalFailed = 0;
-  let geocodeAttempted = 0;
-  let geocodeSucceeded = 0;
-  let geocodeFailed = 0;
-  const geocodeFailureBreakdown: Record<string, number> = {};
+    let totalCreated = 0;
+    let totalSkipped = 0;
+    let totalFailed = 0;
+    let geocodeAttempted = 0;
+    let geocodeSucceeded = 0;
+    let geocodeFailed = 0;
+    const geocodeFailureBreakdown: Record<string, number> = {};
 
-  const seen = new Set<string>();
+    const seen = new Set<string>();
 
-  for (const rawVenue of parsed.venues) {
+    for (const rawVenue of parsed.venues) {
     const venue = normalizeGeneratedVenue(rawVenue);
     const normalizedSocials = normalizeSocialsAndEmail(venue);
     const socialWarning = normalizedSocials.warnings.length > 0 ? normalizedSocials.warnings.join(",") : undefined;
@@ -524,9 +528,23 @@ export async function runVenueGenerationPipeline(args: {
     totalCreated += 1;
   }
 
-  await args.db.venueGenerationRun.update({
-    where: { id: run.id },
-    data: {
+    await args.db.venueGenerationRun.update({
+      where: { id: run.id },
+      data: {
+        status: "SUCCEEDED",
+        totalReturned: parsed.venues.length,
+        totalCreated,
+        totalSkipped,
+        totalFailed,
+        geocodeAttempted,
+        geocodeSucceeded,
+        geocodeFailed,
+        geocodeFailureBreakdown,
+      },
+    });
+
+    return {
+      runId: run.id,
       totalReturned: parsed.venues.length,
       totalCreated,
       totalSkipped,
@@ -535,20 +553,16 @@ export async function runVenueGenerationPipeline(args: {
       geocodeSucceeded,
       geocodeFailed,
       geocodeFailureBreakdown,
-    },
-  });
-
-  return {
-    runId: run.id,
-    totalReturned: parsed.venues.length,
-    totalCreated,
-    totalSkipped,
-    totalFailed,
-    geocodeAttempted,
-    geocodeSucceeded,
-    geocodeFailed,
-    geocodeFailureBreakdown,
-  };
+    };
+  } catch (error) {
+    await args.db.venueGenerationRun
+      .update({
+        where: { id: run.id },
+        data: { status: "FAILED" },
+      })
+      .catch(() => undefined);
+    throw error;
+  }
 }
 
 export async function createOpenAIResponsesClient(args: { apiKey: string }) {

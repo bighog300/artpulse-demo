@@ -2,6 +2,7 @@ import AdminPageHeader from "../_components/AdminPageHeader";
 import { db } from "@/lib/db";
 import { VenueGenerationClient } from "./venue-generation-client";
 
+export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export default async function AdminVenueGenerationPage() {
@@ -12,6 +13,7 @@ export default async function AdminVenueGenerationPage() {
       id: true,
       country: true,
       region: true,
+      status: true,
       totalReturned: true,
       totalCreated: true,
       totalSkipped: true,
@@ -23,7 +25,7 @@ export default async function AdminVenueGenerationPage() {
       createdAt: true,
       items: {
         orderBy: { createdAt: "asc" },
-        take: 200,
+        take: 50, // Reduced from 200 — full item list available via /api/admin/venue-generation/runs
         select: {
           id: true,
           name: true,

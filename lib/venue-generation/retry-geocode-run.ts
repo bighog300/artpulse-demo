@@ -31,7 +31,7 @@ export async function handleRetryVenueGenerationGeocode(_req: NextRequest, conte
     if (!run) return apiError(404, "not_found", "Run not found");
 
     const items = await dbClient.venueGenerationRunItem.findMany({
-      where: { runId, status: "created", venueId: { not: null } },
+      where: { runId, status: "created", venueId: { not: null }, geocodeStatus: { not: "succeeded" } },
       select: {
         id: true,
         venueId: true,
@@ -47,6 +47,7 @@ export async function handleRetryVenueGenerationGeocode(_req: NextRequest, conte
 
     for (const item of items) {
       const venue = item.venue;
+      // Belt-and-braces: skip if already geocoded (should be filtered by query above)
       if (!venue || (venue.lat != null && venue.lng != null)) continue;
 
       const queryTexts = buildVenueGeocodeQueries(venue);

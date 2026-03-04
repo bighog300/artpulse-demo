@@ -387,6 +387,7 @@ model VenueGenerationRun {
   id                      String                   @id @default(uuid()) @db.Uuid
   country                 String
   region                  String
+  status                  String                   @default("SUCCEEDED")
   totalReturned           Int
   totalCreated            Int
   totalSkipped            Int
