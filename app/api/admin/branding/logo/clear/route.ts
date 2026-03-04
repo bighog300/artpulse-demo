@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin } from "@/lib/admin";
 import { handleAdminBrandingLogoClear } from "@/lib/admin-branding-logo-route";
 
 export const runtime = "nodejs";

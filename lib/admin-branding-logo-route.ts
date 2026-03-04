@@ -8,7 +8,7 @@ import { adminBrandingLogoCommitSchema, adminBrandingLogoUploadPayloadSchema, pa
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
 
 type BrandingLogoDeps = {
-  requireAdminUser: () => Promise<{ id: string }>;
+  requireAdminUser: () => Promise<{ email: string }>;
   handleUploadFn?: typeof handleUpload;
   appDb?: typeof db;
 };
@@ -78,9 +78,21 @@ export async function handleAdminBrandingLogoCommit(req: NextRequest, deps: Bran
     if (!parsed.success) return withNoStore(apiError(400, "invalid_request", "Invalid payload", zodDetails(parsed.error)));
 
     const appDb = deps.appDb ?? db;
+    const adminUser = await appDb.user.findUnique({
+      where: { email: admin.email },
+      select: { id: true },
+    });
+    const ownerUserId = adminUser?.id ?? null;
+
+    const existingSettings = await appDb.siteSettings.findUnique({
+      where: { id: "default" },
+      select: { logoAssetId: true },
+    });
+    const previousAssetId = existingSettings?.logoAssetId ?? null;
+
     const asset = await appDb.asset.create({
       data: {
-        ownerUserId: admin.id,
+        ownerUserId,
         kind: "IMAGE",
         url: parsed.data.blobUrl,
         filename: parsed.data.blobPath,
@@ -95,6 +107,10 @@ export async function handleAdminBrandingLogoCommit(req: NextRequest, deps: Bran
       create: { id: "default", logoAssetId: asset.id },
     });
 
+    if (previousAssetId && previousAssetId !== asset.id) {
+      await appDb.asset.delete({ where: { id: previousAssetId } }).catch(() => null);
+    }
+
     return withNoStore(NextResponse.json({ ok: true, logo: { assetId: settings.logoAssetId, url: asset.url } }, { headers: NO_STORE_HEADERS }));
   } catch (error) {
     if (error instanceof Error && error.message === "forbidden") return withNoStore(apiError(403, "forbidden", "Admin role required"));
@@ -108,11 +124,22 @@ export async function handleAdminBrandingLogoClear(req: NextRequest, deps: Brand
   try {
     await deps.requireAdminUser();
     const appDb = deps.appDb ?? db;
+
+    const existing = await appDb.siteSettings.findUnique({
+      where: { id: "default" },
+      select: { logoAssetId: true },
+    });
+
     await appDb.siteSettings.upsert({
       where: { id: "default" },
       update: { logoAssetId: null },
       create: { id: "default", logoAssetId: null },
     });
+
+    if (existing?.logoAssetId) {
+      await appDb.asset.delete({ where: { id: existing.logoAssetId } }).catch(() => null);
+    }
+
     return withNoStore(NextResponse.json({ ok: true }, { headers: NO_STORE_HEADERS }));
   } catch (error) {
     if (error instanceof Error && error.message === "forbidden") return withNoStore(apiError(403, "forbidden", "Admin role required"));

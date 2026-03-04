@@ -11,6 +11,8 @@ type Props = {
 export default function BrandingClient({ initialLogo }: Props) {
   const [logo, setLogo] = useState(initialLogo);
   const [busy, setBusy] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
   async function onUpload(file: File) {
     if (!["image/png", "image/webp"].includes(file.type)) {
@@ -24,7 +26,9 @@ export default function BrandingClient({ initialLogo }: Props) {
 
     setBusy(true);
     try {
-      const uploaded = await uploadBrandingLogoToBlob(file);
+      const uploaded = await uploadBrandingLogoToBlob(file, (percentage) => {
+        setUploadProgress(percentage);
+      });
       const response = await fetch("/api/admin/branding/logo/commit", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -43,6 +47,7 @@ export default function BrandingClient({ initialLogo }: Props) {
       enqueueToast({ title: "Upload failed", message: error instanceof Error ? error.message : "Please try again.", variant: "error" });
     } finally {
       setBusy(false);
+      setUploadProgress(null);
     }
   }
 
@@ -57,12 +62,13 @@ export default function BrandingClient({ initialLogo }: Props) {
       enqueueToast({ title: "Remove failed", message: error instanceof Error ? error.message : "Please try again.", variant: "error" });
     } finally {
       setBusy(false);
+      setConfirmClear(false);
     }
   }
 
   return (
     <div className="space-y-4 rounded-lg border bg-background p-4">
-      <h2 className="text-lg font-semibold">Branding</h2>
+      <h2 className="text-base font-medium">Site logo</h2>
       <p className="text-sm text-muted-foreground">Upload a site-wide logo (PNG or WEBP, max 2MB).</p>
       {logo ? <img src={logo.url} alt="Current site logo" className="max-h-20 w-auto rounded border p-2" /> : <p className="text-sm text-muted-foreground">No logo set.</p>}
       <input
@@ -75,9 +81,45 @@ export default function BrandingClient({ initialLogo }: Props) {
           event.currentTarget.value = "";
         }}
       />
-      <button type="button" className="rounded border px-3 py-1 text-sm disabled:opacity-50" disabled={busy || !logo} onClick={() => void onClear()}>
-        Remove logo
-      </button>
+      {uploadProgress !== null ? (
+        <div className="space-y-1">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-primary transition-all duration-150"
+              style={{ width: `${uploadProgress}%` }}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">Uploading… {uploadProgress}%</p>
+        </div>
+      ) : null}
+      {!confirmClear ? (
+        <button
+          type="button"
+          className="rounded border px-3 py-1 text-sm disabled:opacity-50"
+          disabled={busy || !logo}
+          onClick={() => setConfirmClear(true)}
+        >
+          Remove logo
+        </button>
+      ) : (
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Remove the current logo?</span>
+          <button
+            type="button"
+            className="rounded border border-destructive px-3 py-1 text-sm text-destructive disabled:opacity-50"
+            disabled={busy}
+            onClick={() => {
+              setConfirmClear(false);
+              void onClear();
+            }}
+          >
+            Yes, remove
+          </button>
+          <button type="button" className="rounded border px-3 py-1 text-sm" onClick={() => setConfirmClear(false)}>
+            Cancel
+          </button>
+        </div>
+      )}
     </div>
   );
 }
