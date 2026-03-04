@@ -191,7 +191,7 @@ test("run endpoint requires source url when venue has no website", async () => {
   const res = await handleAdminIngestRun(req, { venueId: "11111111-1111-4111-8111-111111111111" }, {
     requireEditorUser: async () => ({ id: "admin-1", email: "admin@example.com", role: "ADMIN" }),
     appDb: { venue: { findUnique: async () => ({ id: "11111111-1111-4111-8111-111111111111", websiteUrl: null, name: "Venue" }) } } as never,
-    runExtraction: async () => ({ runId: "run-1", createdCount: 0, dedupedCount: 0 }),
+    runExtraction: async () => ({ runId: "run-1", createdCount: 0, dedupedCount: 0, createdDuplicateCount: 0, stopReason: null }),
     logAction: async () => undefined,
     importEventImage: async () => ({ attached: false, warning: null, imageUrl: null }),
   });
@@ -199,6 +199,28 @@ test("run endpoint requires source url when venue has no website", async () => {
   assert.equal(res.status, 400);
 });
 
+
+
+
+test("run endpoint returns stopReason", async () => {
+  const req = new NextRequest("http://localhost/api/admin/ingest/venues/11111111-1111-4111-8111-111111111111/run", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({}),
+  });
+
+  const res = await handleAdminIngestRun(req, { venueId: "11111111-1111-4111-8111-111111111111" }, {
+    requireEditorUser: async () => ({ id: "admin-1", email: "admin@example.com", role: "ADMIN" }),
+    appDb: { venue: { findUnique: async () => ({ id: "11111111-1111-4111-8111-111111111111", websiteUrl: "https://venue.example", name: "Venue" }) } } as never,
+    runExtraction: async () => ({ runId: "run-1", createdCount: 2, dedupedCount: 0, createdDuplicateCount: 0, stopReason: "CANDIDATE_CAP_REACHED" }),
+    logAction: async () => undefined,
+    importEventImage: async () => ({ attached: false, warning: null, imageUrl: null }),
+  });
+
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.stopReason, "CANDIDATE_CAP_REACHED");
+});
 
 test("run detail includes error diagnostics fields", async () => {
   const req = new NextRequest("http://localhost/api/admin/ingest/runs/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", { method: "GET" });
@@ -222,6 +244,7 @@ test("run detail includes error diagnostics fields", async () => {
           usagePromptTokens: 100,
           usageCompletionTokens: 20,
           usageTotalTokens: 120,
+          stopReason: "CANDIDATE_CAP_REACHED",
           startedAt: new Date("2026-01-01T00:00:00.000Z"),
           finishedAt: new Date("2026-01-01T00:00:02.000Z"),
           venue: { id: "venue-1", name: "Venue" },
@@ -237,8 +260,69 @@ test("run detail includes error diagnostics fields", async () => {
   assert.equal(body.run.errorMessage, "OpenAI output did not match expected event schema");
   assert.equal(body.run.errorDetail, '{"debug":{"output_item_count":1}}');
   assert.equal(body.run.model, "gpt-4o-mini");
+  assert.equal(body.run.stopReason, "CANDIDATE_CAP_REACHED");
 });
 
+
+
+
+test("approve returns imageWarning when image import warns", async () => {
+  const candidate: Candidate = {
+    id: "11111111-1111-4111-8111-111111111199",
+    runId: "22222222-2222-4222-8222-222222222222",
+    venueId: "33333333-3333-4333-8333-333333333333",
+    status: "PENDING",
+    title: "AI Event",
+    startAt: new Date("2026-01-01T18:00:00Z"),
+    endAt: null,
+    timezone: "UTC",
+    locationText: "Main Hall",
+    description: "Test description",
+    sourceUrl: "https://venue.example/events",
+    createdEventId: null,
+    rejectionReason: null,
+  };
+
+  const tx = {
+    ingestExtractedEvent: {
+      findUnique: async () => ({ ...candidate, run: { id: candidate.runId, venueId: candidate.venueId, sourceUrl: candidate.sourceUrl, errorDetail: null }, venue: { id: candidate.venueId, timezone: "UTC", lat: null, lng: null, websiteUrl: "https://venue.example" } }),
+      update: async ({ data }: { data: Partial<Candidate> }) => {
+        Object.assign(candidate, data);
+        return { id: candidate.id, createdEventId: candidate.createdEventId, runId: candidate.runId, venueId: candidate.venueId };
+      },
+    },
+    event: {
+      findUnique: async () => null,
+      create: async () => ({ id: "event-1" }),
+    },
+    submission: {
+      create: async () => ({ id: "submission-1" }),
+    },
+    artist: {
+      findMany: async () => [],
+    },
+    eventArtist: {
+      createMany: async () => ({ count: 0 }),
+    },
+    venue: { update: async () => ({ id: candidate.venueId, timezone: "UTC" }) },
+    ingestRun: { update: async () => ({ id: candidate.runId }) },
+  };
+
+  const req = new NextRequest("http://localhost/api/admin/ingest/extracted-events/11111111-1111-4111-8111-111111111199/approve", { method: "POST" });
+  const res = await handleAdminIngestApprove(req, { id: candidate.id }, {
+    requireEditorUser: async () => ({ id: "admin-1", email: "admin@example.com", role: "ADMIN" }),
+    appDb: {
+      $transaction: async (cb: (trx: typeof tx) => Promise<unknown>) => cb(tx),
+      ingestRun: { update: async () => ({ id: candidate.runId }) },
+    } as never,
+    logAction: async () => undefined,
+    importEventImage: async () => ({ attached: false, warning: "download failed", imageUrl: null }),
+  });
+
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.imageWarning, "download failed");
+});
 
 test("approve returns precise missing scheduling fields", async () => {
   const candidate: Candidate = {

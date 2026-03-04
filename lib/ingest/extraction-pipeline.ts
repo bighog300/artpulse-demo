@@ -7,6 +7,7 @@ import { extractEventsWithOpenAI } from "@/lib/ingest/openai-extract";
 import { computeConfidence, sanitizeReasons } from "@/lib/ingest/confidence";
 import { parseExtractedEventsFromModel, type NormalizedExtractedEvent } from "@/lib/ingest/schemas";
 import { clusterCandidates, computeSimilarityKey, scoreSimilarity } from "@/lib/ingest/similarity";
+import { inferTimezoneFromLatLng } from "@/lib/timezone";
 
 const MAX_ERROR_MESSAGE_LENGTH = 500;
 const MAX_ERROR_DETAIL_LENGTH = 1000;
@@ -94,7 +95,7 @@ function isUkCountry(input: string | null | undefined): boolean {
 
 function normalizeSchedulingFields(
   event: NormalizedExtractedEvent,
-  context: { fallbackSourceUrl: string; venueCountry: string | null },
+  context: { fallbackSourceUrl: string; venueCountry: string | null; venueLat?: number | null; venueLng?: number | null },
 ): NormalizedExtractedEvent {
   const startAt = event.startAt;
   if (!startAt) return event;
@@ -111,6 +112,10 @@ function normalizeSchedulingFields(
     if (isUkSourceUrl(sourceToCheck) || isUkCountry(context.venueCountry)) {
       normalized.timezone = "Europe/London";
     }
+  }
+
+  if (!normalized.timezone && context.venueLat != null && context.venueLng != null) {
+    normalized.timezone = inferTimezoneFromLatLng(context.venueLat, context.venueLng);
   }
 
   return normalized;
@@ -153,7 +158,7 @@ export async function runVenueIngestExtraction(
     extractWithOpenAI?: Extractor;
     now?: () => number;
   } = {},
-): Promise<{ runId: string; createdCount: number; dedupedCount: number; createdDuplicateCount: number }> {
+): Promise<{ runId: string; createdCount: number; dedupedCount: number; createdDuplicateCount: number; stopReason: string | null }> {
   const store = deps.store ?? db;
   const fetchHtml = deps.fetchHtml ?? fetchHtmlWithGuards;
   const extractWithOpenAI = deps.extractWithOpenAI ?? extractEventsWithOpenAI;
@@ -184,12 +189,12 @@ export async function runVenueIngestExtraction(
 
     if (process.env.AI_INGEST_ENABLED !== "1") {
       await markRunFailed(store, run.id, startedAtMs, "INGEST_DISABLED", "AI ingest is disabled");
-      return { runId: run.id, createdCount: 0, dedupedCount: 0, createdDuplicateCount: 0 };
+      return { runId: run.id, createdCount: 0, dedupedCount: 0, createdDuplicateCount: 0, stopReason: null };
     }
 
     if (!process.env.OPENAI_API_KEY) {
       await markRunFailed(store, run.id, startedAtMs, "MISSING_OPENAI_KEY", "OPENAI_API_KEY is not configured");
-      return { runId: run.id, createdCount: 0, dedupedCount: 0, createdDuplicateCount: 0 };
+      return { runId: run.id, createdCount: 0, dedupedCount: 0, createdDuplicateCount: 0, stopReason: null };
     }
 
     const venue = await store.venue.findUnique({
@@ -200,6 +205,8 @@ export async function runVenueIngestExtraction(
         addressLine1: true,
         city: true,
         eventsPageUrl: true,
+        lat: true,
+        lng: true,
       },
     });
     const extracted = await extractWithOpenAI({
@@ -216,6 +223,8 @@ export async function runVenueIngestExtraction(
     const normalized = parseExtractedEventsFromModel(extracted.events).map((event) => normalizeSchedulingFields(event, {
       fallbackSourceUrl: fetched.finalUrl,
       venueCountry: venue?.country ?? null,
+      venueLat: venue?.lat ?? null,
+      venueLng: venue?.lng ?? null,
     }));
     const totalCandidatesReturned = normalized.length;
     const maxCandidates = getMaxCandidatesPerVenueRun();
@@ -453,7 +462,7 @@ export async function runVenueIngestExtraction(
       },
     });
 
-    return { runId: run.id, createdCount, dedupedCount, createdDuplicateCount };
+    return { runId: run.id, createdCount, dedupedCount, createdDuplicateCount, stopReason };
   } catch (error) {
     if (error instanceof IngestError) {
       await markRunFailed(store, run.id, startedAtMs, error.code, error.message, error.meta ? JSON.stringify(error.meta) : undefined);

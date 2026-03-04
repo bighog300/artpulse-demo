@@ -271,7 +271,12 @@ export async function runCronIngestVenues(
         }
 
         try {
-          const sourceUrl = (item.venue.eventsPageUrl?.trim() || item.venue.websiteUrl) as string;
+          const sourceUrl = item.venue.eventsPageUrl ?? item.venue.websiteUrl ?? null;
+          if (!sourceUrl) {
+            venueResults.push({ venueId: item.venue.id, status: "failed", errorCode: "MISSING_SOURCE_URL" });
+            failed += 1;
+            continue;
+          }
           const result = await runExtraction({ venueId: item.venue.id, sourceUrl });
           succeeded += 1;
           createdCandidates += result.createdCount;

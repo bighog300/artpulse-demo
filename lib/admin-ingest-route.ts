@@ -91,7 +91,7 @@ export async function handleAdminIngestRun(req: NextRequest, params: { venueId?:
       req,
     });
 
-    return NextResponse.json({ runId: result.runId, createdCount: result.createdCount, dedupedCount: result.dedupedCount, createdDuplicateCount: result.createdDuplicateCount }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ runId: result.runId, createdCount: result.createdCount, dedupedCount: result.dedupedCount, createdDuplicateCount: result.createdDuplicateCount, stopReason: result.stopReason }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     if (error instanceof Error && error.message === "unauthorized") return apiError(401, "unauthorized", "Authentication required", undefined, requestId);
     if (error instanceof Error && error.message === "forbidden") return apiError(403, "forbidden", "Editor role required", undefined, requestId);
@@ -169,6 +169,7 @@ export async function handleAdminIngestRunGet(req: NextRequest, params: { runId?
         usagePromptTokens: true,
         usageCompletionTokens: true,
         usageTotalTokens: true,
+        stopReason: true,
         startedAt: true,
         finishedAt: true,
         venue: { select: { id: true, name: true } },
@@ -488,6 +489,7 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
       candidateId: approved.candidate.id,
       createdEventId: approved.createdEventId,
       linkedArtistCount: approved.linkedArtistCount ?? 0,
+      imageWarning,
     }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     if (error instanceof Error && error.message === "unauthorized") return apiError(401, "unauthorized", "Authentication required", undefined, requestId);

@@ -53,11 +53,13 @@ export default function IngestCandidateActions({
   const [error, setError] = useState<string | null>(null);
   const [missingTimezone, setMissingTimezone] = useState(false);
   const [linkedArtistCount, setLinkedArtistCount] = useState<number | null>(null);
+  const [imageWarning, setImageWarning] = useState<string | null>(null);
 
   async function approve() {
     if (loadingAction || status !== "PENDING") return;
     setError(null);
     setMissingTimezone(false);
+    setImageWarning(null);
     setLoadingAction("approve");
     try {
       const res = await fetch(`/api/admin/ingest/extracted-events/${candidateId}/approve`, { method: "POST" });
@@ -68,8 +70,9 @@ export default function IngestCandidateActions({
         setError(getActionError(res.status, body?.error?.details));
         return;
       }
-      const body = (await res.json().catch(() => ({}))) as { linkedArtistCount?: number };
+      const body = (await res.json().catch(() => ({}))) as { linkedArtistCount?: number; imageWarning?: string | null };
       setLinkedArtistCount(body.linkedArtistCount ?? 0);
+      setImageWarning(body.imageWarning ?? null);
       router.refresh();
     } catch {
       setError("Action failed. Please try again.");
@@ -136,6 +139,12 @@ export default function IngestCandidateActions({
       {linkedArtistCount === 0 && status === "APPROVED" ? (
         <p className="text-xs text-amber-700">
           No artists were auto-linked. Check artist names manually.
+        </p>
+      ) : null}
+
+      {imageWarning ? (
+        <p className="text-xs text-amber-700">
+          Event created, but image could not be imported: {imageWarning}
         </p>
       ) : null}
       {linkedArtistCount !== null && linkedArtistCount > 0 ? (
