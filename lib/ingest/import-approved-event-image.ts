@@ -48,6 +48,14 @@ export async function importApprovedEventImage(params: {
   venueWebsiteUrl: string | null;
   candidateImageUrl?: string | null;
   requestId: string;
+}, deps: {
+  fetchHtmlWithGuards: typeof fetchHtmlWithGuards;
+  fetchImageWithGuards: typeof fetchImageWithGuards;
+  uploadEventImageToBlob: typeof uploadEventImageToBlob;
+} = {
+  fetchHtmlWithGuards,
+  fetchImageWithGuards,
+  uploadEventImageToBlob,
 }) : Promise<ImportResult> {
   if (process.env.AI_INGEST_IMAGE_ENABLED !== "1") {
     return { attached: false, warning: null, imageUrl: null };
@@ -68,23 +76,28 @@ export async function importApprovedEventImage(params: {
   }
 
   try {
-    const htmlResponse = await fetchHtmlWithGuards(pageUrl, { maxBytes: 1_000_000 });
-    const discoveredUrl = discoverEventImageUrl({
+    const quickUrl = discoverEventImageUrl({
       candidateImageUrl: params.candidateImageUrl ?? null,
       sourceUrl: pageUrl,
       venueWebsiteUrl: params.venueWebsiteUrl,
-      html: htmlResponse.html,
     });
 
-    if (!discoveredUrl) {
+    const resolvedUrl = quickUrl
+      ?? await deps.fetchHtmlWithGuards(pageUrl, { maxBytes: 1_000_000 }).then((htmlResponse) => discoverEventImageUrl({
+        sourceUrl: pageUrl,
+        venueWebsiteUrl: params.venueWebsiteUrl,
+        html: htmlResponse.html,
+      }));
+
+    if (!resolvedUrl) {
       return { attached: false, warning: "image-import skipped: no discoverable image URL", imageUrl: null };
     }
 
-    const image = await fetchImageWithGuards(discoveredUrl, {
+    const image = await deps.fetchImageWithGuards(resolvedUrl, {
       maxBytes: Number.parseInt(process.env.AI_INGEST_IMAGE_MAX_BYTES ?? "5000000", 10) || 5_000_000,
     });
 
-    const uploaded = await uploadEventImageToBlob({
+    const uploaded = await deps.uploadEventImageToBlob({
       venueId: params.venueId,
       candidateId: params.candidateId,
       sourceUrl: pageUrl,
