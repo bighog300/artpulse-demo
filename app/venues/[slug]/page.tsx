@@ -19,7 +19,7 @@ import { buildVenueJsonLd, getDetailUrl } from "@/lib/seo.public-profiles";
 import { getVenueDescriptionExcerpt } from "@/lib/venues";
 import { resolveEntityPrimaryImage } from "@/lib/public-images";
 import { ArtworkCountBadge } from "@/components/artwork/artwork-count-badge";
-import { VenueEventsGrid } from "@/components/venues/venue-events-grid";
+
 import Link from "next/link";
 import { countPublishedArtworksByVenue, listPublishedArtworksByVenue } from "@/lib/artworks";
 
@@ -53,6 +53,8 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
       city: true,
       region: true,
       country: true,
+      lat: true,
+      lng: true,
       claimStatus: true,
       featuredImageUrl: true,
       images: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { url: true, alt: true, sortOrder: true, isPrimary: true, width: true, height: true, asset: { select: { url: true } } } },
@@ -101,6 +103,7 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
   const subtitle = [venue.city, venue.region, venue.country].filter(Boolean).join(", ") || "Venue profile";
   const address = [venue.addressLine1, venue.city, venue.region, venue.country].filter(Boolean).join(", ");
   const mapHref = address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}` : null;
+  const directionsUrl = `https://maps.google.com/?q=${encodeURIComponent([venue.addressLine1, venue.city, venue.country].filter(Boolean).join(", "))}`;
 
   const events = venue.events.map((event) => ({
     id: event.id,
@@ -153,6 +156,18 @@ export default async function VenueDetail({ params }: { params: Promise<{ slug: 
           <section className="space-y-3">
             <SectionHeader title="Upcoming events" subtitle="What’s happening at this venue next." />
             <ArtworkRelatedSection title="Artworks shown here" subtitle="Published works linked to this venue." items={artworks} viewAllHref={artworkCount > 6 ? `/artwork?venueId=${venue.id}` : undefined} showArtistName />
+            {venue.lat != null && venue.lng != null ? (
+              <div className="space-y-3">
+                <div className="mb-6 overflow-hidden rounded-xl border" style={{ height: "12rem" }}>
+                  <VenueUpcomingMap lat={venue.lat} lng={venue.lng} venueId={venue.id} venueSlug={venue.slug} venueName={venue.name} city={venue.city} />
+                </div>
+                <Button asChild variant="outline" size="sm">
+                  <Link href={directionsUrl} target="_blank" rel="noopener noreferrer">
+                    Get Directions
+                  </Link>
+                </Button>
+              </div>
+            ) : null}
             {events.length === 0 ? <EmptyState title="No upcoming events" description="Follow this venue and check back soon." /> : (
               <VenueEventsGrid events={events} venueName={venue.name} />
             )}
