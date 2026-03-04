@@ -6,9 +6,12 @@ import { getMyDashboard } from "@/lib/my/dashboard/get-my-dashboard";
 test("getMyDashboard returns validated payload with venue scope", async () => {
   const original = {
     venueMembershipFindMany: db.venueMembership.findMany,
+    venueMembershipCount: db.venueMembership.count,
     artistFindUnique: db.artist.findUnique,
     eventFindMany: db.event.findMany,
+    eventCount: db.event.count,
     artworkFindMany: db.artwork.findMany,
+    artworkCount: db.artwork.count,
     venueInviteFindMany: db.venueInvite.findMany,
   };
 
@@ -63,6 +66,24 @@ test("getMyDashboard returns validated payload with venue scope", async () => {
     },
   ]) as typeof db.venueInvite.findMany;
 
+  let eventCountCall = 0;
+  db.event.count = (async () => {
+    const results = [0, 1, 0, 0];
+    return results[eventCountCall++] ?? 0;
+  }) as typeof db.event.count;
+
+  let venueCountCall = 0;
+  db.venueMembership.count = (async () => {
+    const results = [0, 1, 0, 0];
+    return results[venueCountCall++] ?? 0;
+  }) as typeof db.venueMembership.count;
+
+  let artworkCountCall = 0;
+  db.artwork.count = (async () => {
+    const results = [1, 0];
+    return results[artworkCountCall++] ?? 0;
+  }) as typeof db.artwork.count;
+
   try {
     const data = await getMyDashboard({ userId: "user-1", venueId: "venue-1" });
     assert.equal(data.context.selectedVenueId, "venue-1");
@@ -72,9 +93,12 @@ test("getMyDashboard returns validated payload with venue scope", async () => {
     assert.equal(data.quickLists.recentArtwork[0]?.id, "artwork-1");
   } finally {
     db.venueMembership.findMany = original.venueMembershipFindMany;
+    db.venueMembership.count = original.venueMembershipCount;
     db.artist.findUnique = original.artistFindUnique;
     db.event.findMany = original.eventFindMany;
+    db.event.count = original.eventCount;
     db.artwork.findMany = original.artworkFindMany;
+    db.artwork.count = original.artworkCount;
     db.venueInvite.findMany = original.venueInviteFindMany;
   }
 });
