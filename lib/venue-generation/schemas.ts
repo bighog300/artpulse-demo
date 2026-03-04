@@ -1,8 +1,20 @@
 import { z } from "zod";
 
+const SAFE_GEO_RE = /^[\w\s,.()\-'À-ÖØ-öø-ÿ]+$/u;
+
 export const venueGenerationInputSchema = z.object({
-  country: z.string().trim().min(2).max(120),
-  region: z.string().trim().min(1).max(120),
+  country: z
+    .string()
+    .trim()
+    .min(2)
+    .max(120)
+    .regex(SAFE_GEO_RE, "Country contains invalid characters"),
+  region: z
+    .string()
+    .trim()
+    .min(1)
+    .max(120)
+    .regex(SAFE_GEO_RE, "Region contains invalid characters"),
 });
 
 const urlSchema = z.string().trim().max(500);

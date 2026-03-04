@@ -10,7 +10,17 @@ export default async function AdminIngestEventsPage() {
       status: "PENDING",
       duplicateOfId: null,
     },
-    include: {
+    select: {
+      id: true,
+      title: true,
+      startAt: true,
+      locationText: true,
+      confidenceScore: true,
+      confidenceBand: true,
+      confidenceReasons: true,
+      status: true,
+      rejectionReason: true,
+      createdEventId: true,
       venue: { select: { id: true, name: true } },
       run: { select: { id: true, sourceUrl: true } },
     },

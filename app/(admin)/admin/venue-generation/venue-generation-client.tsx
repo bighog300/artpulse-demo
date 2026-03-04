@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -38,6 +38,7 @@ type Run = {
   geocodeFailed: number;
   geocodeFailureBreakdown: unknown;
   createdAt: string | Date;
+  status?: string | null;
   items: RunItem[];
 };
 
@@ -54,11 +55,20 @@ export function VenueGenerationClient({ initialRuns }: { initialRuns: Run[] }) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [retryingRunId, setRetryingRunId] = useState<string | null>(null);
+  const submittingRef = useRef(false);
 
   const refreshRuns = async () => {
-    const runsRes = await fetch("/api/admin/venue-generation/runs", { cache: "no-store" });
-    const runsBody = await runsRes.json();
-    if (runsRes.ok && Array.isArray(runsBody?.runs)) setRuns(runsBody.runs);
+    try {
+      const runsRes = await fetch("/api/admin/venue-generation/runs", { cache: "no-store" });
+      const runsBody = await runsRes.json().catch(() => ({}));
+      if (runsRes.ok && Array.isArray(runsBody?.runs)) {
+        setRuns(runsBody.runs);
+      } else {
+        setError("Failed to refresh runs list.");
+      }
+    } catch {
+      setError("Failed to refresh runs list — check your connection.");
+    }
   };
 
   return (
@@ -67,6 +77,8 @@ export function VenueGenerationClient({ initialRuns }: { initialRuns: Run[] }) {
         className="grid gap-3 rounded-lg border bg-background p-4 md:grid-cols-3"
         onSubmit={async (event) => {
           event.preventDefault();
+          if (submittingRef.current) return;
+          submittingRef.current = true;
           setLoading(true);
           setError(null);
           setMessage(null);
@@ -84,12 +96,16 @@ export function VenueGenerationClient({ initialRuns }: { initialRuns: Run[] }) {
             setError(err instanceof Error ? err.message : "Generation failed");
           } finally {
             setLoading(false);
+            submittingRef.current = false;
           }
         }}
       >
         <Input value={country} onChange={(e) => setCountry(e.target.value)} placeholder="Country" required />
         <Input value={region} onChange={(e) => setRegion(e.target.value)} placeholder="Region" required />
         <Button type="submit" disabled={loading}>{loading ? "Generating…" : "Generate Venues"}</Button>
+        <p className="col-span-full text-xs text-muted-foreground">
+          Enter full geographic names, e.g. &quot;United Kingdom&quot; / &quot;Greater London&quot;. Letters, spaces, hyphens, and commas only.
+        </p>
       </form>
 
       {message ? <p className="rounded border border-emerald-300 bg-emerald-50 p-2 text-sm text-emerald-800">{message}</p> : null}
@@ -106,6 +122,9 @@ export function VenueGenerationClient({ initialRuns }: { initialRuns: Run[] }) {
           return (
             <details key={run.id} className="rounded border p-3" open>
               <summary className="cursor-pointer text-sm font-medium">
+                <span className={run.status === "FAILED" ? "text-red-600" : run.status === "RUNNING" ? "text-amber-600" : "text-emerald-700"}>
+                  [{run.status ?? "SUCCEEDED"}]
+                </span>{" "}
                 {run.region}, {run.country} — created {run.totalCreated}/{run.totalReturned}, skipped {run.totalSkipped}, failed {run.totalFailed}, geocode {geocodeRate(run)}
               </summary>
               <div className="mt-3 space-y-3 text-sm">
@@ -168,6 +187,11 @@ export function VenueGenerationClient({ initialRuns }: { initialRuns: Run[] }) {
                   <h3 className="font-medium">Failed ({failed.length})</h3>
                   <ul className="list-disc pl-5">{failed.map((item) => <li key={item.id}>{item.name} — {item.reason ?? "failed"}</li>)}</ul>
                 </div>
+                {run.items.length >= 50 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Showing first 50 items. Full data available via the API.
+                  </p>
+                ) : null}
               </div>
             </details>
           );

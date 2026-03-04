@@ -17,6 +17,7 @@ export async function GET() {
         id: true,
         country: true,
         region: true,
+        status: true,
         totalReturned: true,
         totalCreated: true,
         totalSkipped: true,
@@ -29,7 +30,7 @@ export async function GET() {
         createdAt: true,
         items: {
           orderBy: { createdAt: "asc" },
-          take: 200,
+          take: 50,
           select: {
             id: true,
             name: true,

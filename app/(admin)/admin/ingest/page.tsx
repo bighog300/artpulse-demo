@@ -1,46 +1,55 @@
 import Link from "next/link";
-import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import AdminPageHeader from "@/app/(admin)/admin/_components/AdminPageHeader";
-import { getServerBaseUrl } from "@/lib/server/get-base-url";
 import IngestStatusBadge from "@/app/(admin)/admin/ingest/_components/ingest-status-badge";
 import IngestTriggerClient from "@/app/(admin)/admin/ingest/_components/ingest-trigger-client";
+import { requireAdmin } from "@/lib/auth";
+import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
 type IngestRun = {
   id: string;
-  createdAt: string;
+  createdAt: Date;
   status: "PENDING" | "RUNNING" | "SUCCEEDED" | "FAILED";
   sourceUrl: string;
-  fetchStatus: string | null;
+  fetchStatus: number | null;
   errorCode: string | null;
-  createdCount: number | null;
+  createdCandidates: number;
   venue: { id: string; name: string };
 };
 
-type VenueListResponse = {
-  items: Array<{ id: string; name: string; websiteUrl: string | null }>;
-};
-
-async function fetchAdminJson<T>(path: string): Promise<T | null> {
-  const baseUrl = await getServerBaseUrl();
-  const requestHeaders = await headers();
-  const cookie = requestHeaders.get("cookie") ?? "";
-  const res = await fetch(`${baseUrl}${path}`, { cache: "no-store", headers: cookie ? { cookie } : undefined });
-  if (!res.ok) return null;
-  return res.json() as Promise<T>;
-}
-
 export default async function AdminIngestPage() {
-  const [runsResponse, venuesResponse] = await Promise.all([
-    fetchAdminJson<{ ok: boolean; runs: IngestRun[] }>("/api/admin/ingest/runs?take=20"),
-    fetchAdminJson<VenueListResponse>("/api/admin/venues"),
+  try {
+    await requireAdmin();
+  } catch {
+    redirect("/admin");
+  }
+
+  const [runs, venues]: [IngestRun[], { id: string; name: string; websiteUrl: string | null }[]] = await Promise.all([
+    db.ingestRun.findMany({
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: 20,
+      select: {
+        id: true,
+        createdAt: true,
+        status: true,
+        sourceUrl: true,
+        fetchStatus: true,
+        errorCode: true,
+        createdCandidates: true,
+        venue: { select: { id: true, name: true } },
+      },
+    }),
+    db.venue.findMany({
+      where: { websiteUrl: { not: null }, deletedAt: null },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, websiteUrl: true },
+      take: 200,
+    }),
   ]);
 
-  const runs = runsResponse?.runs ?? [];
-  const venues = (venuesResponse?.items ?? [])
-    .filter((venue) => Boolean(venue.websiteUrl))
-    .map((venue) => ({ id: venue.id, name: venue.name, websiteUrl: venue.websiteUrl as string }));
+  const venueOptions = venues.map((venue) => ({ id: venue.id, name: venue.name, websiteUrl: venue.websiteUrl ?? "" }));
 
   return (
     <main className="space-y-4">
@@ -50,7 +59,7 @@ export default async function AdminIngestPage() {
       />
 
       <div className="flex items-center justify-between">
-        <IngestTriggerClient venues={venues} />
+        <IngestTriggerClient venues={venueOptions} />
         <div className="flex items-center gap-3">
           <Link href="/admin/ingest/health" className="text-sm underline">View Ingest Health</Link>
           <Link href="/admin/ingest/events" className="text-sm underline">View Event Queue</Link>
@@ -82,7 +91,7 @@ export default async function AdminIngestPage() {
                   <td className="px-3 py-2">{run.venue.name}</td>
                   <td className="px-3 py-2"><IngestStatusBadge status={run.status} /></td>
                   <td className="px-3 py-2 break-all text-xs text-muted-foreground">{run.sourceUrl}</td>
-                  <td className="px-3 py-2">{run.createdCount ?? "—"}</td>
+                  <td className="px-3 py-2">{run.createdCandidates ?? "—"}</td>
                   <td className="px-3 py-2">{run.status === "FAILED" ? run.errorCode ?? "FAILED" : "—"}</td>
                   <td className="px-3 py-2"><Link className="underline" href={`/admin/ingest/runs/${run.id}`}>Open</Link></td>
                 </tr>

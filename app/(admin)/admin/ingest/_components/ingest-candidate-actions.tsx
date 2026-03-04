@@ -52,6 +52,7 @@ export default function IngestCandidateActions({
   const [loadingAction, setLoadingAction] = useState<"approve" | "reject" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [missingTimezone, setMissingTimezone] = useState(false);
+  const [linkedArtistCount, setLinkedArtistCount] = useState<number | null>(null);
 
   async function approve() {
     if (loadingAction || status !== "PENDING") return;
@@ -67,6 +68,8 @@ export default function IngestCandidateActions({
         setError(getActionError(res.status, body?.error?.details));
         return;
       }
+      const body = (await res.json().catch(() => ({}))) as { linkedArtistCount?: number };
+      setLinkedArtistCount(body.linkedArtistCount ?? 0);
       router.refresh();
     } catch {
       setError("Action failed. Please try again.");
@@ -130,6 +133,16 @@ export default function IngestCandidateActions({
         {status === "APPROVED" && createdEventId ? <Link className="text-xs underline" href={`/admin/events/${createdEventId}`}>View created event</Link> : null}
         {status === "REJECTED" && rejectionReason ? <span className="text-xs text-muted-foreground" title={rejectionReason}>Reason: {rejectionReason}</span> : null}
       </div>
+      {linkedArtistCount === 0 && status === "APPROVED" ? (
+        <p className="text-xs text-amber-700">
+          No artists were auto-linked. Check artist names manually.
+        </p>
+      ) : null}
+      {linkedArtistCount !== null && linkedArtistCount > 0 ? (
+        <p className="text-xs text-emerald-700">
+          {linkedArtistCount} artist{linkedArtistCount === 1 ? "" : "s"} auto-linked.
+        </p>
+      ) : null}
 
       <Dialog open={openRejectModal} onOpenChange={setOpenRejectModal}>
         <DialogContent>

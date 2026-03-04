@@ -1,48 +1,21 @@
 import Link from "next/link";
-import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import AdminPageHeader from "@/app/(admin)/admin/_components/AdminPageHeader";
 import IngestStatusBadge from "@/app/(admin)/admin/ingest/_components/ingest-status-badge";
-import { getServerBaseUrl } from "@/lib/server/get-base-url";
+import { requireAdmin } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { getAdminIngestHealthData } from "@/lib/ingest/health-query";
 
 export const dynamic = "force-dynamic";
 
-async function fetchAdminJson<T>(path: string): Promise<T | null> {
-  const baseUrl = await getServerBaseUrl();
-  const requestHeaders = await headers();
-  const cookie = requestHeaders.get("cookie") ?? "";
-  const res = await fetch(`${baseUrl}${path}`, { cache: "no-store", headers: cookie ? { cookie } : undefined });
-  if (!res.ok) return null;
-  return res.json() as Promise<T>;
-}
-
 export default async function AdminIngestHealthPage() {
-  const data = await fetchAdminJson<{
-    ok: boolean;
-    last7Days: {
-      totalRuns: number;
-      succeeded: number;
-      failed: number;
-      successRate: number;
-      avgCreatedCandidates: number;
-      avgDurationMs: number;
-      topErrorCodes: Array<{ errorCode: string; count: number }>;
-    };
-    last24hRuns: Array<{
-      id: string;
-      createdAt: string;
-      venueId: string;
-      venueName: string | null;
-      status: "PENDING" | "RUNNING" | "SUCCEEDED" | "FAILED";
-      createdCandidates: number;
-      dedupedCandidates: number;
-      errorCode: string | null;
-    }>;
-    circuitBreaker: { open: boolean; failRate: number; runCount: number };
-  }>("/api/admin/ingest/health");
-
-  if (!data) {
-    return <main><p className="text-sm text-muted-foreground">Unable to load ingest health.</p></main>;
+  try {
+    await requireAdmin();
+  } catch {
+    redirect("/admin");
   }
+
+  const data = await getAdminIngestHealthData(db);
 
   return (
     <main className="space-y-4">

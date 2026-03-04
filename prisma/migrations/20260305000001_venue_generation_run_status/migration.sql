@@ -1,0 +1,2 @@
+ALTER TABLE "VenueGenerationRun" ADD COLUMN IF NOT EXISTS "status" TEXT NOT NULL DEFAULT 'SUCCEEDED';
+UPDATE "VenueGenerationRun" SET "status" = 'SUCCEEDED' WHERE "status" IS NULL;
