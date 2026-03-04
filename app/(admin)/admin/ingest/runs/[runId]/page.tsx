@@ -22,6 +22,7 @@ type RunDetailResponse = {
     usagePromptTokens: number | null;
     usageCompletionTokens: number | null;
     usageTotalTokens: number | null;
+    stopReason: string | null;
     fetchFinalUrl: string | null;
     fetchContentType: string | null;
     fetchBytes: number | null;

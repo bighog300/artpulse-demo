@@ -4,7 +4,7 @@ import { runCronIngestVenues } from "../lib/cron-ingest-venues.ts";
 
 type MockRun = { venueId: string; createdAt: Date; status: "RUNNING" | "SUCCEEDED" | "FAILED"; errorCode?: string | null };
 
-function createDb(venues: Array<{ id: string; websiteUrl: string | null }>, runs: MockRun[] = [], lockAcquired = true) {
+function createDb(venues: Array<{ id: string; websiteUrl: string | null; eventsPageUrl?: string | null }>, runs: MockRun[] = [], lockAcquired = true) {
   return {
     venue: {
       findMany: async () => venues,
@@ -71,8 +71,8 @@ test("cron ingest venues dryRun lists venues without running extraction", async 
     { dryRun: "1", limit: "2", minHoursSinceLastRun: "24" },
     createDb(
       [
-        { id: "venue-a", websiteUrl: "https://a.example" },
-        { id: "venue-b", websiteUrl: "https://b.example" },
+        { id: "venue-a", websiteUrl: "https://a.example", eventsPageUrl: null },
+        { id: "venue-b", websiteUrl: "https://b.example", eventsPageUrl: null },
       ],
       [],
     ),
@@ -80,7 +80,7 @@ test("cron ingest venues dryRun lists venues without running extraction", async 
     {
       runExtraction: async (params) => {
         runCalls.push(params);
-        return { runId: "run-1", createdCount: 1, dedupedCount: 0 };
+        return { runId: "run-1", createdCount: 1, dedupedCount: 0, createdDuplicateCount: 0, stopReason: null };
       },
     },
   );
@@ -103,12 +103,12 @@ test("cron ingest venues runs extraction with expected payload", async () => {
   const response = await runCronIngestVenues(
     "secret",
     { limit: "1", minHoursSinceLastRun: "24" },
-    createDb([{ id: "venue-1", websiteUrl: "https://venue.one" }]),
+    createDb([{ id: "venue-1", websiteUrl: "https://venue.one", eventsPageUrl: null }]),
     {},
     {
       runExtraction: async (params) => {
         calls.push(params);
-        return { runId: "run-abc", createdCount: 3, dedupedCount: 2 };
+        return { runId: "run-abc", createdCount: 3, dedupedCount: 2, createdDuplicateCount: 0, stopReason: null };
       },
     },
   );
@@ -121,6 +121,30 @@ test("cron ingest venues runs extraction with expected payload", async () => {
   assert.equal(body.createdCandidates, 3);
   assert.equal(body.dedupedCandidates, 2);
   assert.deepEqual(calls, [{ venueId: "venue-1", sourceUrl: "https://venue.one" }]);
+});
+
+
+
+test("cron ingest prefers eventsPageUrl over websiteUrl", async () => {
+  process.env.CRON_SECRET = "secret";
+  process.env.AI_INGEST_ENABLED = "1";
+
+  const calls: Array<{ venueId: string; sourceUrl: string }> = [];
+  const response = await runCronIngestVenues(
+    "secret",
+    { limit: "1", minHoursSinceLastRun: "24" },
+    createDb([{ id: "venue-1", websiteUrl: "https://venue.one", eventsPageUrl: "https://venue.one/events" }]),
+    {},
+    {
+      runExtraction: async (params) => {
+        calls.push(params);
+        return { runId: "run-abc", createdCount: 1, dedupedCount: 0, createdDuplicateCount: 0, stopReason: null };
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(calls, [{ venueId: "venue-1", sourceUrl: "https://venue.one/events" }]);
 });
 
 test("circuit breaker opens when failure rate threshold exceeded", async () => {
@@ -138,7 +162,7 @@ test("circuit breaker opens when failure rate threshold exceeded", async () => {
     { venueId: "v5", createdAt: new Date(now - 5000), status: "SUCCEEDED" },
   ];
 
-  const response = await runCronIngestVenues("secret", {}, createDb([{ id: "venue-1", websiteUrl: "https://a.example" }], runs));
+  const response = await runCronIngestVenues("secret", {}, createDb([{ id: "venue-1", websiteUrl: "https://a.example", eventsPageUrl: null }], runs));
   const body = await response.json();
   assert.equal(response.status, 200);
   assert.equal(body.skipped, true);
@@ -157,15 +181,15 @@ test("cron stops early when created candidates cap reached", async () => {
     "secret",
     { limit: "3" },
     createDb([
-      { id: "venue-1", websiteUrl: "https://v1.example" },
-      { id: "venue-2", websiteUrl: "https://v2.example" },
-      { id: "venue-3", websiteUrl: "https://v3.example" },
+      { id: "venue-1", websiteUrl: "https://v1.example", eventsPageUrl: null },
+      { id: "venue-2", websiteUrl: "https://v2.example", eventsPageUrl: null },
+      { id: "venue-3", websiteUrl: "https://v3.example", eventsPageUrl: null },
     ]),
     {},
     {
       runExtraction: async () => {
         calls += 1;
-        return { runId: `run-${calls}`, createdCount: 5, dedupedCount: 0 };
+        return { runId: `run-${calls}`, createdCount: 5, dedupedCount: 0, createdDuplicateCount: 0, stopReason: null };
       },
     },
   );
@@ -190,8 +214,8 @@ test("cron stops early when time budget exceeded", async () => {
     "secret",
     { limit: "2" },
     createDb([
-      { id: "venue-1", websiteUrl: "https://v1.example" },
-      { id: "venue-2", websiteUrl: "https://v2.example" },
+      { id: "venue-1", websiteUrl: "https://v1.example", eventsPageUrl: null },
+      { id: "venue-2", websiteUrl: "https://v2.example", eventsPageUrl: null },
     ]),
     {},
     {

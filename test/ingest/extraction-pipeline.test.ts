@@ -59,7 +59,7 @@ function createStore() {
       },
     },
     venue: {
-      findUnique: async () => ({ country: "United Kingdom" }),
+      findUnique: async () => ({ country: "United Kingdom", lat: null, lng: null, name: "Venue", addressLine1: null, city: null, eventsPageUrl: null }),
     },
     ingestExtractedEvent: {
       findUnique: async ({ where }: { where: { venueId_fingerprint: { venueId: string; fingerprint: string } } }) => {
@@ -296,4 +296,62 @@ test("infers Europe/London timezone for UK sources when missing", async () => {
 
   const created = store.extracted.find((row) => row.title === "UK Event");
   assert.equal(created?.timezone, "Europe/London");
+});
+
+
+test("infers timezone from venue lat/lng when missing", async () => {
+  process.env.AI_INGEST_ENABLED = "1";
+  process.env.OPENAI_API_KEY = "test-key";
+
+  const store = createStore();
+  store.venue.findUnique = async () => ({
+    country: null,
+    lat: 40.7128,
+    lng: -74.006,
+    name: "Venue",
+    addressLine1: null,
+    city: null,
+    eventsPageUrl: null,
+  });
+
+  await runVenueIngestExtraction(
+    { venueId: "venue-1", sourceUrl: "https://venue.example.com/events" },
+    {
+      store,
+      fetchHtml: async () => ({ finalUrl: "https://venue.example.com/events", status: 200, contentType: "text/html", bytes: 100, html: "<html></html>" }),
+      extractWithOpenAI: async () => ({
+        model: "test-model",
+        events: [{ title: "LatLng Event", startAt: "2026-07-01T19:00:00.000Z", endAt: null, timezone: null, locationText: "Main Hall" }],
+        raw: [],
+      }),
+    },
+  );
+
+  const created = store.extracted.find((row) => row.title === "LatLng Event");
+  assert.ok(created?.timezone);
+});
+
+test("returns stopReason when model returns more candidates than cap", async () => {
+  process.env.AI_INGEST_ENABLED = "1";
+  process.env.OPENAI_API_KEY = "test-key";
+  process.env.AI_INGEST_MAX_CANDIDATES_PER_VENUE_RUN = "1";
+
+  const store = createStore();
+  const result = await runVenueIngestExtraction(
+    { venueId: "venue-1", sourceUrl: "https://example.com/events" },
+    {
+      store,
+      fetchHtml: async () => ({ finalUrl: "https://example.com/events", status: 200, contentType: "text/html", bytes: 100, html: "<html></html>" }),
+      extractWithOpenAI: async () => ({
+        model: "test-model",
+        events: [
+          { title: "Event 1", startAt: "2026-07-01T19:00:00.000Z", locationText: "Main Hall" },
+          { title: "Event 2", startAt: "2026-07-02T19:00:00.000Z", locationText: "Main Hall" },
+        ],
+        raw: [],
+      }),
+    },
+  );
+
+  assert.equal(result.stopReason, "CANDIDATE_CAP_REACHED");
 });
