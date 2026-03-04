@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import AdminPageHeader from "@/app/(admin)/admin/_components/AdminPageHeader";
 import IngestStatusBadge from "@/app/(admin)/admin/ingest/_components/ingest-status-badge";
 import IngestRunCandidates from "@/app/(admin)/admin/ingest/_components/ingest-run-candidates";
+import { InlineBanner } from "@/components/ui/inline-banner";
 import { getServerBaseUrl } from "@/lib/server/get-base-url";
 
 export const dynamic = "force-dynamic";
@@ -79,7 +80,7 @@ export default async function AdminIngestRunDetailPage({ params }: { params: Pro
       <section className="rounded-lg border bg-background p-4">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-semibold">Run Metadata</h2>
-          <Link href="/admin/ingest" className="text-sm underline">Back to runs</Link>
+          <Link href="/admin/ingest/runs" className="text-sm underline">Back to runs</Link>
         </div>
         <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
           <div><dt className="text-muted-foreground">Venue</dt><dd className="font-medium">{run.venue.name}</dd></div>
@@ -100,6 +101,16 @@ export default async function AdminIngestRunDetailPage({ params }: { params: Pro
           <div><dt className="text-muted-foreground">Duplicates</dt><dd>{counts.duplicates}</dd></div>
           <div><dt className="text-muted-foreground">Pending</dt><dd>{counts.pending}</dd></div>
         </dl>
+        {run.stopReason === "CANDIDATE_CAP_REACHED" ? (
+          <div className="mt-4">
+            <InlineBanner>
+              Candidate cap reached — the source page returned more events than the per-run limit.
+              Some events may not have been extracted. Consider increasing{" "}
+              <code>AI_INGEST_MAX_CANDIDATES_PER_VENUE_RUN</code> or running again with a
+              dedicated events page URL.
+            </InlineBanner>
+          </div>
+        ) : null}
         {run.status === "FAILED" && run.errorDetail ? (
           <div className="mt-4">
             <h3 className="text-sm font-medium text-muted-foreground">Error Detail</h3>
