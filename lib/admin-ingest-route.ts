@@ -299,6 +299,7 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
           endAt: true,
           timezone: true,
           locationText: true,
+          imageUrl: true,
           createdEventId: true,
           artistNames: true,
           run: { select: { id: true, venueId: true, sourceUrl: true, errorDetail: true } },
@@ -321,6 +322,7 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
             venueId: candidate.venueId,
             sourceUrl: candidate.sourceUrl,
             venueWebsiteUrl: candidate.venue.websiteUrl,
+            candidateImageUrl: candidate.imageUrl,
             title: candidate.title,
             runErrorDetail: candidate.run.errorDetail,
           },
@@ -436,6 +438,7 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
           venueId: candidate.venueId,
           sourceUrl: candidate.sourceUrl,
           venueWebsiteUrl: candidate.venue.websiteUrl,
+          candidateImageUrl: candidate.imageUrl,
           title: candidate.title,
           runErrorDetail: candidate.run.errorDetail,
         },
@@ -454,6 +457,7 @@ export async function handleAdminIngestApprove(req: NextRequest, params: { id?: 
       title: approved.imageContext.title,
       sourceUrl: approved.imageContext.sourceUrl,
       venueWebsiteUrl: approved.imageContext.venueWebsiteUrl,
+      candidateImageUrl: approved.imageContext.candidateImageUrl,
       requestId,
     });
     imageWarning = imageImport.warning;

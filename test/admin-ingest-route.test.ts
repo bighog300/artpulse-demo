@@ -20,6 +20,7 @@ type Candidate = {
   locationText: string | null;
   description: string | null;
   sourceUrl: string;
+  imageUrl?: string | null;
   createdEventId: string | null;
   rejectionReason: string | null;
 };
@@ -144,6 +145,68 @@ test("approve is idempotent and does not duplicate event/submission", async () =
   assert.equal(body.createdEventId, "event-1");
   assert.equal(eventCreates, 0);
   assert.equal(submissionCreates, 0);
+});
+
+
+test("approve passes candidate imageUrl into importEventImage", async () => {
+  const candidate: Candidate = {
+    id: "11111111-1111-4111-8111-111111111120",
+    runId: "22222222-2222-4222-8222-222222222222",
+    venueId: "33333333-3333-4333-8333-333333333333",
+    status: "PENDING",
+    title: "AI Event",
+    startAt: new Date("2026-01-01T18:00:00Z"),
+    endAt: null,
+    timezone: "UTC",
+    locationText: "Main Hall",
+    description: "Test description",
+    sourceUrl: "https://venue.example/events",
+    imageUrl: "https://cdn.example.com/extracted.jpg",
+    createdEventId: null,
+    rejectionReason: null,
+  };
+
+  let importParams: Parameters<NonNullable<Parameters<typeof handleAdminIngestApprove>[2]>["importEventImage"]>[0] | null = null;
+
+  const tx = {
+    ingestExtractedEvent: {
+      findUnique: async () => ({ ...candidate, run: { id: candidate.runId, venueId: candidate.venueId, sourceUrl: candidate.sourceUrl, errorDetail: null }, venue: { id: candidate.venueId, timezone: "UTC", lat: null, lng: null, websiteUrl: "https://venue.example" } }),
+      update: async ({ data }: { data: Partial<Candidate> }) => {
+        Object.assign(candidate, data);
+        return { id: candidate.id, createdEventId: candidate.createdEventId, runId: candidate.runId, venueId: candidate.venueId };
+      },
+    },
+    event: {
+      findUnique: async () => null,
+      create: async () => ({ id: "event-1" }),
+    },
+    submission: {
+      create: async () => ({ id: "submission-1" }),
+    },
+    artist: {
+      findMany: async () => [],
+    },
+    eventArtist: {
+      createMany: async () => ({ count: 0 }),
+    },
+    venue: { update: async () => ({ id: candidate.venueId, timezone: "UTC" }) },
+  };
+
+  const req = new NextRequest("http://localhost/api/admin/ingest/extracted-events/11111111-1111-4111-8111-111111111120/approve", { method: "POST" });
+  const res = await handleAdminIngestApprove(req, { id: candidate.id }, {
+    requireEditorUser: async () => ({ id: "admin-1", email: "admin@example.com", role: "ADMIN" }),
+    appDb: {
+      $transaction: async (cb: (trx: typeof tx) => Promise<unknown>) => cb(tx),
+    } as never,
+    logAction: async () => undefined,
+    importEventImage: async (params) => {
+      importParams = params;
+      return { attached: false, warning: null, imageUrl: null };
+    },
+  });
+
+  assert.equal(res.status, 200);
+  assert.equal(importParams?.candidateImageUrl, "https://cdn.example.com/extracted.jpg");
 });
 
 test("reject marks candidate rejected and stores reason", async () => {
