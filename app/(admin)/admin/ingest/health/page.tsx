@@ -1,24 +1,14 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import AdminPageHeader from "@/app/(admin)/admin/_components/AdminPageHeader";
 import IngestStatusBadge from "@/app/(admin)/admin/ingest/_components/ingest-status-badge";
-import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getAdminIngestHealthData } from "@/lib/ingest/health-query";
 
-export const dynamic = "force-dynamic";
-
 export default async function AdminIngestHealthPage() {
-  try {
-    await requireAdmin();
-  } catch {
-    redirect("/admin");
-  }
-
   const data = await getAdminIngestHealthData(db);
 
   return (
-    <main className="space-y-4">
+    <div className="space-y-4">
       <AdminPageHeader title="Ingest Health" description="7-day ingestion reliability and volume guardrail signals." />
       <div><Link href="/admin/ingest" className="text-sm underline">Back to Ingest</Link></div>
 
@@ -64,6 +54,6 @@ export default async function AdminIngestHealthPage() {
           </table>
         </div>
       </section>
-    </main>
+    </div>
   );
 }

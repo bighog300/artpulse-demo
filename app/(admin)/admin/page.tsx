@@ -66,7 +66,7 @@ export default async function AdminHomePage() {
         <Link href="/admin/moderation">
           <StatCard label="Moderation queue" value={pending.moderationQueue} />
         </Link>
-        <Link href="/admin/ingest/events">
+        <Link href="/admin/ingest">
           <StatCard label="Ingest pending" value={pending.ingestQueue} />
         </Link>
       </div>
