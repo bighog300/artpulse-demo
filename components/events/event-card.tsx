@@ -3,7 +3,9 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { ImageIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { EventUrgencyBadge } from "@/components/events/event-urgency-badge";
 import { formatEventDateRange, formatEventDayMonth } from "@/components/events/event-format";
+import { getEventUrgencyStatus } from "@/lib/events/event-urgency";
 import { cn } from "@/lib/utils";
 
 type EventCardProps = {
@@ -32,6 +34,7 @@ export function EventCard({ title, startAt, endAt, venueName, imageUrl, imageAlt
   const dayMonth = hasValidStart ? formatEventDayMonth(start) : null;
   const dateRange = hasValidStart ? formatEventDateRange(start, end) : null;
   const chips = badges ?? tags;
+  const urgencyStatus = getEventUrgencyStatus(start, end);
 
   return (
     <article className={cn("group overflow-hidden rounded-xl border border-border bg-card shadow-sm ui-hover-lift ui-press", className)}>
@@ -60,7 +63,10 @@ export function EventCard({ title, startAt, endAt, venueName, imageUrl, imageAlt
               <p className="uppercase text-[10px] text-muted-foreground">{dayMonth.month}</p>
             </div>
           ) : null}
-          {distanceLabel ? <Badge className="absolute right-3 top-3 bg-background/90 text-foreground">{distanceLabel}</Badge> : null}
+          <div className="absolute right-3 top-3 flex flex-col items-end gap-2">
+            {urgencyStatus ? <EventUrgencyBadge status={urgencyStatus} /> : null}
+            {distanceLabel ? <Badge className="bg-background/90 text-foreground">{distanceLabel}</Badge> : null}
+          </div>
         </div>
 
         <div className="space-y-2 p-4">
