@@ -14,6 +14,9 @@ test("/my overview remains authenticated and venue-scoped", () => {
   const page = readFileSync("app/my/page.tsx", "utf8");
   assert.match(page, /if \(!user\) redirectToLogin\("\/my"\);/);
   assert.match(page, /const rawVenueId = params\.venueId;/);
-  assert.match(page, /const venueId = rawVenueId && rawVenueId\.trim\(\)\.length > 0 \? rawVenueId : undefined;/);
+  assert.match(
+    page,
+    /const venueId\s*=\s*rawVenueId && rawVenueId\.trim\(\)\.length > 0 && UUID_RE\.test\(rawVenueId\.trim\(\)\)\s*\?\s*rawVenueId\.trim\(\)\s*:\s*undefined;/,
+  );
   assert.match(page, /const data = await getMyDashboard\(\{ userId: user\.id, venueId \}\);/);
 });
