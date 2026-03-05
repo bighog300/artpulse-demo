@@ -61,6 +61,9 @@ function createStore() {
     venue: {
       findUnique: async () => ({ country: "United Kingdom", lat: null, lng: null, name: "Venue", addressLine1: null, city: null, eventsPageUrl: null }),
     },
+    siteSettings: {
+      findUnique: async () => null,
+    },
     ingestExtractedEvent: {
       findUnique: async ({ where }: { where: { venueId_fingerprint: { venueId: string; fingerprint: string } } }) => {
         return (
