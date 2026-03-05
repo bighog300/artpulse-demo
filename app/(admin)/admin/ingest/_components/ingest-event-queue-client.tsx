@@ -8,6 +8,7 @@ import IngestConfidenceBadge from "@/app/(admin)/admin/ingest/_components/ingest
 type QueueCandidate = {
   id: string;
   title: string;
+  imageUrl: string | null;
   startAt: Date | null;
   locationText: string | null;
   confidenceScore: number;
@@ -33,6 +34,29 @@ function getConfidenceReasons(value: unknown): string[] | null {
 }
 export default function IngestEventQueueClient({ candidates }: { candidates: QueueCandidate[] }) {
   const [showReasons, setShowReasons] = useState(false);
+  const [importingImageFor, setImportingImageFor] = useState<string | null>(null);
+  const [importedImageFor, setImportedImageFor] = useState<Set<string>>(new Set());
+  const [importImageError, setImportImageError] = useState<string | null>(null);
+
+  async function importImage(candidateId: string, runId: string, imageUrl: string, setAsFeatured: boolean) {
+    setImportingImageFor(candidateId);
+    setImportImageError(null);
+    try {
+      const res = await fetch(`/api/admin/ingest/runs/${runId}/import-venue-image`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageUrl, setAsFeatured }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: { message?: string } };
+        setImportImageError(body.error?.message ?? "Import failed.");
+        return;
+      }
+      setImportedImageFor((prev) => new Set([...prev, candidateId]));
+    } finally {
+      setImportingImageFor(null);
+    }
+  }
 
   return (
     <section className="rounded-lg border bg-background p-4">
@@ -46,11 +70,18 @@ export default function IngestEventQueueClient({ candidates }: { candidates: Que
           Show confidence reasons
         </label>
       </div>
+      {importImageError ? (
+        <div className="mb-3 flex items-center justify-between rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-xs text-amber-700">
+          <span>{importImageError}</span>
+          <button type="button" className="text-amber-700" onClick={() => setImportImageError(null)}>×</button>
+        </div>
+      ) : null}
       <div className="overflow-x-auto">
         <table className="w-full min-w-[1120px] text-sm">
           <thead>
             <tr className="border-b text-left">
               <th className="px-3 py-2">Confidence</th>
+              <th className="px-3 py-2">Image</th>
               <th className="px-3 py-2">Title</th>
               <th className="px-3 py-2">Start Date</th>
               <th className="px-3 py-2">Venue</th>
@@ -69,6 +100,35 @@ export default function IngestEventQueueClient({ candidates }: { candidates: Que
                     reasons={getConfidenceReasons(candidate.confidenceReasons)}
                     showReasons={showReasons}
                   />
+                </td>
+                <td className="px-3 py-2">
+                  {candidate.imageUrl
+                    ? (
+                      <div className="group relative h-10 w-16">
+                        <img src={candidate.imageUrl} alt={candidate.title} className="h-10 w-16 rounded object-cover" />
+                        {candidate.status !== "DUPLICATE" ? (
+                          <div className="absolute inset-0 hidden flex-col items-center justify-center gap-0.5 rounded bg-black/60 group-hover:flex">
+                            <button
+                              type="button"
+                              className="text-[10px] leading-tight text-white underline disabled:opacity-50"
+                              disabled={importingImageFor === candidate.id || importedImageFor.has(candidate.id)}
+                              onClick={() => importImage(candidate.id, candidate.run.id, candidate.imageUrl!, false)}
+                            >
+                              {importedImageFor.has(candidate.id) ? "✓ added" : importingImageFor === candidate.id ? "…" : "+ gallery"}
+                            </button>
+                            <button
+                              type="button"
+                              className="text-[10px] leading-tight text-white underline disabled:opacity-50"
+                              disabled={importingImageFor === candidate.id || importedImageFor.has(candidate.id)}
+                              onClick={() => importImage(candidate.id, candidate.run.id, candidate.imageUrl!, true)}
+                            >
+                              {importingImageFor === candidate.id ? "" : "★ cover"}
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+                    )
+                    : "—"}
                 </td>
                 <td className="px-3 py-2 font-medium">{candidate.title}</td>
                 <td className="px-3 py-2">{candidate.startAt ? new Date(candidate.startAt).toLocaleString() : "—"}</td>
@@ -93,7 +153,7 @@ export default function IngestEventQueueClient({ candidates }: { candidates: Que
             ))}
             {candidates.length === 0 ? (
               <tr>
-                <td className="px-3 py-6 text-muted-foreground" colSpan={7}>No pending candidates in the queue.</td>
+                <td className="px-3 py-6 text-muted-foreground" colSpan={8}>No pending candidates in the queue.</td>
               </tr>
             ) : null}
           </tbody>

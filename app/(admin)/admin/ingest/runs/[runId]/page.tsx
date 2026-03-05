@@ -124,7 +124,7 @@ export default async function AdminIngestRunDetailPage({ params }: { params: Pro
           <h2 className="text-base font-semibold">Extracted Candidates</h2>
           <p className="text-sm text-muted-foreground">Approve or reject pending candidates. Approval creates an unpublished event and submission.</p>
         </div>
-        <IngestRunCandidates candidates={run.extractedEvents} venueId={run.venue.id} />
+        <IngestRunCandidates candidates={run.extractedEvents} venueId={run.venue.id} runId={run.id} />
 </section>
     </main>
   );

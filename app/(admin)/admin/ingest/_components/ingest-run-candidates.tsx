@@ -32,11 +32,34 @@ function inLane(candidate: Candidate, lane: Lane): boolean {
   return candidate.confidenceBand === "MEDIUM";
 }
 
-export default function IngestRunCandidates({ candidates, venueId }: { candidates: Candidate[]; venueId: string }) {
+export default function IngestRunCandidates({ candidates, venueId, runId }: { candidates: Candidate[]; venueId: string; runId: string }) {
   const [showDuplicates, setShowDuplicates] = useState(false);
   const [showReasons, setShowReasons] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [lane, setLane] = useState<Lane>("HIGH");
+  const [importingImageFor, setImportingImageFor] = useState<string | null>(null);
+  const [importedImageFor, setImportedImageFor] = useState<Set<string>>(new Set());
+  const [importImageError, setImportImageError] = useState<string | null>(null);
+
+  async function importImage(candidateId: string, imageUrl: string, setAsFeatured: boolean) {
+    setImportingImageFor(candidateId);
+    setImportImageError(null);
+    try {
+      const res = await fetch(`/api/admin/ingest/runs/${runId}/import-venue-image`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageUrl, setAsFeatured }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: { message?: string } };
+        setImportImageError(body.error?.message ?? "Import failed.");
+        return;
+      }
+      setImportedImageFor((prev) => new Set([...prev, candidateId]));
+    } finally {
+      setImportingImageFor(null);
+    }
+  }
 
   const laneCounts = useMemo(() => ({
     HIGH: candidates.filter((c) => c.status !== "DUPLICATE" && c.confidenceBand === "HIGH").length,
@@ -96,6 +119,12 @@ export default function IngestRunCandidates({ candidates, venueId }: { candidate
         <input type="checkbox" checked={showDuplicates} onChange={(event) => setShowDuplicates(event.target.checked)} />
         Show duplicates
       </label>
+      {importImageError ? (
+        <div className="flex items-center justify-between rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-xs text-amber-700">
+          <span>{importImageError}</span>
+          <button type="button" className="text-amber-700" onClick={() => setImportImageError(null)}>×</button>
+        </div>
+      ) : null}
       <div className="overflow-x-auto">
         <table className="w-full min-w-[960px] text-sm">
           <thead>
@@ -138,7 +167,31 @@ export default function IngestRunCandidates({ candidates, venueId }: { candidate
                     <td className="px-3 py-2">{candidate.locationText ?? "—"}</td>
                     <td className="px-3 py-2">
                       {candidate.imageUrl
-                        ? <img src={candidate.imageUrl} alt={candidate.title} className="h-10 w-16 rounded object-cover" />
+                        ? (
+                          <div className="group relative h-10 w-16">
+                            <img src={candidate.imageUrl} alt={candidate.title} className="h-10 w-16 rounded object-cover" />
+                            {candidate.status !== "DUPLICATE" ? (
+                              <div className="absolute inset-0 hidden flex-col items-center justify-center gap-0.5 rounded bg-black/60 group-hover:flex">
+                                <button
+                                  type="button"
+                                  className="text-[10px] leading-tight text-white underline disabled:opacity-50"
+                                  disabled={importingImageFor === candidate.id || importedImageFor.has(candidate.id)}
+                                  onClick={() => importImage(candidate.id, candidate.imageUrl!, false)}
+                                >
+                                  {importedImageFor.has(candidate.id) ? "✓ added" : importingImageFor === candidate.id ? "…" : "+ gallery"}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="text-[10px] leading-tight text-white underline disabled:opacity-50"
+                                  disabled={importingImageFor === candidate.id || importedImageFor.has(candidate.id)}
+                                  onClick={() => importImage(candidate.id, candidate.imageUrl!, true)}
+                                >
+                                  {importingImageFor === candidate.id ? "" : "★ cover"}
+                                </button>
+                              </div>
+                            ) : null}
+                          </div>
+                        )
                         : "—"}
                     </td>
                     <td className="px-3 py-2">

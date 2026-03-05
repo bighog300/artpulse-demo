@@ -13,6 +13,7 @@ export default async function AdminIngestPage() {
       select: {
         id: true,
         title: true,
+        imageUrl: true,
         startAt: true,
         locationText: true,
         confidenceScore: true,
