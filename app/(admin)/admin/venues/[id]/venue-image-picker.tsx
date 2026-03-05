@@ -1,0 +1,174 @@
+"use client";
+
+import { useState } from "react";
+import Image from "next/image";
+
+type VenueImagePickerProps = {
+  venueId: string;
+  images: Array<{
+    id: string;
+    url: string;
+    alt: string | null;
+    isPrimary: boolean;
+    sortOrder: number;
+    width: number | null;
+    height: number | null;
+  }>;
+  suggestions: Array<{
+    candidateId: string;
+    runId: string;
+    displayUrl: string;
+    originalUrl: string;
+    title: string;
+  }>;
+};
+
+export default function VenueImagePicker(props: VenueImagePickerProps) {
+  const { venueId, suggestions } = props;
+  const [images, setImages] = useState(props.images);
+  const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [importingUrl, setImportingUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function setPrimary(imageId: string) {
+    setLoadingId(imageId);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/venues/${venueId}/images/${imageId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isPrimary: true }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: { message?: string } };
+        setError(body.error?.message ?? "Failed to set cover image.");
+        return;
+      }
+      setImages((prev) => prev.map((img) => ({ ...img, isPrimary: img.id === imageId })));
+    } finally {
+      setLoadingId(null);
+    }
+  }
+
+  async function importSuggestion(suggestion: VenueImagePickerProps["suggestions"][number], setAsFeatured: boolean) {
+    setImportingUrl(suggestion.originalUrl);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/ingest/runs/${suggestion.runId}/import-venue-image`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageUrl: suggestion.originalUrl, setAsFeatured }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: { message?: string } };
+        setError(body.error?.message ?? "Import failed.");
+        return;
+      }
+      const body = await res.json() as { imageId: string; url: string; isPrimary: boolean };
+      setImages((prev) => [
+        ...(body.isPrimary ? prev.map((img) => ({ ...img, isPrimary: false })) : prev),
+        { id: body.imageId, url: body.url, alt: null, isPrimary: body.isPrimary, sortOrder: prev.length, width: null, height: null },
+      ]);
+    } finally {
+      setImportingUrl(null);
+    }
+  }
+
+  return (
+    <section className="space-y-4 rounded-lg border bg-background p-4">
+      <h2 className="text-base font-semibold">Images</h2>
+      <div className="space-y-6">
+        <section className="space-y-2">
+          <div>
+            <h3 className="text-sm font-medium">Cover image</h3>
+            <p className="text-xs text-muted-foreground">The primary image used in listings and the venue profile.</p>
+          </div>
+          {images.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No images yet.</p>
+          ) : (
+            <div className="flex flex-wrap gap-3">
+              {images.map((image) => (
+                <div key={image.id} className={`relative h-24 w-36 overflow-hidden rounded-lg border-2 ${image.isPrimary ? "border-primary" : "border-transparent"}`}>
+                  <Image
+                    src={image.url}
+                    alt={image.alt ?? "Venue image"}
+                    fill
+                    unoptimized
+                    className="object-cover"
+                  />
+                  <div className="absolute inset-x-0 bottom-0 bg-black/55 p-1 text-center">
+                    {image.isPrimary ? (
+                      <span className="inline-block rounded bg-green-600/90 px-1.5 py-0.5 text-[10px] font-medium text-white">✓ Cover</span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="text-[10px] font-medium text-white underline disabled:opacity-50"
+                        onClick={() => setPrimary(image.id)}
+                        disabled={loadingId === image.id}
+                      >
+                        {loadingId === image.id ? "…" : "Set as cover"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {suggestions.length > 0 ? (
+          <section className="space-y-2">
+            <div>
+              <h3 className="text-sm font-medium">Suggested from ingest</h3>
+              <p className="text-xs text-muted-foreground">Images extracted from recent ingest runs for this venue. Import to add to gallery.</p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              {suggestions.map((suggestion) => {
+                const isImporting = importingUrl === suggestion.originalUrl;
+                return (
+                  <div key={suggestion.candidateId} className="group relative h-24 w-36 overflow-hidden rounded-lg border-2 border-transparent">
+                    <Image
+                      src={suggestion.displayUrl}
+                      alt={suggestion.title || "Suggested venue image"}
+                      fill
+                      unoptimized
+                      className="object-cover"
+                    />
+                    <div className="absolute inset-0 hidden items-center justify-center gap-1 rounded-lg bg-black/60 group-hover:flex">
+                      <button
+                        type="button"
+                        className="rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white disabled:opacity-50"
+                        onClick={() => importSuggestion(suggestion, false)}
+                        disabled={isImporting}
+                      >
+                        {isImporting ? "…" : "+ gallery"}
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white disabled:opacity-50"
+                        onClick={() => importSuggestion(suggestion, true)}
+                        disabled={isImporting}
+                      >
+                        {isImporting ? "…" : "★ cover"}
+                      </button>
+                    </div>
+                    {isImporting ? (
+                      <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/45 text-xs text-white">…</div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
+
+        {error ? (
+          <div className="flex items-center justify-between rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-xs text-amber-700">
+            <span>{error}</span>
+            <button type="button" className="text-amber-700" onClick={() => setError(null)}>×</button>
+          </div>
+        ) : null}
+      </div>
+    </section>
+  );
+}

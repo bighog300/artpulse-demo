@@ -7,11 +7,44 @@ import { AdminArchiveActions } from "@/app/(admin)/admin/_components/AdminArchiv
 import AdminHardDeleteButton from "@/app/(admin)/admin/_components/AdminHardDeleteButton";
 import ModerationPanel from "@/app/(admin)/admin/_components/ModerationPanel";
 import { computeVenuePublishBlockers } from "@/lib/publish-blockers";
+import VenueImagePicker from "@/app/(admin)/admin/venues/[id]/venue-image-picker";
 
 export default async function AdminVenue({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const venue = await db.venue.findUnique({ where: { id } });
+  const [venue, venueImages, ingestCandidates] = await Promise.all([
+    db.venue.findUnique({ where: { id } }),
+    db.venueImage.findMany({
+      where: { venueId: id },
+      orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
+      select: { id: true, url: true, alt: true, isPrimary: true, sortOrder: true, width: true, height: true },
+    }),
+    db.ingestExtractedEvent.findMany({
+      where: {
+        venueId: id,
+        status: { in: ["PENDING", "APPROVED"] },
+        OR: [{ imageUrl: { not: null } }, { blobImageUrl: { not: null } }],
+      },
+      orderBy: { createdAt: "desc" },
+      take: 30,
+      select: { id: true, imageUrl: true, blobImageUrl: true, title: true, run: { select: { id: true } } },
+    }),
+  ]);
   if (!venue) notFound();
+
+  const ingestSuggestions = Array.from(
+    ingestCandidates.reduce((acc, s) => {
+      const displayUrl = s.blobImageUrl ?? s.imageUrl;
+      if (!displayUrl || !s.imageUrl || acc.has(displayUrl)) return acc;
+      acc.set(displayUrl, {
+        candidateId: s.id,
+        runId: s.run.id,
+        displayUrl,
+        originalUrl: s.imageUrl,
+        title: s.title,
+      });
+      return acc;
+    }, new Map<string, { candidateId: string; runId: string; displayUrl: string; originalUrl: string; title: string }>()).values(),
+  ).slice(0, 12);
 
   const blockers = computeVenuePublishBlockers(venue);
 
@@ -43,10 +76,13 @@ export default async function AdminVenue({ params }: { params: Promise<{ id: str
           { name: "eventsPageUrl", label: "Events Page URL (overrides website URL for ingest)" },
           { name: "instagramUrl", label: "Instagram URL" },
           { name: "contactEmail", label: "Contact Email" },
-          { name: "featuredImageUrl", label: "Featured Image URL" },
-          { name: "featuredAssetId", label: "Featured Asset ID" },
         ]}
         altRequired={ADMIN_IMAGE_ALT_REQUIRED}
+      />
+      <VenueImagePicker
+        venueId={id}
+        images={venueImages}
+        suggestions={ingestSuggestions}
       />
       <ModerationPanel resource="venues" id={venue.id} status={venue.status} blockers={blockers.map((item) => item.message)} />
       <section className="rounded-lg border border-destructive/30 bg-card p-4">
