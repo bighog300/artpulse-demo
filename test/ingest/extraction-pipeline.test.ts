@@ -367,3 +367,40 @@ test("returns stopReason when model returns more candidates than cap", async () 
 
   assert.equal(result.stopReason, "CANDIDATE_CAP_REACHED");
 });
+
+
+test("resolves relative imageUrl against fetched finalUrl before storing", async () => {
+  process.env.AI_INGEST_ENABLED = "1";
+  process.env.OPENAI_API_KEY = "test-key";
+
+  const store = createStore();
+  await runVenueIngestExtraction(
+    { venueId: "venue-1", sourceUrl: "https://gallery.example.com/start" },
+    {
+      store,
+      fetchHtml: async () => ({
+        finalUrl: "https://gallery.example.com/exhibitions",
+        status: 200,
+        contentType: "text/html",
+        bytes: 100,
+        html: "<html></html>",
+      }),
+      extractWithOpenAI: async () => ({
+        model: "test-model",
+        events: [
+          {
+            title: "Relative Image",
+            startAt: "2026-07-01T19:00:00.000Z",
+            locationText: "Main Hall",
+            imageUrl: "/exhibitions/show.jpg",
+          },
+        ],
+        venueSnapshot: {},
+        raw: [],
+      }),
+    },
+  );
+
+  const created = store.extracted.find((row) => row.title === "Relative Image");
+  assert.equal(created?.imageUrl, "https://gallery.example.com/exhibitions/show.jpg");
+});

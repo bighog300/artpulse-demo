@@ -37,7 +37,20 @@ function isSpecificUrl(url: string | null): boolean {
     const parsed = new URL(url);
     const path = parsed.pathname.toLowerCase();
     if (path.length <= 1) return false;
-    return path.includes("/events/") || /\/\d{4}\/\d{1,2}/.test(path) || /\d{4}-\d{2}-\d{2}/.test(path);
+    return (
+      path.includes("/events/") ||
+      path.includes("/event/") ||
+      path.includes("/exhibitions/") ||
+      path.includes("/exhibition/") ||
+      path.includes("/shows/") ||
+      path.includes("/show/") ||
+      path.includes("/programme/") ||
+      path.includes("/program/") ||
+      path.includes("/whats-on/") ||
+      path.includes("/on-view/") ||
+      /\/\d{4}\/\d{1,2}/.test(path) ||
+      /\d{4}-\d{2}-\d{2}/.test(path)
+    );
   } catch {
     return false;
   }
