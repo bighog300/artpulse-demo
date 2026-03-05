@@ -619,6 +619,7 @@ model IngestRun {
   createdDuplicates Int                 @default(0)
   dedupedCandidates Int                 @default(0)
   totalCandidatesReturned Int           @default(0)
+  extractionMethod String?
   model            String?
   usagePromptTokens Int?
   usageCompletionTokens Int?

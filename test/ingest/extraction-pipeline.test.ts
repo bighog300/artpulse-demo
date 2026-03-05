@@ -22,6 +22,7 @@ type RunRecord = {
   dedupedCandidates?: number;
   totalCandidatesReturned?: number;
   model?: string | null;
+  extractionMethod?: string | null;
   usagePromptTokens?: number | null;
   usageCompletionTokens?: number | null;
   usageTotalTokens?: number | null;
@@ -162,8 +163,7 @@ test("within-run near duplicate is persisted as DUPLICATE", async () => {
 
   assert.equal(result.createdCount, 1);
   assert.equal(result.createdDuplicateCount, 1);
-  assert.equal(typeof store.runs[0]?.venueSnapshot, "object");
-  assert.notEqual(store.runs[0]?.venueSnapshot, null);
+  assert.equal(store.runs[0]?.venueSnapshot, undefined);
   const primary = store.extracted.find((row) => row.status === "PENDING");
   assert.equal(typeof primary?.confidenceScore, "number");
   assert.match(String(primary?.confidenceBand), /HIGH|MEDIUM|LOW/);
@@ -403,4 +403,80 @@ test("resolves relative imageUrl against fetched finalUrl before storing", async
 
   const created = store.extracted.find((row) => row.title === "Relative Image");
   assert.equal(created?.imageUrl, "https://gallery.example.com/exhibitions/show.jpg");
+});
+
+
+test("uses json-ld extraction and skips openai when structured events are found", async () => {
+  process.env.AI_INGEST_ENABLED = "0";
+  process.env.OPENAI_API_KEY = "";
+
+  const store = createStore();
+  let openAiCalls = 0;
+  const result = await runVenueIngestExtraction(
+    { venueId: "venue-1", sourceUrl: "https://example.com/events" },
+    {
+      store,
+      fetchHtml: async () => ({ finalUrl: "https://example.com/events", status: 200, contentType: "text/html", bytes: 100, html: "<html></html>" }),
+      extractJsonLd: () => ({
+        attempted: true,
+        events: [{ title: "JSON-LD Event", startAt: new Date("2026-07-01T19:00:00.000Z"), endAt: null, timezone: null, locationText: "Main Hall", description: null, sourceUrl: null, artistNames: [], imageUrl: null }],
+      }),
+      extractWithOpenAI: async () => {
+        openAiCalls += 1;
+        return { model: "test-model", events: [], venueSnapshot: {}, raw: [] };
+      },
+    },
+  );
+
+  assert.equal(result.createdCount, 1);
+  assert.equal(openAiCalls, 0);
+  assert.equal(store.runs[0]?.status, "SUCCEEDED");
+  assert.equal(store.runs[0]?.extractionMethod, "json_ld");
+  assert.equal(store.runs[0]?.model ?? null, null);
+});
+
+test("falls through to openai when json-ld attempted but no valid events", async () => {
+  process.env.AI_INGEST_ENABLED = "1";
+  process.env.OPENAI_API_KEY = "test-key";
+
+  const store = createStore();
+  let openAiCalls = 0;
+  await runVenueIngestExtraction(
+    { venueId: "venue-1", sourceUrl: "https://example.com/events" },
+    {
+      store,
+      fetchHtml: async () => ({ finalUrl: "https://example.com/events", status: 200, contentType: "text/html", bytes: 100, html: "<html></html>" }),
+      extractJsonLd: () => ({ attempted: true, events: [] }),
+      extractWithOpenAI: async () => {
+        openAiCalls += 1;
+        return { model: "test-model", events: [{ title: "Fallback", startAt: "2026-07-01T19:00:00.000Z", locationText: "Main Hall" }], venueSnapshot: {}, raw: [] };
+      },
+    },
+  );
+
+  assert.equal(openAiCalls, 1);
+  assert.equal(store.runs[0]?.extractionMethod, "openai");
+});
+
+test("falls through to openai when no json-ld blocks were found", async () => {
+  process.env.AI_INGEST_ENABLED = "1";
+  process.env.OPENAI_API_KEY = "test-key";
+
+  const store = createStore();
+  let openAiCalls = 0;
+  await runVenueIngestExtraction(
+    { venueId: "venue-1", sourceUrl: "https://example.com/events" },
+    {
+      store,
+      fetchHtml: async () => ({ finalUrl: "https://example.com/events", status: 200, contentType: "text/html", bytes: 100, html: "<html></html>" }),
+      extractJsonLd: () => ({ attempted: false, events: [] }),
+      extractWithOpenAI: async () => {
+        openAiCalls += 1;
+        return { model: "test-model", events: [{ title: "Fallback", startAt: "2026-07-01T19:00:00.000Z", locationText: "Main Hall" }], venueSnapshot: {}, raw: [] };
+      },
+    },
+  );
+
+  assert.equal(openAiCalls, 1);
+  assert.equal(store.runs[0]?.extractionMethod, "openai");
 });
