@@ -133,7 +133,7 @@ export default function IngestRunCandidates({ candidates, venueId, runId }: { ca
               <th className="px-3 py-2">Title</th>
               <th className="px-3 py-2">Start Date</th>
               <th className="px-3 py-2">Location</th>
-              <th className="px-3 py-2">Image</th>
+              <th className="px-3 py-2" title="Hover to import image to venue library. Event cover is set on approval.">Image</th>
               <th className="px-3 py-2">Confidence</th>
               <th className="px-3 py-2">Status</th>
               <th className="px-3 py-2">Actions</th>
@@ -169,7 +169,8 @@ export default function IngestRunCandidates({ candidates, venueId, runId }: { ca
                     <td className="px-3 py-2">
                       {candidate.imageUrl
                         ? (
-                          <div className="group relative h-10 w-16">
+                          <>
+                            <div className="group relative h-10 w-16">
                             <img src={candidate.blobImageUrl ?? candidate.imageUrl} alt={candidate.title} className="h-10 w-16 rounded object-cover" />
                             {candidate.status !== "DUPLICATE" ? (
                               <div className="absolute inset-0 hidden flex-col items-center justify-center gap-0.5 rounded bg-black/60 group-hover:flex">
@@ -179,7 +180,7 @@ export default function IngestRunCandidates({ candidates, venueId, runId }: { ca
                                   disabled={importingImageFor === candidate.id || importedImageFor.has(candidate.id)}
                                   onClick={() => importImage(candidate.id, candidate.blobImageUrl ?? candidate.imageUrl!, false)}
                                 >
-                                  {importedImageFor.has(candidate.id) ? "✓ added" : importingImageFor === candidate.id ? "…" : "+ gallery"}
+                                  {importedImageFor.has(candidate.id) ? "✓ added" : importingImageFor === candidate.id ? "…" : "+ venue gallery"}
                                 </button>
                                 <button
                                   type="button"
@@ -187,11 +188,15 @@ export default function IngestRunCandidates({ candidates, venueId, runId }: { ca
                                   disabled={importingImageFor === candidate.id || importedImageFor.has(candidate.id)}
                                   onClick={() => importImage(candidate.id, candidate.blobImageUrl ?? candidate.imageUrl!, true)}
                                 >
-                                  {importingImageFor === candidate.id ? "" : "★ cover"}
+                                  {importingImageFor === candidate.id ? "" : "★ venue cover"}
                                 </button>
                               </div>
                             ) : null}
                           </div>
+                          {importedImageFor.has(candidate.id) ? (
+                            <p className="text-[10px] leading-tight text-muted-foreground">Added to venue. Approve to set event image.</p>
+                          ) : null}
+                          </>
                         )
                         : "—"}
                     </td>

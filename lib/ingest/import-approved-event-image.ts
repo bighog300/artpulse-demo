@@ -58,7 +58,7 @@ export async function importApprovedEventImage(params: {
   uploadEventImageToBlob,
 }) : Promise<ImportResult> {
   if (process.env.AI_INGEST_IMAGE_ENABLED !== "1") {
-    return { attached: false, warning: null, imageUrl: null };
+    return { attached: false, warning: "image-import disabled: set AI_INGEST_IMAGE_ENABLED=1 to enable", imageUrl: null };
   }
 
   const event = await params.appDb.event.findUnique({

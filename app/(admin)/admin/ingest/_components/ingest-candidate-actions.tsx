@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { InlineBanner } from "@/components/ui/inline-banner";
@@ -62,7 +62,13 @@ export default function IngestCandidateActions({
   const [missingTimezone, setMissingTimezone] = useState(false);
   const [linkedArtistCount, setLinkedArtistCount] = useState<number | null>(null);
   const [imageWarning, setImageWarning] = useState<string | null>(null);
+  const [imageSkipWarning, setImageSkipWarning] = useState<string | null>(null);
+  const [approvedEventId, setApprovedEventId] = useState<string | null>(createdEventId);
   const rejectReasonRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    setApprovedEventId(createdEventId);
+  }, [createdEventId]);
 
   function closeRejectModal() {
     setOpenRejectModal(false);
@@ -74,6 +80,7 @@ export default function IngestCandidateActions({
     setError(null);
     setMissingTimezone(false);
     setImageWarning(null);
+    setImageSkipWarning(null);
     setLoadingAction("approve");
     try {
       const res = await fetch(`/api/admin/ingest/extracted-events/${candidateId}/approve`, { method: "POST" });
@@ -84,9 +91,18 @@ export default function IngestCandidateActions({
         setError(getActionError(res.status, body?.error?.details));
         return;
       }
-      const body = (await res.json().catch(() => ({}))) as { linkedArtistCount?: number; imageWarning?: string | null };
+      const body = (await res.json().catch(() => ({}))) as {
+        createdEventId?: string;
+        linkedArtistCount?: number;
+        imageWarning?: string | null;
+        imageAttached?: boolean;
+      };
       setLinkedArtistCount(body.linkedArtistCount ?? 0);
       setImageWarning(body.imageWarning ?? null);
+      if (body.imageWarning && !body.imageAttached) {
+        setImageSkipWarning(body.imageWarning);
+      }
+      if (body.createdEventId) setApprovedEventId(body.createdEventId);
       router.refresh();
     } catch {
       setError("Action failed. Please try again.");
@@ -146,9 +162,19 @@ export default function IngestCandidateActions({
         <Button size="sm" variant="outline" onClick={() => setOpenRejectModal(true)} disabled={status !== "PENDING" || loadingAction !== null}>
           {loadingAction === "reject" ? "Rejecting…" : "Reject"}
         </Button>
-        {status === "APPROVED" && createdEventId ? <Link className="text-xs underline" href={`/admin/events/${createdEventId}`}>View created event</Link> : null}
         {status === "REJECTED" && rejectionReason ? <span className="text-xs text-muted-foreground" title={rejectionReason}>Reason: {rejectionReason}</span> : null}
       </div>
+      {approvedEventId ? (
+        <a href={`/admin/events/${approvedEventId}`} className="text-xs underline text-muted-foreground">
+          View event →
+        </a>
+      ) : null}
+      {imageSkipWarning ? (
+        <div className="mt-1 flex items-start gap-1 rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-xs text-amber-700">
+          <span>Event created but no image imported: {imageSkipWarning}</span>
+          <button type="button" onClick={() => setImageSkipWarning(null)}>×</button>
+        </div>
+      ) : null}
       {linkedArtistCount === 0 && status === "APPROVED" ? (
         <p className="text-xs text-amber-700">
           No artists were auto-linked. Check artist names manually.
