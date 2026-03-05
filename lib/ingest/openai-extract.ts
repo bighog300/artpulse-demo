@@ -154,6 +154,9 @@ export async function extractEventsWithOpenAI(params: {
   html: string;
   sourceUrl: string;
   model?: string;
+  systemPromptOverride?: string | null;
+  modelOverride?: string | null;
+  maxOutputTokensOverride?: number | null;
   venueContext?: {
     name: string;
     address: string | null;
@@ -164,29 +167,38 @@ export async function extractEventsWithOpenAI(params: {
     throw new IngestError("FETCH_FAILED", "OPENAI_API_KEY is required for extraction");
   }
 
-  const model = params.model?.trim() || process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
-  const maxOutputTokens = 4000;
+  const model = params.modelOverride?.trim()
+    || params.model?.trim()
+    || process.env.OPENAI_MODEL?.trim()
+    || "gpt-4o-mini";
+  const maxOutputTokens = params.maxOutputTokensOverride ?? 4000;
   const today = new Date().toISOString().slice(0, 10);
   const venueLine = params.venueContext
     ? `Venue name: ${params.venueContext.name}${params.venueContext.address ? `\nVenue address: ${params.venueContext.address}` : ""}`
     : "";
+
+  const staticPromptLines = params.systemPromptOverride?.trim()
+    ? [params.systemPromptOverride.trim()]
+    : [
+      "Extract ONLY upcoming events (startAt in the future). Ignore navigation links,",
+      "past events, and page furniture. For artistNames return only names clearly",
+      "attributed to this event — do not include venue staff or sponsors.",
+      "For imageUrl: find the image specific to THIS event — look first in any",
+      "application/ld+json script blocks for an Event or ExhibitionEvent 'image'",
+      "property, then in <img> tags adjacent to the event title or description,",
+      "then in og:image meta tags only if the page covers a single event.",
+      "Do NOT return the venue's global hero, banner, or logo image.",
+      "If the src is relative, return it as-is — do not attempt to resolve it.",
+      "If no event-specific image is found, return null.",
+      "Return results in the provided schema.",
+    ];
 
   const systemPrompt = [
     "You are extracting upcoming art events from a venue website.",
     venueLine,
     `Today's date: ${today}`,
     "",
-    "Extract ONLY upcoming events (startAt in the future). Ignore navigation links,",
-    "past events, and page furniture. For artistNames return only names clearly",
-    "attributed to this event — do not include venue staff or sponsors.",
-    "For imageUrl: find the image specific to THIS event — look first in any",
-    "application/ld+json script blocks for an Event or ExhibitionEvent 'image'",
-    "property, then in <img> tags adjacent to the event title or description,",
-    "then in og:image meta tags only if the page covers a single event.",
-    "Do NOT return the venue's global hero, banner, or logo image.",
-    "If the src is relative, return it as-is — do not attempt to resolve it.",
-    "If no event-specific image is found, return null.",
-    "Return results in the provided schema.",
+    ...staticPromptLines,
   ].filter(Boolean).join("\n");
 
   const input = [

@@ -26,6 +26,9 @@ function createStore() {
     venue: {
       findUnique: async () => ({ country: null, name: "Venue", addressLine1: null, city: null, eventsPageUrl: null, lat: null, lng: null }),
     },
+    siteSettings: {
+      findUnique: async () => null,
+    },
     ingestExtractedEvent: {
       findUnique: async () => null,
       findMany: async () => [],

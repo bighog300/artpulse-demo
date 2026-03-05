@@ -43,6 +43,9 @@ type IngestStore = {
   venue: {
     findUnique: typeof db.venue.findUnique;
   };
+  siteSettings: {
+    findUnique: typeof db.siteSettings.findUnique;
+  };
 };
 
 function truncateMessage(input: string, maxLength: number): string {
@@ -207,6 +210,15 @@ export async function runVenueIngestExtraction(
       return { runId: run.id, createdCount: 0, dedupedCount: 0, createdDuplicateCount: 0, stopReason: null };
     }
 
+    const settings = await store.siteSettings.findUnique({
+      where: { id: "default" },
+      select: {
+        ingestSystemPrompt: true,
+        ingestModel: true,
+        ingestMaxOutputTokens: true,
+      },
+    });
+
     const venue = await store.venue.findUnique({
       where: { id: params.venueId },
       select: {
@@ -223,6 +235,9 @@ export async function runVenueIngestExtraction(
       html: fetched.html,
       sourceUrl: fetched.finalUrl,
       model: params.model,
+      systemPromptOverride: settings?.ingestSystemPrompt ?? null,
+      modelOverride: settings?.ingestModel ?? null,
+      maxOutputTokensOverride: settings?.ingestMaxOutputTokens ?? null,
       venueContext: venue
         ? {
             name: venue.name,

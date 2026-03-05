@@ -936,6 +936,9 @@ model SiteSettings {
   id          String   @id
   logoAssetId String?  @db.Uuid
   logoAsset   Asset?   @relation(fields: [logoAssetId], references: [id], onDelete: SetNull)
+  ingestSystemPrompt String?
+  ingestModel String?
+  ingestMaxOutputTokens Int?
   updatedAt   DateTime @updatedAt
   createdAt   DateTime @default(now())
 
