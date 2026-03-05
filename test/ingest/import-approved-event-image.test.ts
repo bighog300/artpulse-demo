@@ -55,6 +55,38 @@ test("uses valid candidateImageUrl without fetching source html", async () => {
 });
 
 
+test("returns warning when image import feature flag is disabled", async () => {
+  process.env.AI_INGEST_IMAGE_ENABLED = "0";
+
+  const result = await importApprovedEventImage({
+    appDb: {
+      event: {
+        findUnique: async () => ({ featuredAssetId: null, featuredAsset: null }),
+        update: async () => ({ id: "event-1" }),
+      },
+      asset: {
+        create: async () => ({ id: "asset-1", url: "https://blob.example/uploaded.jpg" }),
+      },
+    },
+    candidateId: "candidate-1",
+    runId: "run-1",
+    eventId: "event-1",
+    venueId: "venue-1",
+    title: "Title",
+    sourceUrl: "https://venue.example/events/123",
+    venueWebsiteUrl: "https://venue.example",
+    candidateImageUrl: "https://cdn.example.com/event.jpg",
+    requestId: "request-1",
+  });
+
+  assert.deepEqual(result, {
+    attached: false,
+    warning: "image-import disabled: set AI_INGEST_IMAGE_ENABLED=1 to enable",
+    imageUrl: null,
+  });
+});
+
+
 test("skips image import when resolved URL is not absolute http(s)", async () => {
   process.env.AI_INGEST_IMAGE_ENABLED = "1";
 
