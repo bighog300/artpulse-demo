@@ -93,7 +93,7 @@ export async function handleVenueHomepageImageSelect(
 
     await resolved.dbClient.adminAuditLog.create({
       data: {
-        userId: admin.id,
+        actorEmail: admin.email,
         action: "venue_homepage_image_selected",
         targetType: "venue",
         targetId: venueId,
