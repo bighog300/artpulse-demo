@@ -1,5 +1,6 @@
 import AdminPageHeader from "../_components/AdminPageHeader";
 import { db } from "@/lib/db";
+import { computeVenuePublishBlockers } from "@/lib/publish-blockers";
 import { VenueGenerationClient } from "./venue-generation-client";
 
 export const dynamic = "force-dynamic";
@@ -51,10 +52,44 @@ export default async function AdminVenueGenerationPage() {
     },
   });
 
+  const createdVenueIds = runs
+    .flatMap((run) => run.items)
+    .filter((item) => item.status === "created" && item.venueId)
+    .map((item) => item.venueId as string);
+
+  const venues = createdVenueIds.length > 0
+    ? await db.venue.findMany({
+        where: { id: { in: createdVenueIds } },
+        select: { id: true, name: true, city: true, country: true, lat: true, lng: true, status: true },
+      })
+    : [];
+
+  const venueMap = new Map(venues.map((venue) => [venue.id, venue]));
+
+  const runsWithPublishReadiness = runs.map((run) => ({
+    ...run,
+    items: run.items.map((item) => {
+      const venue = item.venueId ? venueMap.get(item.venueId) : null;
+      const blockers = item.status === "created" && item.venueId
+        ? computeVenuePublishBlockers(venue ?? { name: null, city: null, country: null, lat: null, lng: null }).map((blocker) => blocker.message)
+        : [];
+      const publishable = item.status === "created" && item.venueId
+        ? blockers.length === 0 && venue?.status !== "PUBLISHED"
+        : false;
+
+      return {
+        ...item,
+        publishable,
+        blockers,
+        venueStatus: venue?.status ?? null,
+      };
+    }),
+  }));
+
   return (
     <main className="space-y-6">
       <AdminPageHeader title="Venue AI Generation" description="Generate unpublished, claimable venue records by region." />
-      <VenueGenerationClient initialRuns={runs} />
+      <VenueGenerationClient initialRuns={runsWithPublishReadiness} />
     </main>
   );
 }

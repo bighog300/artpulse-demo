@@ -23,6 +23,9 @@ type RunItem = {
   geocodeStatus: string;
   geocodeErrorCode: string | null;
   timezoneWarning: string | null;
+  publishable: boolean;
+  blockers: string[];
+  venueStatus: string | null;
   createdAt: string | Date;
 };
 
@@ -58,6 +61,16 @@ export function VenueGenerationClient({ initialRuns }: { initialRuns: Run[] }) {
   const [loading, setLoading] = useState(false);
   const [retryingRunId, setRetryingRunId] = useState<string | null>(null);
   const [publishingRunId, setPublishingRunId] = useState<string | null>(null);
+  const [publishingVenueId, setPublishingVenueId] = useState<string | null>(null);
+  const [publishedVenueIds, setPublishedVenueIds] = useState<Set<string>>(
+    new Set(
+      initialRuns
+        .flatMap((run) => run.items)
+        .filter((item) => item.venueId && item.venueStatus === "PUBLISHED")
+        .map((item) => item.venueId as string),
+    ),
+  );
+  const [publishVenueErrors, setPublishVenueErrors] = useState<Record<string, string>>({});
   const [publishResults, setPublishResults] = useState<Record<string, { published: number; skipped: number }>>({});
   const submittingRef = useRef(false);
 
@@ -74,6 +87,26 @@ export function VenueGenerationClient({ initialRuns }: { initialRuns: Run[] }) {
       setError("Failed to refresh runs list — check your connection.");
     }
   };
+
+  async function publishVenue(venueId: string) {
+    setPublishingVenueId(venueId);
+    setPublishVenueErrors((prev) => {
+      const next = { ...prev };
+      delete next[venueId];
+      return next;
+    });
+    try {
+      const res = await fetch(`/api/admin/venues/${venueId}/publish`, { method: "POST" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: { message?: string } };
+        setPublishVenueErrors((prev) => ({ ...prev, [venueId]: body.error?.message ?? "Publish failed." }));
+        return;
+      }
+      setPublishedVenueIds((prev) => new Set([...prev, venueId]));
+    } finally {
+      setPublishingVenueId(null);
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -201,7 +234,45 @@ export function VenueGenerationClient({ initialRuns }: { initialRuns: Run[] }) {
                   <ul className="list-disc space-y-2 pl-5">
                     {created.map((item) => (
                       <li key={item.id}>
-                        <div>{item.venueId ? <Link className="underline" href={`/admin/venues/${item.venueId}`}>{item.name}</Link> : item.name} — geocode: {item.geocodeStatus}{item.geocodeErrorCode ? ` (${item.geocodeErrorCode})` : ""}{item.timezoneWarning ? `, timezone: ${item.timezoneWarning}` : ""} · homepage images: {item.homepageImageStatus === "candidates_extracted" ? `${item.homepageImageCandidateCount} candidates` : item.homepageImageStatus}</div>
+                        <div>
+                          {item.venueId ? <Link className="underline" href={`/admin/venues/${item.venueId}`}>{item.name}</Link> : item.name} — geocode: {item.geocodeStatus}{item.geocodeErrorCode ? ` (${item.geocodeErrorCode})` : ""}{item.timezoneWarning ? `, timezone: ${item.timezoneWarning}` : ""} · homepage images: {item.homepageImageStatus === "candidates_extracted" ? `${item.homepageImageCandidateCount} candidates` : item.homepageImageStatus}
+                          {item.venueId ? (
+                            <>
+                              {" "}
+                              ·{" "}
+                              {publishedVenueIds.has(item.venueId) ? (
+                                <span className="text-xs text-emerald-700">✓ Published</span>
+                              ) : publishingVenueId === item.venueId ? (
+                                <span className="text-xs text-muted-foreground">Publishing…</span>
+                              ) : item.publishable ? (
+                                <button type="button" className="text-xs underline" onClick={() => publishVenue(item.venueId as string)}>
+                                  Publish
+                                </button>
+                              ) : (
+                                <span className="text-xs text-muted-foreground" title={item.blockers.join(", ")}>Blocked</span>
+                              )}
+                            </>
+                          ) : null}
+                        </div>
+                        {item.venueId && publishVenueErrors[item.venueId] ? (
+                          <div className="mt-1 text-xs text-red-700">
+                            {publishVenueErrors[item.venueId]}{" "}
+                            <button
+                              type="button"
+                              className="underline"
+                              onClick={() => {
+                                setPublishVenueErrors((prev) => {
+                                  const next = { ...prev };
+                                  delete next[item.venueId as string];
+                                  return next;
+                                });
+                              }}
+                              aria-label={`Dismiss publish error for ${item.name}`}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : null}
                         <div className="text-xs text-muted-foreground">
                           {item.instagramUrl ? <><a className="underline" href={item.instagramUrl} target="_blank" rel="noreferrer">Instagram</a> <span>(normalized)</span> · </> : null}
                           {item.facebookUrl ? <><a className="underline" href={item.facebookUrl} target="_blank" rel="noreferrer">Facebook</a> <span>(normalized)</span> · </> : null}
