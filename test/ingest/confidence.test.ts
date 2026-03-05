@@ -106,3 +106,43 @@ test("recognizes exhibition and programme specific urls", () => {
   assert.ok(!about.reasons.includes("specific source url"));
   assert.ok(!root.reasons.includes("specific source url"));
 });
+
+
+test("json-ld extraction method adds confidence bonus and reason", () => {
+  const candidate = {
+    title: "Show",
+    startAt: new Date("2026-07-01T19:00:00.000Z"),
+    endAt: null,
+    timezone: null,
+    locationText: null,
+    description: "",
+    sourceUrl: "https://venue.example/events/show",
+    artistNames: [],
+    imageUrl: null,
+  };
+
+  const withoutMethod = computeConfidence(candidate);
+  const withJsonLd = computeConfidence(candidate, { extractionMethod: "json_ld" });
+
+  assert.equal(withJsonLd.score, Math.min(100, withoutMethod.score + 15));
+  assert.ok(withJsonLd.reasons.includes("structured json-ld source"));
+});
+
+test("confidence remains unchanged without extractionMethod context", () => {
+  const candidate = {
+    title: "Stable",
+    startAt: new Date("2026-07-01T19:00:00.000Z"),
+    endAt: null,
+    timezone: null,
+    locationText: "Main Hall",
+    description: "Short description with enough detail to avoid penalties.",
+    sourceUrl: "https://venue.example/events/stable",
+    artistNames: [],
+    imageUrl: null,
+  };
+
+  const baseline = computeConfidence(candidate);
+  const explicitOpenAi = computeConfidence(candidate, { extractionMethod: "openai" });
+
+  assert.deepEqual(explicitOpenAi, baseline);
+});

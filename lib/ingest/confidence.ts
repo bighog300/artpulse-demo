@@ -77,7 +77,7 @@ export function sanitizeReasons(reasons: string[]): string[] {
 
 export function computeConfidence(
   candidate: NormalizedExtractedEvent,
-  context: { status?: "PENDING" | "APPROVED" | "REJECTED" | "DUPLICATE"; inherited?: boolean; venueName?: string | null } = {},
+  context: { status?: "PENDING" | "APPROVED" | "REJECTED" | "DUPLICATE"; inherited?: boolean; venueName?: string | null; extractionMethod?: "json_ld" | "openai" } = {},
 ): { score: number; band: ConfidenceBand; reasons: string[] } {
   let score = 40;
   const reasons: string[] = ["base score"];
@@ -142,6 +142,11 @@ export function computeConfidence(
   if (NAV_NOISE.test(title)) {
     score -= 15;
     reasons.push("possible navigation noise title");
+  }
+
+  if (context.extractionMethod === "json_ld") {
+    score += 15;
+    reasons.push("structured json-ld source");
   }
 
   if (context.status === "DUPLICATE") {

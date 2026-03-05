@@ -3,11 +3,12 @@ import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { IngestError } from "@/lib/ingest/errors";
 import { fetchHtmlWithGuards } from "@/lib/ingest/fetch-html";
-import { extractEventsWithOpenAI } from "@/lib/ingest/openai-extract";
+import { extractEventsWithOpenAI, type ExtractUsage, type VenueSnapshot } from "@/lib/ingest/openai-extract";
 import { assertSafeUrl } from "@/lib/ingest/url-guard";
 import { fetchImageWithGuards } from "@/lib/ingest/fetch-image";
 import { uploadCandidateImageToBlob } from "@/lib/blob/upload-image";
 import { computeConfidence, sanitizeReasons } from "@/lib/ingest/confidence";
+import { extractJsonLdEvents } from "@/lib/ingest/jsonld-extract";
 import { parseExtractedEventsFromModel, type NormalizedExtractedEvent } from "@/lib/ingest/schemas";
 import { clusterCandidates, computeSimilarityKey, scoreSimilarity } from "@/lib/ingest/similarity";
 import { inferTimezoneFromLatLng } from "@/lib/timezone";
@@ -39,11 +40,12 @@ type RunIngestParams = {
 
 type Extractor = typeof extractEventsWithOpenAI;
 type Fetcher = typeof fetchHtmlWithGuards;
+type JsonLdExtractor = typeof extractJsonLdEvents;
 
 type IngestStore = {
   ingestRun: {
     create: typeof db.ingestRun.create;
-    update: typeof db.ingestRun.update;
+    update: (args: { where: { id: string }; data: Record<string, unknown> }) => Promise<unknown>;
   };
   ingestExtractedEvent: {
     findUnique: typeof db.ingestExtractedEvent.findUnique;
@@ -174,15 +176,17 @@ export async function runVenueIngestExtraction(
     store?: IngestStore;
     fetchHtml?: Fetcher;
     extractWithOpenAI?: Extractor;
+    extractJsonLd?: JsonLdExtractor;
     now?: () => number;
     assertSafeUrl?: typeof assertSafeUrl;
     fetchImageWithGuards?: typeof fetchImageWithGuards;
     uploadCandidateImageToBlob?: typeof uploadCandidateImageToBlob;
   } = {},
 ): Promise<{ runId: string; createdCount: number; dedupedCount: number; createdDuplicateCount: number; stopReason: string | null }> {
-  const store = deps.store ?? db;
+  const store = (deps.store ?? db) as IngestStore;
   const fetchHtml = deps.fetchHtml ?? fetchHtmlWithGuards;
   const extractWithOpenAI = deps.extractWithOpenAI ?? extractEventsWithOpenAI;
+  const extractJsonLd = deps.extractJsonLd ?? extractJsonLdEvents;
   const now = deps.now ?? Date.now;
   const assertSafeUrlImpl = deps.assertSafeUrl ?? assertSafeUrl;
   const fetchImageWithGuardsImpl = deps.fetchImageWithGuards ?? fetchImageWithGuards;
@@ -211,25 +215,6 @@ export async function runVenueIngestExtraction(
       },
     });
 
-    if (process.env.AI_INGEST_ENABLED !== "1") {
-      await markRunFailed(store, run.id, startedAtMs, "INGEST_DISABLED", "AI ingest is disabled");
-      return { runId: run.id, createdCount: 0, dedupedCount: 0, createdDuplicateCount: 0, stopReason: null };
-    }
-
-    if (!process.env.OPENAI_API_KEY) {
-      await markRunFailed(store, run.id, startedAtMs, "MISSING_OPENAI_KEY", "OPENAI_API_KEY is not configured");
-      return { runId: run.id, createdCount: 0, dedupedCount: 0, createdDuplicateCount: 0, stopReason: null };
-    }
-
-    const settings = await store.siteSettings.findUnique({
-      where: { id: "default" },
-      select: {
-        ingestSystemPrompt: true,
-        ingestModel: true,
-        ingestMaxOutputTokens: true,
-      },
-    });
-
     const venue = await store.venue.findUnique({
       where: { id: params.venueId },
       select: {
@@ -242,26 +227,68 @@ export async function runVenueIngestExtraction(
         lng: true,
       },
     });
-    const extracted = await extractWithOpenAI({
-      html: fetched.html,
-      sourceUrl: fetched.finalUrl,
-      model: params.model,
-      systemPromptOverride: settings?.ingestSystemPrompt ?? null,
-      modelOverride: settings?.ingestModel ?? null,
-      maxOutputTokensOverride: settings?.ingestMaxOutputTokens ?? null,
-      venueContext: venue
-        ? {
-            name: venue.name,
-            address: [venue.addressLine1, venue.city].filter(Boolean).join(", ") || null,
-          }
-        : undefined,
-    });
-    const normalized = parseExtractedEventsFromModel(extracted.events).map((event) => normalizeSchedulingFields(event, {
-      fallbackSourceUrl: fetched.finalUrl,
-      venueCountry: venue?.country ?? null,
-      venueLat: venue?.lat ?? null,
-      venueLng: venue?.lng ?? null,
-    }));
+
+    const jsonLdResult = extractJsonLd(fetched.html, fetched.finalUrl);
+
+    let normalized: NormalizedExtractedEvent[];
+    let extractionMethod: "json_ld" | "openai";
+    let extractedModel: string | null = null;
+    let extractedUsage: ExtractUsage | undefined;
+    let extractedVenueSnapshot: VenueSnapshot = {};
+
+    if (jsonLdResult.attempted && jsonLdResult.events.length > 0) {
+      extractionMethod = "json_ld";
+      normalized = jsonLdResult.events.map((event) => normalizeSchedulingFields(event, {
+        fallbackSourceUrl: fetched.finalUrl,
+        venueCountry: venue?.country ?? null,
+        venueLat: venue?.lat ?? null,
+        venueLng: venue?.lng ?? null,
+      }));
+    } else {
+      if (process.env.AI_INGEST_ENABLED !== "1") {
+        await markRunFailed(store, run.id, startedAtMs, "INGEST_DISABLED", "AI ingest is disabled");
+        return { runId: run.id, createdCount: 0, dedupedCount: 0, createdDuplicateCount: 0, stopReason: null };
+      }
+
+      if (!process.env.OPENAI_API_KEY) {
+        await markRunFailed(store, run.id, startedAtMs, "MISSING_OPENAI_KEY", "OPENAI_API_KEY is not configured");
+        return { runId: run.id, createdCount: 0, dedupedCount: 0, createdDuplicateCount: 0, stopReason: null };
+      }
+
+      const settings = await store.siteSettings.findUnique({
+        where: { id: "default" },
+        select: {
+          ingestSystemPrompt: true,
+          ingestModel: true,
+          ingestMaxOutputTokens: true,
+        },
+      });
+
+      const extracted = await extractWithOpenAI({
+        html: fetched.html,
+        sourceUrl: fetched.finalUrl,
+        model: params.model,
+        systemPromptOverride: settings?.ingestSystemPrompt ?? null,
+        modelOverride: settings?.ingestModel ?? null,
+        maxOutputTokensOverride: settings?.ingestMaxOutputTokens ?? null,
+        venueContext: venue
+          ? {
+              name: venue.name,
+              address: [venue.addressLine1, venue.city].filter(Boolean).join(", ") || null,
+            }
+          : undefined,
+      });
+      normalized = parseExtractedEventsFromModel(extracted.events).map((event) => normalizeSchedulingFields(event, {
+        fallbackSourceUrl: fetched.finalUrl,
+        venueCountry: venue?.country ?? null,
+        venueLat: venue?.lat ?? null,
+        venueLng: venue?.lng ?? null,
+      }));
+      extractionMethod = "openai";
+      extractedModel = extracted.model;
+      extractedUsage = extracted.usage;
+      extractedVenueSnapshot = extracted.venueSnapshot;
+    }
     const totalCandidatesReturned = normalized.length;
     const maxCandidates = getMaxCandidatesPerVenueRun();
     const cappedCandidates = normalized.slice(0, maxCandidates);
@@ -381,6 +408,7 @@ export async function runVenueIngestExtraction(
       const confidence = computeConfidence(candidate.event, {
         status: "PENDING",
         venueName: venue?.name,
+        extractionMethod,
       });
       confidenceByTempId.set(candidate.tempId, confidence);
 
@@ -405,7 +433,7 @@ export async function runVenueIngestExtraction(
           confidenceBand: confidence.band,
           confidenceReasons: sanitizeReasons(confidence.reasons),
           rawJson,
-          model: extracted.model,
+          model: extractedModel,
         },
         select: { id: true },
       });
@@ -473,6 +501,7 @@ export async function runVenueIngestExtraction(
         : computeConfidence(candidate.event, {
           status: "DUPLICATE",
           venueName: venue?.name,
+          extractionMethod,
         });
 
       const rawJson: Prisma.JsonObject = {
@@ -508,7 +537,7 @@ export async function runVenueIngestExtraction(
           confidenceBand: confidence.band,
           confidenceReasons: sanitizeReasons(confidence.reasons),
           rawJson,
-          model: extracted.model,
+          model: extractedModel,
         },
       });
       createdDuplicateCount += 1;
@@ -525,11 +554,14 @@ export async function runVenueIngestExtraction(
         createdDuplicates: createdDuplicateCount,
         dedupedCandidates: dedupedCount,
         totalCandidatesReturned,
-        model: extracted.model,
-        usagePromptTokens: extracted.usage?.promptTokens,
-        usageCompletionTokens: extracted.usage?.completionTokens,
-        usageTotalTokens: extracted.usage?.totalTokens,
-        venueSnapshot: extracted.venueSnapshot as Prisma.JsonObject,
+        extractionMethod,
+        model: extractedModel,
+        usagePromptTokens: extractedUsage?.promptTokens,
+        usageCompletionTokens: extractedUsage?.completionTokens,
+        usageTotalTokens: extractedUsage?.totalTokens,
+        venueSnapshot: Object.keys(extractedVenueSnapshot).length > 0
+          ? (extractedVenueSnapshot as Prisma.JsonObject)
+          : undefined,
         stopReason,
       },
     });
