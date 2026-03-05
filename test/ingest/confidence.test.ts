@@ -80,3 +80,29 @@ test("sanitizeReasons bounds output", () => {
   assert.equal(reasons.length, 8);
   assert.ok(reasons.every((reason) => reason.length <= 80));
 });
+
+
+test("recognizes exhibition and programme specific urls", () => {
+  const expectedHighConfidence = {
+    title: "Signal",
+    startAt: null,
+    endAt: null,
+    timezone: null,
+    locationText: null,
+    description: "",
+  };
+
+  const exhibition = computeConfidence({ ...expectedHighConfidence, sourceUrl: "https://venue.example/exhibitions/artist-name" });
+  const shows = computeConfidence({ ...expectedHighConfidence, sourceUrl: "https://venue.example/shows/spring-2026" });
+  const programme = computeConfidence({ ...expectedHighConfidence, sourceUrl: "https://venue.example/programme/current" });
+  const whatsOn = computeConfidence({ ...expectedHighConfidence, sourceUrl: "https://venue.example/whats-on/2026-03" });
+  const about = computeConfidence({ ...expectedHighConfidence, sourceUrl: "https://venue.example/about" });
+  const root = computeConfidence({ ...expectedHighConfidence, sourceUrl: "https://venue.example/" });
+
+  assert.ok(exhibition.reasons.includes("specific source url"));
+  assert.ok(shows.reasons.includes("specific source url"));
+  assert.ok(programme.reasons.includes("specific source url"));
+  assert.ok(whatsOn.reasons.includes("specific source url"));
+  assert.ok(!about.reasons.includes("specific source url"));
+  assert.ok(!root.reasons.includes("specific source url"));
+});

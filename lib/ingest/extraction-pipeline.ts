@@ -12,6 +12,17 @@ import { parseExtractedEventsFromModel, type NormalizedExtractedEvent } from "@/
 import { clusterCandidates, computeSimilarityKey, scoreSimilarity } from "@/lib/ingest/similarity";
 import { inferTimezoneFromLatLng } from "@/lib/timezone";
 
+
+function resolveRelativeImageUrl(imageUrl: string | null | undefined, baseUrl: string): string | null {
+  if (!imageUrl) return null;
+  if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) return imageUrl;
+  try {
+    return new URL(imageUrl, baseUrl).toString();
+  } catch {
+    return imageUrl;
+  }
+}
+
 const MAX_ERROR_MESSAGE_LENGTH = 500;
 const MAX_ERROR_DETAIL_LENGTH = 1000;
 const DEFAULT_MAX_CANDIDATES_PER_RUN = 25;
@@ -389,7 +400,7 @@ export async function runVenueIngestExtraction(
           locationText: candidate.event.locationText,
           description: candidate.event.description,
           artistNames: candidate.event.artistNames ?? [],
-          imageUrl: candidate.event.imageUrl ?? null,
+          imageUrl: resolveRelativeImageUrl(candidate.event.imageUrl, fetched.finalUrl),
           confidenceScore: confidence.score,
           confidenceBand: confidence.band,
           confidenceReasons: sanitizeReasons(confidence.reasons),
@@ -411,7 +422,7 @@ export async function runVenueIngestExtraction(
         })
         .map(async (candidate) => {
           const candidateId = createdPrimaryIdByTempId.get(candidate.tempId);
-          const imageUrl = candidate.event.imageUrl;
+          const imageUrl = resolveRelativeImageUrl(candidate.event.imageUrl, fetched.finalUrl);
           if (!candidateId || !imageUrl) return;
 
           try {
@@ -492,7 +503,7 @@ export async function runVenueIngestExtraction(
           locationText: candidate.event.locationText,
           description: candidate.event.description,
           artistNames: candidate.event.artistNames ?? [],
-          imageUrl: candidate.event.imageUrl ?? null,
+          imageUrl: resolveRelativeImageUrl(candidate.event.imageUrl, fetched.finalUrl),
           confidenceScore: confidence.score,
           confidenceBand: confidence.band,
           confidenceReasons: sanitizeReasons(confidence.reasons),
