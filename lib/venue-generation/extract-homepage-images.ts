@@ -91,7 +91,7 @@ export async function extractHomepageImages(args: {
     return null;
   }
 
-  if (!fetched.contentType.toLowerCase().includes("html")) return null;
+  if (!fetched.contentType?.toLowerCase().includes("html")) return null;
 
   try {
     const html = fetched.html ?? "";

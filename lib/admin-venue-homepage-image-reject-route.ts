@@ -39,7 +39,7 @@ export async function handleVenueHomepageImageReject(
     await resolved.dbClient.venueHomepageImageCandidate.update({ where: { id: candidate.id }, data: { status: "rejected" } });
     await resolved.dbClient.adminAuditLog.create({
       data: {
-        userId: admin.id,
+        actorEmail: admin.email,
         action: "venue_homepage_image_rejected",
         targetType: "venue",
         targetId: parsedVenueId.data.id,
