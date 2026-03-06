@@ -13,7 +13,9 @@ import { EntityPageViewTracker } from "@/components/analytics/entity-page-view-t
 import { SectionHeader } from "@/components/ui/section-header";
 import { ContextualNudgeSlot } from "@/components/onboarding/contextual-nudge-slot";
 import { ArtistArtworkShowcase } from "@/components/artists/artist-artwork-showcase";
+import { ArtistAssociatedVenuesSection } from "@/components/artists/artist-associated-venues-section";
 import { getSessionUser } from "@/lib/auth";
+import { dedupeAssociatedVenues } from "@/lib/artist-associated-venues";
 import { db } from "@/lib/db";
 import { hasDatabaseUrl } from "@/lib/runtime-db";
 import { buildArtistJsonLd, getDetailUrl } from "@/lib/seo.public-profiles";
@@ -70,11 +72,19 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
               slug: true,
               startAt: true,
               endAt: true,
-              venue: { select: { name: true, slug: true } },
+              venue: { select: { id: true, name: true, slug: true } },
               images: { take: 4, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { url: true, alt: true, sortOrder: true, isPrimary: true, width: true, height: true, asset: { select: { url: true } } } },
               eventTags: { select: { tag: { select: { slug: true } } } },
             },
           },
+        },
+      },
+      venueAssociations: {
+        where: { status: "APPROVED" },
+        select: {
+          id: true,
+          role: true,
+          venue: { select: { id: true, name: true, slug: true } },
         },
       },
     },
@@ -143,6 +153,22 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
     tags: row.event.eventTags.map(({ tag }) => tag.slug),
   }));
 
+  const eventDerivedVenues = Array.from(
+    new Map(
+      artist.eventArtists
+        .filter((row) => row.event.venue != null)
+        .map((row) => [row.event.venue!.slug, row.event.venue!]),
+    ).values(),
+  );
+
+  const approvedAssociations = artist.venueAssociations.map((a) => ({
+    id: a.venue.id,
+    name: a.venue.name,
+    slug: a.venue.slug,
+    role: a.role,
+  }));
+  const { verified, derived } = dedupeAssociatedVenues(approvedAssociations, eventDerivedVenues);
+
   const artistTags = deriveArtistTags(artist.mediums, events.map((event) => event.tags));
   const detailUrl = getDetailUrl("artist", slug);
   const jsonLd = buildArtistJsonLd({ name: artist.name, description: artist.bio, detailUrl, imageUrl, websiteUrl: artist.websiteUrl });
@@ -188,7 +214,14 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
             )}
           </section>
         )}
-        about={<EntityAboutCard description={artist.bio} websiteUrl={artist.websiteUrl} instagramUrl={artist.instagramUrl} twitterUrl={artist.twitterUrl} linkedinUrl={artist.linkedinUrl} tiktokUrl={artist.tiktokUrl} youtubeUrl={artist.youtubeUrl} tags={artistTags} />}
+        about={(
+          <>
+            <EntityAboutCard description={artist.bio} websiteUrl={artist.websiteUrl} instagramUrl={artist.instagramUrl} twitterUrl={artist.twitterUrl} linkedinUrl={artist.linkedinUrl} tiktokUrl={artist.tiktokUrl} youtubeUrl={artist.youtubeUrl} tags={artistTags} />
+            {verified.length > 0 || derived.length > 0 ? (
+              <ArtistAssociatedVenuesSection verified={verified} derived={derived} />
+            ) : null}
+          </>
+        )}
       />
 
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
