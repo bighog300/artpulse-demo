@@ -11,7 +11,7 @@ import { enqueueToast } from "@/lib/toast";
 type Item = {
   submissionId: string;
   status: "IN_REVIEW" | "APPROVED" | "REJECTED" | "DRAFT";
-  entityType: "EVENT" | "VENUE" | "ARTIST";
+  entityType: "EVENT" | "VENUE" | "ARTIST" | "ARTWORK";
   entityId: string;
   title: string;
   slug: string | null;
@@ -64,7 +64,11 @@ export default function ModerationClient({
     try {
       const reason = providedReason ?? "";
       if (action === "request_changes" && reason.length < 3) return;
-      const entityPath = item.entityType === "EVENT" ? "events" : item.entityType === "VENUE" ? "venues" : "artists";
+      const entityPath =
+        item.entityType === "EVENT" ? "events"
+        : item.entityType === "VENUE" ? "venues"
+        : item.entityType === "ARTWORK" ? "artwork"
+        : "artists";
       const res = await fetch(`/api/admin/${entityPath}/${item.entityId}/moderation-intent`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -128,7 +132,11 @@ export default function ModerationClient({
 
       <div className="rounded border">
         {initialItems.map((item) => {
-          const detailPath = item.entityType === "EVENT" ? "event" : item.entityType === "VENUE" ? "venue" : "artist";
+          const detailPath =
+            item.entityType === "EVENT" ? "event"
+            : item.entityType === "VENUE" ? "venue"
+            : item.entityType === "ARTWORK" ? "artwork"
+            : "artist";
           return (
           <div key={item.submissionId} className="flex items-center justify-between border-b p-3 last:border-b-0">
             <div className="flex items-start gap-3">

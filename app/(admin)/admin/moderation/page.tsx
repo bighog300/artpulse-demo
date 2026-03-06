@@ -17,7 +17,7 @@ export default async function AdminModerationPage({ searchParams }: { searchPara
   const statusByTab = tab === "published" ? "APPROVED" : tab === "rejected" ? "REJECTED" : "IN_REVIEW";
   const where = {
     status: statusByTab as "IN_REVIEW" | "APPROVED" | "REJECTED",
-    ...(type !== "all" ? { type: type.toUpperCase() as "EVENT" | "VENUE" | "ARTIST" } : {}),
+    ...(type !== "all" ? { type: type.toUpperCase() as "EVENT" | "VENUE" | "ARTIST" | "ARTWORK" } : {}),
     ...(publisher ? { submitter: { email: { contains: publisher, mode: "insensitive" as const } } } : {}),
     ...(submittedAfter ? { submittedAt: { gte: new Date(submittedAfter) } } : {}),
   };
