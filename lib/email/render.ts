@@ -12,7 +12,7 @@ export async function renderEmailTemplate(type: NotificationType, payload: Notif
       if (payload.type !== "INVITE_CREATED") throw new Error("notification_template_payload_mismatch");
       const { VenueInviteEmail, getSubject } = await import("./templates/venue-invite");
       return {
-        subject: getSubject(payload as any),
+        subject: getSubject(),
         html: await render(React.createElement(VenueInviteEmail, payload as any)),
         text: await render(React.createElement(VenueInviteEmail, payload as any), { plainText: true }),
       };
@@ -21,7 +21,7 @@ export async function renderEmailTemplate(type: NotificationType, payload: Notif
       if (payload.type !== "SUBMISSION_SUBMITTED") throw new Error("notification_template_payload_mismatch");
       const { SubmissionSubmittedEmail, getSubject } = await import("./templates/submission-submitted");
       return {
-        subject: getSubject(payload as any),
+        subject: getSubject(),
         html: await render(React.createElement(SubmissionSubmittedEmail, payload as any)),
         text: await render(React.createElement(SubmissionSubmittedEmail, payload as any), { plainText: true }),
       };
@@ -30,7 +30,7 @@ export async function renderEmailTemplate(type: NotificationType, payload: Notif
       if (payload.type !== "SUBMISSION_APPROVED") throw new Error("notification_template_payload_mismatch");
       const { SubmissionApprovedEmail, getSubject } = await import("./templates/submission-approved");
       return {
-        subject: getSubject(payload as any),
+        subject: getSubject(),
         html: await render(React.createElement(SubmissionApprovedEmail, payload as any)),
         text: await render(React.createElement(SubmissionApprovedEmail, payload as any), { plainText: true }),
       };
@@ -39,7 +39,7 @@ export async function renderEmailTemplate(type: NotificationType, payload: Notif
       if (payload.type !== "SUBMISSION_REJECTED") throw new Error("notification_template_payload_mismatch");
       const { SubmissionRejectedEmail, getSubject } = await import("./templates/submission-rejected");
       return {
-        subject: getSubject(payload as any),
+        subject: getSubject(),
         html: await render(React.createElement(SubmissionRejectedEmail, payload as any)),
         text: await render(React.createElement(SubmissionRejectedEmail, payload as any), { plainText: true }),
       };
@@ -56,7 +56,7 @@ export async function renderEmailTemplate(type: NotificationType, payload: Notif
     case "DIGEST_READY": {
       const { default: WeeklyDigestEmail, getSubject } = await import("./templates/weekly-digest");
       return {
-        subject: getSubject(payload as any),
+        subject: getSubject(),
         html: await render(React.createElement(WeeklyDigestEmail, payload as any)),
         text: await render(React.createElement(WeeklyDigestEmail, payload as any), { plainText: true }),
       };
@@ -120,7 +120,7 @@ export async function renderEmailTemplate(type: NotificationType, payload: Notif
     case "NEW_USER_WELCOME": {
       const { default: NewUserWelcomeEmail, getSubject } = await import("./templates/new-user-welcome");
       return {
-        subject: getSubject(payload as any),
+        subject: getSubject(),
         html: await render(React.createElement(NewUserWelcomeEmail, payload as any)),
         text: await render(React.createElement(NewUserWelcomeEmail, payload as any), { plainText: true }),
       };
