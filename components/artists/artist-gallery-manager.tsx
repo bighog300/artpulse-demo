@@ -50,7 +50,7 @@ function SortableImageCard({
           <GripVertical className="h-4 w-4" />
         </button>
         <div className="relative h-36 w-full overflow-hidden rounded border">
-          <Image src={image.url} alt={image.alt ?? "Artist image"} fill className="object-cover" sizes="(max-width: 768px) 100vw, 50vw" />
+          <Image src={image.url} alt={image.alt ?? "Artist image"} fill className="object-contain" sizes="(max-width: 768px) 100vw, 50vw" />
         </div>
       </div>
       {coverImageUrl === image.url ? <p className="text-xs font-medium text-emerald-700">Current cover</p> : null}

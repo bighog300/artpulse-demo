@@ -223,7 +223,7 @@ export function VenueGalleryManager({
         {sorted.map((image, index) => (
           <article key={image.id} className="rounded border p-3 space-y-2">
             <div className="relative h-36 w-full overflow-hidden rounded border">
-              <Image src={image.url} alt={image.alt ?? "Venue image"} fill className="object-cover" sizes="(max-width: 768px) 100vw, 50vw" />
+              <Image src={image.url} alt={image.alt ?? "Venue image"} fill className="object-contain" sizes="(max-width: 768px) 100vw, 50vw" />
             </div>
             {coverImageUrl === image.url ? <p className="text-xs font-medium text-emerald-700">Current cover</p> : null}
             <input

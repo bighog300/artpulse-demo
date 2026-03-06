@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { ArtworkSummary } from "@/lib/artists";
+import { X } from "lucide-react";
 
 export function ArtistArtworkLightbox({ artwork, onClose }: { artwork: ArtworkSummary | null; onClose: () => void }) {
   const [index, setIndex] = useState(0);
@@ -31,12 +32,22 @@ export function ArtistArtworkLightbox({ artwork, onClose }: { artwork: ArtworkSu
   return (
     <div className="fixed inset-0 z-50 bg-black/95" role="dialog" aria-modal="true" aria-label="Artwork lightbox">
       <div className="flex h-full flex-col">
-        <header className="flex items-center justify-between border-b border-white/10 px-4 py-3 text-white">
+        <header className="relative flex items-center justify-between border-b border-white/10 px-4 py-3 text-white">
           <div>
             <h3 className="font-semibold">{artwork.title}</h3>
             <p className="text-sm text-white/70">{artwork.medium ?? ""}</p>
           </div>
-          <button type="button" onClick={onClose} className="rounded border border-white/30 px-3 py-1 text-sm">Close</button>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={onClose} className="rounded border border-white/30 px-3 py-1 text-sm">Close</button>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="absolute right-3 top-3 z-20 rounded-full bg-black/60 p-2 text-white hover:bg-black/80"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </header>
         <main className="relative flex min-h-0 flex-1 items-center justify-center p-4">
           {artwork.images.length > 1 ? <button type="button" onClick={() => setIndex((current) => (current === 0 ? artwork.images.length - 1 : current - 1))} className="absolute left-4 rounded border border-white/30 px-3 py-2 text-white">‹</button> : null}
