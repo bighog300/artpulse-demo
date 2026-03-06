@@ -29,8 +29,8 @@ export function ArtworkRelationsPanel({
       setVenueResults([]);
       return;
     }
-    const res = await fetch(`/api/venues?q=${encodeURIComponent(q)}&limit=8`);
-    if (res.ok) setVenueResults((await res.json()).venues ?? []);
+    const res = await fetch(`/api/venues?query=${encodeURIComponent(q)}`);
+    if (res.ok) setVenueResults((await res.json()).items ?? []);
   }
 
   async function searchEvents(q: string) {
@@ -39,8 +39,8 @@ export function ArtworkRelationsPanel({
       setEventResults([]);
       return;
     }
-    const res = await fetch(`/api/events?q=${encodeURIComponent(q)}&limit=8`);
-    if (res.ok) setEventResults((await res.json()).events ?? []);
+    const res = await fetch(`/api/events?query=${encodeURIComponent(q)}&limit=8`);
+    if (res.ok) setEventResults((await res.json()).items ?? []);
   }
 
   async function saveVenues(updated: VenueOption[]) {
