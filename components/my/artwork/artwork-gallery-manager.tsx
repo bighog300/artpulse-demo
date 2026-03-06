@@ -59,7 +59,7 @@ function SortableArtworkImageCard({
         <button type="button" className="cursor-grab text-muted-foreground" {...attributes} {...listeners}>
           <GripVertical className="h-4 w-4" />
         </button>
-        <div className="relative h-36 w-full overflow-hidden rounded border">
+        <div className="relative aspect-square w-full overflow-hidden rounded border bg-muted">
           <Image src={image.url} alt={image.alt ?? "Artwork image"} fill className="object-contain" sizes="(max-width: 768px) 100vw, 50vw" />
         </div>
       </div>
