@@ -42,6 +42,7 @@ export type NotificationTemplatePayload =
     }
   | {
       type: "VENUE_CLAIM_VERIFY";
+      venueName: string;
       verifyUrl: string;
       venueSlug: string;
       expiresAt: string;

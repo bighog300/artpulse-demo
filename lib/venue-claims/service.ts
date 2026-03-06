@@ -26,7 +26,7 @@ export function redactEmail(email: string) {
   return `${localHead}***@${domainHead}***.${tld}`;
 }
 
-type VenueRow = { id: string; slug: string; contactEmail: string | null; claimStatus: VenueClaimStatus };
+type VenueRow = { id: string; slug: string; name: string; contactEmail: string | null; claimStatus: VenueClaimStatus };
 type ClaimRow = { id: string; venueId: string; userId?: string; status: VenueClaimRequestStatus; expiresAt: Date | null };
 
 type ClaimsDb = {
@@ -45,7 +45,7 @@ type ClaimsDb = {
   $transaction: <T>(fn: (tx: ClaimsDb) => Promise<T>) => Promise<T>;
 };
 
-type NotifyFn = (args: { toEmail: string; token: string; slug: string; expiresAt: Date }) => Promise<void>;
+type NotifyFn = (args: { toEmail: string; token: string; slug: string; venueName: string; expiresAt: Date }) => Promise<void>;
 
 export async function createVenueClaim(args: {
   db: ClaimsDb;
@@ -57,7 +57,7 @@ export async function createVenueClaim(args: {
   now?: Date;
 }) {
   const now = args.now ?? new Date();
-  const venue = await args.db.venue.findUnique({ where: { slug: args.slug }, select: { id: true, slug: true, contactEmail: true, claimStatus: true } });
+  const venue = await args.db.venue.findUnique({ where: { slug: args.slug }, select: { id: true, slug: true, name: true, contactEmail: true, claimStatus: true } });
   if (!venue) throw new Error("not_found");
 
   const recent = await args.db.venueClaimRequest.findFirst({
@@ -109,7 +109,7 @@ export async function createVenueClaim(args: {
   });
 
   await args.db.venue.update({ where: { id: venue.id }, data: { claimStatus: VenueClaimStatus.PENDING } });
-  await args.notify({ toEmail: venue.contactEmail, token, slug: venue.slug, expiresAt });
+  await args.notify({ toEmail: venue.contactEmail, token, slug: venue.slug, venueName: venue.name, expiresAt });
 
   return { claimId: claim.id, status: claim.status, expiresAt, delivery: "EMAIL" as const };
 }
@@ -117,7 +117,7 @@ export async function createVenueClaim(args: {
 export async function verifyVenueClaim(args: { db: ClaimsDb; slug: string; token: string; now?: Date }) {
   const now = args.now ?? new Date();
   const tokenHash = hashToken(args.token);
-  const venue = await args.db.venue.findUnique({ where: { slug: args.slug }, select: { id: true, slug: true, contactEmail: true, claimStatus: true } });
+  const venue = await args.db.venue.findUnique({ where: { slug: args.slug }, select: { id: true, slug: true, name: true, contactEmail: true, claimStatus: true } });
   if (!venue) throw new Error("not_found");
 
   const claim = await args.db.venueClaimRequest.findFirst({
