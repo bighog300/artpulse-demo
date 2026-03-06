@@ -9,7 +9,7 @@ type EditorUser = { id: string };
 
 type SubmissionDetail = {
   id: string;
-  type: "EVENT" | "VENUE" | "ARTIST";
+  type: "EVENT" | "VENUE" | "ARTIST" | "ARTWORK";
   kind: "PUBLISH" | "REVISION" | null;
   details?: unknown;
   targetEventId: string | null;

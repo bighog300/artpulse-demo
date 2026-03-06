@@ -12,14 +12,14 @@ export type NotificationTemplatePayload =
   | {
       type: "SUBMISSION_SUBMITTED";
       submissionId: string;
-      submissionType?: "EVENT" | "VENUE" | "ARTIST";
+      submissionType?: "EVENT" | "VENUE" | "ARTIST" | "ARTWORK";
       targetVenueId?: string | null;
       targetArtistId?: string | null;
     }
   | {
       type: "SUBMISSION_APPROVED";
       submissionId: string;
-      submissionType?: "EVENT" | "VENUE" | "ARTIST";
+      submissionType?: "EVENT" | "VENUE" | "ARTIST" | "ARTWORK";
       targetEventSlug?: string | null;
       targetVenueSlug?: string | null;
       targetArtistSlug?: string | null;
@@ -27,7 +27,7 @@ export type NotificationTemplatePayload =
   | {
       type: "SUBMISSION_REJECTED";
       submissionId: string;
-      submissionType?: "EVENT" | "VENUE" | "ARTIST";
+      submissionType?: "EVENT" | "VENUE" | "ARTIST" | "ARTWORK";
       targetVenueId?: string | null;
       targetArtistId?: string | null;
       decisionReason?: string | null;

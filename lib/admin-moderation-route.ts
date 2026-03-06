@@ -3,7 +3,7 @@ import { apiError } from "@/lib/api";
 import { adminModerationRejectSchema, zodDetails, parseBody } from "@/lib/validators";
 import { ModerationDecisionError } from "@/lib/moderation-decision-service";
 
-type EntityType = "ARTIST" | "VENUE" | "EVENT";
+type EntityType = "ARTIST" | "VENUE" | "EVENT" | "ARTWORK";
 
 type ModeratorUser = { id: string; email: string | null; role: "EDITOR" | "ADMIN" };
 

@@ -12,7 +12,7 @@ import { getEventTypeLabel } from "@/lib/event-types";
 type SubmissionItem = {
   id: string;
   status: "IN_REVIEW" | "APPROVED" | "REJECTED" | "DRAFT";
-  type: "EVENT" | "VENUE" | "ARTIST";
+  type: "EVENT" | "VENUE" | "ARTIST" | "ARTWORK";
   note: string | null;
   decisionReason: string | null;
   submittedAt: string | null;
