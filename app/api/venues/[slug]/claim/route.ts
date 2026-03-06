@@ -29,14 +29,14 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ slug: stri
       userId: user.id,
       roleAtVenue: parsed.data.roleAtVenue,
       message: parsed.data.message,
-      notify: async ({ toEmail, token, slug: venueSlug, expiresAt }) => {
+      notify: async ({ toEmail, token, slug: venueSlug, venueName, expiresAt }) => {
         const baseUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() || "http://localhost:3000";
         const verifyUrl = `${baseUrl}/venues/${encodeURIComponent(venueSlug)}/claim/verify?token=${encodeURIComponent(token)}`;
         await enqueueNotification({
           type: "VENUE_CLAIM_VERIFY",
           toEmail,
           dedupeKey: `venue_claim:${venueSlug}:${token.slice(0, 24)}`,
-          payload: { type: "VENUE_CLAIM_VERIFY", verifyUrl, venueSlug, expiresAt: expiresAt.toISOString() },
+          payload: { type: "VENUE_CLAIM_VERIFY", venueName, verifyUrl, venueSlug, expiresAt: expiresAt.toISOString() },
         });
       },
     });
