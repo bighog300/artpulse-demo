@@ -109,7 +109,9 @@ export default async function ArtistDetail({ params }: { params: Promise<{ slug:
   ]);
 
   const initialArtworks = showcaseResult.artworks;
-  const allArtworkTags = Array.from(new Set(initialArtworks.flatMap((item) => item.tags))).filter(Boolean);
+  const allArtworkTags = artist.mediums.length > 0
+    ? artist.mediums
+    : Array.from(new Set(initialArtworks.flatMap((item) => item.tags))).filter(Boolean);
 
   const imageUrl = resolveEntityPrimaryImage(artist)?.url ?? null;
   const events = artist.eventArtists.map((row) => ({

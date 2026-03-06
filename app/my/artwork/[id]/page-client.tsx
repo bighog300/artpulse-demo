@@ -58,6 +58,11 @@ export function ArtworkDetailClient({ initialArtwork }: { initialArtwork: Artwor
           title: artwork.title,
           slug: artwork.slug,
           description: artwork.description,
+          year: artwork.year,
+          medium: artwork.medium,
+          dimensions: artwork.dimensions,
+          priceAmount: artwork.priceAmount,
+          currency: artwork.currency,
         }),
       });
       const body = await res.json().catch(() => ({}));
@@ -102,6 +107,43 @@ export function ArtworkDetailClient({ initialArtwork }: { initialArtwork: Artwor
           <input id="title" className="w-full rounded border px-2 py-1" value={artwork.title} onChange={(e) => setArtwork({ ...artwork, title: e.target.value })} />
           <input className="w-full rounded border px-2 py-1" value={artwork.slug ?? ""} onChange={(e) => setArtwork({ ...artwork, slug: e.target.value || null })} placeholder="slug (optional)" />
           <textarea id="description" className="w-full rounded border px-2 py-1" value={artwork.description ?? ""} onChange={(e) => setArtwork({ ...artwork, description: e.target.value })} />
+          <input
+            className="w-full rounded border px-2 py-1"
+            type="number"
+            placeholder="Year (e.g. 2023)"
+            value={artwork.year ?? ""}
+            onChange={(e) => setArtwork({ ...artwork, year: e.target.value ? Number(e.target.value) : null })}
+          />
+          <input
+            className="w-full rounded border px-2 py-1"
+            placeholder="Medium (e.g. Oil on Canvas)"
+            value={artwork.medium ?? ""}
+            onChange={(e) => setArtwork({ ...artwork, medium: e.target.value || null })}
+          />
+          <input
+            className="w-full rounded border px-2 py-1"
+            placeholder="Dimensions (e.g. 60 × 80 cm)"
+            value={artwork.dimensions ?? ""}
+            onChange={(e) => setArtwork({ ...artwork, dimensions: e.target.value || null })}
+          />
+          <div className="flex gap-2">
+            <input
+              className="w-full rounded border px-2 py-1"
+              type="number"
+              placeholder="Price (whole number)"
+              value={artwork.priceAmount ?? ""}
+              onChange={(e) => setArtwork({ ...artwork, priceAmount: e.target.value ? Number(e.target.value) : null })}
+            />
+            <select
+              className="rounded border px-2 py-1"
+              value={artwork.currency ?? "GBP"}
+              onChange={(e) => setArtwork({ ...artwork, currency: e.target.value })}
+            >
+              <option value="GBP">GBP</option>
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+            </select>
+          </div>
           <div className="flex gap-2">
             <button className="rounded border px-2 py-1 disabled:opacity-60" disabled={saving} onClick={() => void onSave()}>
               {saving ? "Saving..." : "Save"}

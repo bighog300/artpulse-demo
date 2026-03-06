@@ -14,11 +14,13 @@ type ArtistProfile = {
   avatarImageUrl: string | null;
   featuredAssetId: string | null;
   featuredAssetUrl: string | null;
+  mediums: string[];
 };
 
 export function ArtistProfileForm({ initialProfile }: { initialProfile: ArtistProfile }) {
   const router = useRouter();
   const [form, setForm] = useState<ArtistProfile>(initialProfile);
+  const [mediumsDraft, setMediumsDraft] = useState(initialProfile.mediums.join(", "));
   const [isSaving, setIsSaving] = useState(false);
 
   async function onSubmit(event: React.FormEvent) {
@@ -29,7 +31,10 @@ export function ArtistProfileForm({ initialProfile }: { initialProfile: ArtistPr
       const res = await fetch("/api/my/artist", {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          mediums: mediumsDraft.split(",").map((s) => s.trim()).filter(Boolean),
+        }),
       });
 
       if (res.status === 401) {
@@ -94,6 +99,15 @@ export function ArtistProfileForm({ initialProfile }: { initialProfile: ArtistPr
       <label className="block">
         <span className="text-sm">Instagram URL</span>
         <input className="w-full rounded border px-2 py-1" value={form.instagramUrl ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, instagramUrl: e.target.value || null }))} />
+      </label>
+      <label className="block">
+        <span className="text-sm">Disciplines / mediums</span>
+        <span className="block text-xs text-muted-foreground">Comma-separated, e.g. &quot;Oil painting, Ceramics, Printmaking&quot;</span>
+        <input
+          className="w-full rounded border px-2 py-1"
+          value={mediumsDraft}
+          onChange={(e) => setMediumsDraft(e.target.value)}
+        />
       </label>
       <ImageUploader
         label="Avatar image"
