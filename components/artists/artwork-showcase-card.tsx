@@ -18,7 +18,7 @@ export function ArtworkShowcaseCard({
     return (
       <button type="button" onClick={onClick} className="flex w-full items-start gap-3 rounded-xl border bg-card p-3 text-left shadow-sm transition hover:bg-muted/40">
         <div className="relative h-[90px] w-[120px] flex-none overflow-hidden rounded bg-muted">
-          {cover ? <Image src={cover} alt={artwork.title} fill className="object-cover" /> : null}
+          {cover ? <Image src={cover} alt={artwork.title} fill className="object-contain" /> : null}
         </div>
         <div className="min-w-0 space-y-1">
           <div className="flex items-center gap-2">
@@ -36,7 +36,7 @@ export function ArtworkShowcaseCard({
   return (
     <button type="button" onClick={onClick} className="group w-full overflow-hidden rounded-xl border bg-card text-left shadow-sm transition hover:bg-muted/40">
       <div className="relative aspect-[4/3] overflow-hidden bg-muted">
-        {cover ? <Image src={cover} alt={artwork.title} fill className="object-cover" /> : null}
+        {cover ? <Image src={cover} alt={artwork.title} fill className="object-contain" /> : null}
         <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-black/55 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
           <span>{artwork.images.length} image{artwork.images.length === 1 ? "" : "s"}</span>
           {artwork.featured ? <span>Featured</span> : null}

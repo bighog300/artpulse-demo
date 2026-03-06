@@ -22,7 +22,7 @@ export function ArtworkRelatedSection({ title, subtitle, items, viewAllHref, sho
         {items.map((item) => (
           <Link key={item.id} href={getArtworkPublicHref(item)} className="rounded border p-2 hover:bg-muted/40">
             <div className="relative mb-2 h-28 w-full overflow-hidden rounded bg-muted">
-              {item.coverUrl ? <Image src={item.coverUrl} alt={item.title} fill className="object-cover" /> : null}
+              {item.coverUrl ? <Image src={item.coverUrl} alt={item.title} fill className="object-contain" /> : null}
             </div>
             <p className="line-clamp-1 text-sm font-medium">{item.title}</p>
             {showArtistName ? <p className="line-clamp-1 text-xs text-muted-foreground">{item.artist.name}</p> : null}

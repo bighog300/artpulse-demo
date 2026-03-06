@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import { X } from "lucide-react";
 
 type GalleryImage = {
   id: string;
@@ -50,6 +51,14 @@ export function VenueGalleryLightbox({ images }: { images: GalleryImage[] }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" role="dialog" aria-modal="true" aria-label="Venue photo preview">
           <button type="button" onClick={() => setSelectedIndex(null)} className="absolute inset-0 cursor-default" aria-label="Close photo preview" />
           <div className="relative z-10 w-full max-w-4xl overflow-hidden rounded bg-black">
+            <button
+              type="button"
+              onClick={() => setSelectedIndex(null)}
+              aria-label="Close"
+              className="absolute right-3 top-3 z-20 rounded-full bg-black/60 p-2 text-white hover:bg-black/80"
+            >
+              <X className="h-5 w-5" />
+            </button>
             <div className="relative aspect-[4/3]">
               <Image
                 src={selectedImage.src}
