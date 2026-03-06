@@ -38,6 +38,7 @@ export default async function MyArtistPage() {
       bio: true,
       websiteUrl: true,
       instagramUrl: true,
+      mediums: true,
       avatarImageUrl: true,
       featuredAssetId: true,
       featuredImageUrl: true,
@@ -116,6 +117,7 @@ export default async function MyArtistPage() {
           websiteUrl: artist.websiteUrl,
           instagramUrl: artist.instagramUrl,
           avatarImageUrl: artist.avatarImageUrl,
+          mediums: artist.mediums,
           featuredAssetId: artist.featuredAssetId,
           featuredAssetUrl: artist.featuredAsset?.url ?? null,
         }}
