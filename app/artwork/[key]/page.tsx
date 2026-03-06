@@ -136,7 +136,8 @@ export default async function ArtworkDetailPage({ params }: { params: Promise<{ 
     Promise.all(eventIds.slice(0, 2).map((eventId) => listPublishedArtworksByEvent(eventId, 6))),
   ]);
 
-  const dedupeRelated = (items: PublishedArtworkListItem[]) => Array.from(new Map(items.filter((item) => item.id !== artwork.id).map((item) => [item.id, item])).values());
+  const dedupeRelated = (items: PublishedArtworkListItem[]) =>
+    Array.from(new Map(items.filter((item) => item.id !== artwork.id).map((item) => [item.id, item])).values());
   const venueRelatedArtworks = dedupeRelated(venueRelatedArtworksByVenue.flat()).slice(0, 6);
   const eventRelatedArtworks = dedupeRelated(eventRelatedArtworksByEvent.flat()).slice(0, 6);
   const artworkJsonLd = buildArtworkJsonLd({
@@ -210,8 +211,20 @@ export default async function ArtworkDetailPage({ params }: { params: Promise<{ 
 
       {galleryImages.length > 0 ? <EventGalleryLightbox images={galleryImages} /> : null}
 
-      <ArtworkRelatedSection title="Artworks shown at related venues" subtitle="Other published works seen at venues where this artwork appeared." items={venueRelatedArtworks} viewAllHref={artwork.venues[0] ? `/artwork?venueId=${artwork.venues[0].venue.id}` : undefined} showArtistName />
-      <ArtworkRelatedSection title="Artworks from related events" subtitle="Other published works linked to events featuring this artwork." items={eventRelatedArtworks} viewAllHref={artwork.events[0] ? `/artwork?eventId=${artwork.events[0].event.id}` : undefined} showArtistName />
+      <ArtworkRelatedSection
+        title="Artworks shown at related venues"
+        subtitle="Other published works seen at venues where this artwork appeared."
+        items={venueRelatedArtworks}
+        viewAllHref={artwork.venues[0] ? `/artwork?venueId=${artwork.venues[0].venue.id}` : undefined}
+        showArtistName
+      />
+      <ArtworkRelatedSection
+        title="Artworks from related events"
+        subtitle="Other published works linked to events featuring this artwork."
+        items={eventRelatedArtworks}
+        viewAllHref={artwork.events[0] ? `/artwork?eventId=${artwork.events[0].event.id}` : undefined}
+        showArtistName
+      />
     </PageShell>
   );
 }
