@@ -27,6 +27,9 @@ function makeDb(itemsCount = 1) {
   }));
 
   const db = {
+    siteSettings: {
+      findUnique: async () => ({ venueAutoPublish: false }),
+    },
     venueGenerationRun: {
       findUnique: async () => ({ id: "run-1" }),
       update: async ({ data }: any) => {
