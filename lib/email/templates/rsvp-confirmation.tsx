@@ -8,18 +8,44 @@ type RsvpConfirmationPayload = {
   eventSlug: string;
   startAt: string;
   venueAddress?: string | null;
+  confirmationCode: string;
 };
 
 const BRAND_RED = "#E63946";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://artpulse.co";
 
+function buildCalendarDataUri(payload: RsvpConfirmationPayload) {
+  const starts = new Date(payload.startAt);
+  const ends = new Date(starts.getTime() + 2 * 60 * 60 * 1000);
+  const fmt = (date: Date) => date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Artpulse//RSVP//EN",
+    "BEGIN:VEVENT",
+    `UID:${payload.confirmationCode}@artpulse.co`,
+    `DTSTAMP:${fmt(new Date())}`,
+    `DTSTART:${fmt(starts)}`,
+    `DTEND:${fmt(ends)}`,
+    `SUMMARY:${payload.eventTitle}`,
+    `LOCATION:${payload.venueName}${payload.venueAddress ? `, ${payload.venueAddress}` : ""}`,
+    `DESCRIPTION:RSVP confirmation code ${payload.confirmationCode}`,
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ];
+
+  return `data:text/calendar;charset=utf-8,${encodeURIComponent(lines.join("\r\n"))}`;
+}
+
 export function getSubject({ eventTitle, venueName }: RsvpConfirmationPayload) {
   return `You're going to ${eventTitle} at ${venueName}`;
 }
 
-export default function RsvpConfirmationEmail({ eventTitle, venueName, eventSlug, startAt, venueAddress }: RsvpConfirmationPayload) {
+export default function RsvpConfirmationEmail({ eventTitle, venueName, eventSlug, startAt, venueAddress, confirmationCode }: RsvpConfirmationPayload) {
   const eventUrl = `${APP_URL}/events/${eventSlug}`;
   const starts = new Date(startAt);
+  const calendarLink = buildCalendarDataUri({ eventTitle, venueName, eventSlug, startAt, venueAddress, confirmationCode });
 
   return (
     <EmailLayout preview={`RSVP confirmed for ${eventTitle}.`}>
@@ -27,10 +53,12 @@ export default function RsvpConfirmationEmail({ eventTitle, venueName, eventSlug
       <table role="presentation" width="100%" cellPadding={0} cellSpacing={0}>
         <tbody>
           <tr><td><p style={{ margin: "0 0 12px" }}>Your RSVP is confirmed for <strong>{eventTitle}</strong>.</p></td></tr>
+          <tr><td><p style={{ margin: "0 0 12px", padding: "10px 12px", border: "1px solid #FECACA", borderRadius: "4px", backgroundColor: "#FEF2F2" }}><strong>Confirmation code:</strong> {confirmationCode}</p></td></tr>
           <tr><td><p style={{ margin: "0 0 6px" }}><strong>Date:</strong> {starts.toLocaleDateString()}</p></td></tr>
           <tr><td><p style={{ margin: "0 0 6px" }}><strong>Time:</strong> {starts.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p></td></tr>
           <tr><td><p style={{ margin: "0 0 6px" }}><strong>Venue:</strong> {venueName}</p></td></tr>
           {venueAddress ? <tr><td><p style={{ margin: "0 0 16px" }}><strong>Address:</strong> {venueAddress}</p></td></tr> : null}
+          <tr><td><p style={{ margin: "0 0 16px" }}>Add to calendar: <a href={calendarLink}>BEGIN:VCALENDAR</a></p></td></tr>
           <tr>
             <td>
               <a href={eventUrl} style={{ backgroundColor: BRAND_RED, color: "#ffffff", textDecoration: "none", padding: "12px 20px", borderRadius: "4px", display: "inline-block", fontWeight: "bold" }}>View event</a>

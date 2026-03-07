@@ -36,7 +36,38 @@ export type OutboxWorkerDb = {
       select: { id: true };
     }) => Promise<{ id: string } | null>;
   };
+  event: {
+    findMany: (args: {
+      where: {
+        isPublished: true;
+        startAt: { gte: Date; lte: Date };
+      };
+      select: {
+        id: true;
+        title: true;
+        slug: true;
+        startAt: true;
+        venue: { select: { name: true; address: true } };
+      };
+    }) => Promise<Array<{ id: string; title: string; slug: string | null; startAt: Date; venue: { name: string; address: string | null } | null }>>;
+  };
+  registration: {
+    findMany: (args: {
+      where: { eventId: string; status: "CONFIRMED" };
+      select: { id: true; guestEmail: true };
+    }) => Promise<Array<{ id: string; guestEmail: string }>>;
+  };
   notificationOutbox: {
+    upsert: (args: {
+      where: { dedupeKey: string };
+      create: {
+        type: NotificationType;
+        toEmail: string;
+        payload: Prisma.InputJsonValue;
+        dedupeKey: string;
+      };
+      update: Record<string, never>;
+    }) => Promise<unknown>;
     findMany: (args: {
       where: {
         status: "PENDING";
@@ -68,7 +99,55 @@ export type OutboxWorkerDb = {
   };
 };
 
+
+export async function enqueueReminderSweepWithDb(db: OutboxWorkerDb, now: Date = new Date()) {
+  const windowStart = new Date(now.getTime() + 23 * 60 * 60 * 1000);
+  const windowEnd = new Date(now.getTime() + 25 * 60 * 60 * 1000);
+
+  const events = await db.event.findMany({
+    where: { isPublished: true, startAt: { gte: windowStart, lte: windowEnd } },
+    select: {
+      id: true,
+      title: true,
+      slug: true,
+      startAt: true,
+      venue: { select: { name: true, address: true } },
+    },
+  });
+
+  for (const event of events) {
+    if (!event.slug) continue;
+    const registrations = await db.registration.findMany({
+      where: { eventId: event.id, status: "CONFIRMED" },
+      select: { id: true, guestEmail: true },
+    });
+
+    for (const registration of registrations) {
+      const dedupeKey = `reminder-24h-${event.id}-${registration.id}`;
+      await db.notificationOutbox.upsert({
+        where: { dedupeKey },
+        create: {
+          type: "EVENT_REMINDER_24H",
+          toEmail: registration.guestEmail.toLowerCase(),
+          dedupeKey,
+          payload: {
+            type: "EVENT_REMINDER_24H",
+            eventTitle: event.title,
+            eventSlug: event.slug,
+            startAt: event.startAt.toISOString(),
+            venueName: event.venue?.name ?? "Venue",
+            venueAddress: event.venue?.address ?? undefined,
+          },
+        },
+        update: {},
+      });
+    }
+  }
+}
+
 export async function sendPendingNotificationsWithDb({ limit }: { limit: number }, db: OutboxWorkerDb) {
+  await enqueueReminderSweepWithDb(db);
+
   await db.notificationOutbox.updateMany({
     where: {
       status: "PROCESSING",

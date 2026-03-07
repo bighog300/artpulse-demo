@@ -3,14 +3,19 @@ import { apiError } from "@/lib/api";
 import { RATE_LIMITS, enforceRateLimit, isRateLimitError, rateLimitErrorResponse, requestClientIp } from "@/lib/rate-limit";
 import { parseBody, zodDetails } from "@/lib/validators";
 import { z } from "zod";
+import { enqueueNotification } from "@/lib/notifications";
 
 type SessionUser = { id: string };
 
 type EventRecord = {
   id: string;
+  slug: string;
+  title: string;
   ticketingMode: "EXTERNAL" | "RSVP" | "PAID" | null;
+  startAt: Date;
   capacity: number | null;
   rsvpClosesAt: Date | null;
+  venue: { name: string; address?: string | null } | null;
 };
 
 type TicketTierRecord = { id: string; eventId: string; capacity: number | null };
@@ -57,6 +62,7 @@ type Deps = {
   enforceRateLimit: typeof enforceRateLimit;
   now: () => Date;
   generateConfirmationCode: () => string;
+  enqueueNotification: typeof enqueueNotification;
 };
 
 const bodySchema = z.object({
@@ -132,6 +138,24 @@ export async function handlePostRegistrationCreate(req: NextRequest, slug: strin
         select: { id: true, confirmationCode: true, status: true },
       });
     });
+
+
+    if (created.status !== "WAITLISTED") {
+      await deps.enqueueNotification({
+        type: "RSVP_CONFIRMED",
+        toEmail: parsedBody.data.guestEmail,
+        dedupeKey: `rsvp-confirmed-${created.id}`,
+        payload: {
+          type: "RSVP_CONFIRMED",
+          eventTitle: event.title,
+          venueName: event.venue?.name ?? "Venue",
+          eventSlug: event.slug,
+          startAt: event.startAt.toISOString(),
+          venueAddress: event.venue?.address ?? undefined,
+          confirmationCode: created.confirmationCode,
+        },
+      });
+    }
 
     return NextResponse.json(
       { registrationId: created.id, confirmationCode: created.confirmationCode, status: created.status },

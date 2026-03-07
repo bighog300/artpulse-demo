@@ -30,6 +30,10 @@ function makeDeps(options?: {
       return {
         id: EVENT_ID,
         ticketingMode: options?.event?.ticketingMode ?? "RSVP",
+        slug: "spring-open",
+        title: "Spring Open",
+        startAt: new Date("2026-03-02T10:00:00.000Z"),
+        venue: { name: "Demo Venue", address: "123 Main" },
         capacity: options?.event?.capacity ?? 10,
         rsvpClosesAt: options?.event?.rsvpClosesAt ?? null,
       };
@@ -63,6 +67,7 @@ function makeDeps(options?: {
     },
     now: () => new Date("2026-03-01T10:00:00.000Z"),
     generateConfirmationCode: () => "AP-ABC123",
+    enqueueNotification: async () => null,
   };
 
   return { deps, getCreatedStatus: () => createdStatus };

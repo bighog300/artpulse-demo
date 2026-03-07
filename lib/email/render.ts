@@ -86,6 +86,7 @@ export async function renderEmailTemplate(type: NotificationType, payload: Notif
       };
     }
     case "RSVP_CONFIRMED": {
+      if (payload.type !== "RSVP_CONFIRMED") throw new Error("notification_template_payload_mismatch");
       const { default: RsvpConfirmationEmail, getSubject } = await import("./templates/rsvp-confirmation");
       return {
         subject: getSubject(payload as any),
@@ -94,6 +95,7 @@ export async function renderEmailTemplate(type: NotificationType, payload: Notif
       };
     }
     case "RSVP_CANCELLED": {
+      if (payload.type !== "RSVP_CANCELLED") throw new Error("notification_template_payload_mismatch");
       const { default: RsvpCancellationEmail, getSubject } = await import("./templates/rsvp-cancellation");
       return {
         subject: getSubject(payload as any),
@@ -102,6 +104,7 @@ export async function renderEmailTemplate(type: NotificationType, payload: Notif
       };
     }
     case "EVENT_CHANGE_NOTIFY": {
+      if (payload.type !== "EVENT_CHANGE_NOTIFY") throw new Error("notification_template_payload_mismatch");
       const { default: EventChangeEmail, getSubject } = await import("./templates/event-change");
       return {
         subject: getSubject(payload as any),
@@ -110,6 +113,7 @@ export async function renderEmailTemplate(type: NotificationType, payload: Notif
       };
     }
     case "EVENT_REMINDER_24H": {
+      if (payload.type !== "EVENT_REMINDER_24H") throw new Error("notification_template_payload_mismatch");
       const { default: EventReminder24hEmail, getSubject } = await import("./templates/event-reminder-24h");
       return {
         subject: getSubject(payload as any),

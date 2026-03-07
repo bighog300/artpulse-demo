@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { publishedEventWhere } from "@/lib/publish-status";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { handlePostRegistrationCreate } from "@/lib/registration-create-route";
+import { enqueueNotification } from "@/lib/notifications";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,13 +24,33 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
 
   return handlePostRegistrationCreate(req, slug, {
     getSessionUser,
-    findPublishedEventBySlug: async (eventSlug) => db.event.findFirst({
-      where: { slug: eventSlug, deletedAt: null, ...publishedEventWhere() },
-      select: { id: true, ticketingMode: true, capacity: true, rsvpClosesAt: true },
-    }),
+    findPublishedEventBySlug: async (eventSlug) => {
+      const event = await db.event.findFirst({
+        where: { slug: eventSlug, deletedAt: null, ...publishedEventWhere() },
+        select: {
+          id: true,
+          slug: true,
+          title: true,
+          startAt: true,
+          ticketingMode: true,
+          capacity: true,
+          rsvpClosesAt: true,
+          venue: { select: { name: true, addressLine1: true, addressLine2: true, city: true, region: true, postcode: true, country: true } },
+        },
+      });
+      if (!event) return null;
+      return {
+        ...event,
+        venue: event.venue ? {
+          name: event.venue.name,
+          address: [event.venue.addressLine1, event.venue.addressLine2, event.venue.city, event.venue.region, event.venue.postcode, event.venue.country].filter(Boolean).join(", "),
+        } : null,
+      };
+    },
     prisma: db,
     enforceRateLimit,
     now: () => new Date(),
     generateConfirmationCode: () => `AP-${nanoid(6).toUpperCase()}`,
+    enqueueNotification,
   });
 }
