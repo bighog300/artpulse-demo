@@ -7,17 +7,21 @@ import { enqueueNotification } from "@/lib/notifications";
 
 export const runtime = "nodejs";
 
-export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     await requireAdmin({ redirectOnFail: false });
     const { id } = await params;
+    const body = await req.json().catch(() => ({}));
+    const reason = typeof body?.reason === "string" ? body.reason.trim() : "";
+    const rejectionReason = reason.length > 0 ? reason : null;
+
     const claim = await db.venueClaimRequest.findUnique({ where: { id }, select: { id: true, userId: true, venueId: true } });
     if (!claim) return apiError(404, "not_found", "Claim not found");
 
     await db.$transaction(async (tx) => {
       await tx.venueClaimRequest.update({
         where: { id },
-        data: { status: VenueClaimRequestStatus.REJECTED },
+        data: { status: VenueClaimRequestStatus.REJECTED, rejectionReason },
       });
       await tx.venue.update({ where: { id: claim.venueId }, data: { claimStatus: VenueClaimStatus.UNCLAIMED } });
     });
@@ -30,7 +34,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
           type: "VENUE_CLAIM_REJECTED",
           toEmail: user.email,
           dedupeKey: `venue-claim-rejected-${claim.id}`,
-          payload: { type: "VENUE_CLAIM_REJECTED", venueSlug: venue.slug, venueName: venue.name },
+          payload: { type: "VENUE_CLAIM_REJECTED", venueSlug: venue.slug, venueName: venue.name, reason: rejectionReason },
         });
       }
     }
