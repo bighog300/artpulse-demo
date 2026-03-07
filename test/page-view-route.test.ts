@@ -39,8 +39,14 @@ test("/api/analytics/view writes event and increments daily", async () => {
 
   let eventWrites = 0;
   let dailyWrites = 0;
+  let saltReads = 0;
   const res = await handleTrackPageView(req, {
     getSessionUser: async () => ({ id: "22222222-2222-4222-8222-222222222222" }),
+    getAnalyticsSalt: async () => {
+      saltReads += 1;
+      const settings = await mockDb.siteSettings.findUnique({ where: { id: "default" }, select: { analyticsSalt: true } });
+      return settings?.analyticsSalt;
+    },
     createEvent: async (input) => {
       eventWrites += 1;
       assert.equal(input.entityType, "ARTWORK");
@@ -57,4 +63,5 @@ test("/api/analytics/view writes event and increments daily", async () => {
   assert.equal(res.status, 204);
   assert.equal(eventWrites, 1);
   assert.equal(dailyWrites, 1);
+  assert.equal(saltReads, 1);
 });
