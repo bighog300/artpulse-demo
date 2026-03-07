@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { requireEditor } from "@/lib/auth";
 import { handleApproveSubmission } from "@/lib/admin-submission-review-route";
 import { notifySavedSearchMatches } from "@/lib/saved-searches/notify-saved-search-matches";
+import { enqueueNotification } from "@/lib/notifications";
 
 export const runtime = "nodejs";
 
@@ -45,6 +46,25 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
     },
     markNeedsChanges: async () => undefined,
     findEventUpdatedAt: async (eventId) => { const item = await db.event.findUnique({ where: { id: eventId }, select: { updatedAt: true } }); return item?.updatedAt ?? null; },
+    listConfirmedRegistrantEmails: async (eventId) => {
+      const rows = await db.registration.findMany({
+        where: { eventId, status: "CONFIRMED" },
+        select: { guestEmail: true },
+      });
+      return rows.map((row) => row.guestEmail.toLowerCase());
+    },
+    enqueueEventChangeNotification: async ({ eventId, submissionId, email, eventTitle, eventSlug }) => {
+      await enqueueNotification({
+        type: "EVENT_CHANGE_NOTIFY",
+        toEmail: email,
+        dedupeKey: `event-change-${eventId}-${submissionId}-${email.toLowerCase()}`,
+        payload: {
+          type: "EVENT_CHANGE_NOTIFY",
+          eventTitle,
+          eventSlug,
+        },
+      });
+    },
     applyEventRevisionUpdate: async (eventId, data) => {
       await db.event.update({ where: { id: eventId }, data: { ...data, isPublished: true, status: "PUBLISHED" } });
       await notifySavedSearchMatches(eventId);

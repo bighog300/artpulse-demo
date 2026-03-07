@@ -55,6 +55,36 @@ export type NotificationTemplatePayload =
       type: "VENUE_CLAIM_REJECTED";
       venueSlug: string;
       reason?: string | null;
+    }
+  | {
+      type: "RSVP_CONFIRMED";
+      eventTitle: string;
+      venueName: string;
+      eventSlug: string;
+      startAt: string;
+      venueAddress?: string | null;
+      confirmationCode: string;
+    }
+  | {
+      type: "RSVP_CANCELLED";
+      eventTitle: string;
+      confirmationCode: string;
+      reason?: string | null;
+      eventSlug?: string | null;
+    }
+  | {
+      type: "EVENT_CHANGE_NOTIFY";
+      eventTitle: string;
+      eventSlug: string;
+      changeDescription?: string | null;
+    }
+  | {
+      type: "EVENT_REMINDER_24H";
+      eventTitle: string;
+      eventSlug: string;
+      startAt: string;
+      venueName: string;
+      venueAddress?: string | null;
     };
 
 export function buildNotification({ type, payload }: { type: NotificationType; payload: NotificationTemplatePayload }) {
@@ -149,6 +179,43 @@ export function buildNotification({ type, payload }: { type: NotificationType; p
       body: payload.reason ?? `Your claim for @${payload.venueSlug} was rejected.`,
       href: `/venues/${payload.venueSlug}`,
       dedupeKey: `venue-claim:${payload.venueSlug}:rejected`,
+    };
+  }
+
+
+  if (type === "RSVP_CONFIRMED" && payload.type === "RSVP_CONFIRMED") {
+    return {
+      title: `RSVP confirmed: ${payload.eventTitle}`,
+      body: `Your RSVP is confirmed. Code: ${payload.confirmationCode}`,
+      href: `/events/${payload.eventSlug}`,
+      dedupeKey: `rsvp-confirmed:${payload.eventSlug}:${payload.confirmationCode}`,
+    };
+  }
+
+  if (type === "RSVP_CANCELLED" && payload.type === "RSVP_CANCELLED") {
+    return {
+      title: `RSVP cancelled: ${payload.eventTitle}`,
+      body: payload.reason ?? `Your RSVP has been cancelled. Code: ${payload.confirmationCode}`,
+      href: payload.eventSlug ? `/events/${payload.eventSlug}` : undefined,
+      dedupeKey: `rsvp-cancelled:${payload.confirmationCode}`,
+    };
+  }
+
+  if (type === "EVENT_CHANGE_NOTIFY" && payload.type === "EVENT_CHANGE_NOTIFY") {
+    return {
+      title: `${payload.eventTitle} was updated`,
+      body: payload.changeDescription ?? "The event has new details. Please review before attending.",
+      href: `/events/${payload.eventSlug}`,
+      dedupeKey: `event-change:${payload.eventSlug}`,
+    };
+  }
+
+  if (type === "EVENT_REMINDER_24H" && payload.type === "EVENT_REMINDER_24H") {
+    return {
+      title: `Reminder: ${payload.eventTitle} is tomorrow`,
+      body: `${payload.eventTitle} starts within 24 hours.`,
+      href: `/events/${payload.eventSlug}`,
+      dedupeKey: `event-reminder-24h:${payload.eventSlug}:${payload.startAt}`,
     };
   }
 

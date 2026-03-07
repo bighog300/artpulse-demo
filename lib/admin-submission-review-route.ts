@@ -36,6 +36,9 @@ type ReviewDeps = {
   markNeedsChanges: (submissionId: string, decidedByUserId: string, message: string) => Promise<void>;
   notifyApproved?: (submission: SubmissionDetail) => Promise<void>;
   notifyNeedsChanges?: (submission: SubmissionDetail, message: string) => Promise<void>;
+  listConfirmedRegistrantEmails?: (eventId: string) => Promise<string[]>;
+  enqueueEventChangeNotification?: (args: { eventId: string; submissionId: string; email: string; eventTitle: string; eventSlug: string }) => Promise<void>;
+
 };
 
 async function parseSubmissionId(params: Promise<{ id: string }>) {
@@ -76,6 +79,27 @@ export async function handleApproveSubmission(params: Promise<{ id: string }>, d
           return apiError(400, "invalid_request", "Event changed since this revision was created; please re-submit revision");
         }
         await deps.applyEventRevisionUpdate(submission.targetEventId, applyEventRevision(proposed as Record<string, unknown>));
+
+        if (deps.listConfirmedRegistrantEmails && deps.enqueueEventChangeNotification) {
+          const eventTitle = typeof (proposed as Record<string, unknown>).title === "string"
+            ? (proposed as Record<string, unknown>).title as string
+            : "Event";
+          const eventSlug = typeof (proposed as Record<string, unknown>).slug === "string"
+            ? (proposed as Record<string, unknown>).slug as string
+            : null;
+
+          if (eventSlug) {
+            const targetEventId = submission.targetEventId!;
+            const emails = await deps.listConfirmedRegistrantEmails(targetEventId);
+            await Promise.all(emails.map((email) => deps.enqueueEventChangeNotification!({
+              eventId: targetEventId,
+              submissionId: submission.id,
+              email,
+              eventTitle,
+              eventSlug,
+            })));
+          }
+        }
       } else {
         await deps.publishEvent(submission.targetEventId);
       }

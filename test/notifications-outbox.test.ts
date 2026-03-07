@@ -26,7 +26,20 @@ function createMemoryDb(seed: NotificationOutbox[]) {
           return null;
         },
       },
+      event: {
+        async findMany() {
+          return [];
+        },
+      },
+      registration: {
+        async findMany() {
+          return [];
+        },
+      },
       notificationOutbox: {
+        async upsert() {
+          return null;
+        },
         async findMany(args: {
           where: {
             status: "PENDING";
