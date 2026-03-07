@@ -197,6 +197,8 @@ test("promoted attendee confirmation email enqueued", async () => {
   assert.equal(sent.length, 2);
   assert.equal(sent[1]?.type, "REGISTRATION_CONFIRMED");
   assert.equal(sent[1]?.toEmail, "promoted@example.com");
+  assert.equal(sent[1]?.dedupeKey, "registration-confirmed-reg-2");
+  assert.equal(sent[1]?.payload.confirmationCode, "AP-PROMO");
 });
 
 test("returns 400 when already cancelled", async () => {

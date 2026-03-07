@@ -1,6 +1,7 @@
 import { Preview } from "@react-email/components";
 import * as React from "react";
 import { EmailLayout } from "./_layout";
+import * as qrcode from "qrcode";
 
 type RsvpConfirmationPayload = {
   eventTitle: string;
@@ -46,6 +47,7 @@ export default function RsvpConfirmationEmail({ eventTitle, venueName, eventSlug
   const eventUrl = `${APP_URL}/events/${eventSlug}`;
   const starts = new Date(startAt);
   const calendarLink = buildCalendarDataUri({ eventTitle, venueName, eventSlug, startAt, venueAddress, confirmationCode });
+  const qrCodeDataUri = qrcode.toDataURL(confirmationCode);
 
   return (
     <EmailLayout preview={`RSVP confirmed for ${eventTitle}.`}>
@@ -54,6 +56,7 @@ export default function RsvpConfirmationEmail({ eventTitle, venueName, eventSlug
         <tbody>
           <tr><td><p style={{ margin: "0 0 12px" }}>Your RSVP is confirmed for <strong>{eventTitle}</strong>.</p></td></tr>
           <tr><td><p style={{ margin: "0 0 12px", padding: "10px 12px", border: "1px solid #FECACA", borderRadius: "4px", backgroundColor: "#FEF2F2" }}><strong>Confirmation code:</strong> {confirmationCode}</p></td></tr>
+          <tr><td><img src={qrCodeDataUri} width="160" height="160" alt="Confirmation QR code" style={{ margin: "0 0 16px", display: "block" }} /></td></tr>
           <tr><td><p style={{ margin: "0 0 6px" }}><strong>Date:</strong> {starts.toLocaleDateString()}</p></td></tr>
           <tr><td><p style={{ margin: "0 0 6px" }}><strong>Time:</strong> {starts.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p></td></tr>
           <tr><td><p style={{ margin: "0 0 6px" }}><strong>Venue:</strong> {venueName}</p></td></tr>

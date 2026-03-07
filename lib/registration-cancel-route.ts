@@ -158,6 +158,7 @@ export async function handleDeleteRegistrationByConfirmationCode(
   });
 
   if (promoted) {
+    // Task 3.3: keep promotion notification wiring from the 1.6 fixup so promoted attendees receive confirmation emails.
     await deps.enqueueNotificationOutbox({
       type: "REGISTRATION_CONFIRMED",
       toEmail: promoted.guestEmail,
