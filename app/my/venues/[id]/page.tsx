@@ -11,6 +11,7 @@ import { VenueGalleryManager } from "@/components/venues/venue-gallery-manager";
 import { resolveImageUrl } from "@/lib/assets";
 import { PublishPanel } from "@/components/my/PublishPanel";
 import VenueArtistRequestsPanel from "@/app/my/_components/VenueArtistRequestsPanel";
+import VenueStripeConnectSection from "@/app/my/_components/VenueStripeConnectSection";
 import { Button } from "@/components/ui/button";
 import { resolveVenueIdFromRouteParam } from "./route-param";
 import VenueSetupHeader from "@/app/my/_components/VenueSetupHeader";
@@ -233,6 +234,8 @@ export default async function MyVenueEditPage({
         </aside>
       </div>
 
+
+      <VenueStripeConnectSection venueId={venue.id} />
       <VenueArtistRequestsPanel
         venueId={venue.id}
         initialRequests={venue.artistAssociations.map((row) => ({
