@@ -1174,6 +1174,8 @@ model SiteSettings {
   ingestSystemPrompt String?
   ingestModel String?
   ingestMaxOutputTokens Int?
+  googleServiceAccountJson String?
+  googleIndexingEnabled Boolean @default(false)
   updatedAt   DateTime @updatedAt
   createdAt   DateTime @default(now())
 
