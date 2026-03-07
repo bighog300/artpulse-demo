@@ -527,6 +527,7 @@ model VenueClaimRequest {
   userId      String                  @db.Uuid
   roleAtVenue String
   message     String?
+  rejectionReason String?
   tokenHash   String?                 @unique
   expiresAt   DateTime?
   status      VenueClaimRequestStatus @default(PENDING_VERIFICATION)
